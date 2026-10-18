@@ -37,6 +37,12 @@ def test_hex_clone_and_ignored_devices():
     assert levels([MOUSE]) == []
 
 
+def test_autocom_named_correctly():
+    dev = {"name": "Autocom CDP+ USB", "id": "USB\\VID_0403&PID_D6DA\\X", "status": "OK", "cls": "USB"}
+    f = cable.classify([dev])
+    assert f[0]["level"] == "bad" and "Autocom" in f[0]["title"] and "Ross-Tech" not in f[0]["detail"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

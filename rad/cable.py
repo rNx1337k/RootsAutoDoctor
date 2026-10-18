@@ -114,13 +114,19 @@ def classify(devices, latency=None):
         chip = models.get(pid, vendor)
         status_ok = d["status"].upper() == "OK"
 
-        if hex_like or (vid == "0403" and pid not in models):
+        if hex_like or "autocom" in name_l or "delphi" in name_l or (vid == "0403" and pid not in models):
+            if "autocom" in name_l or "delphi" in name_l:
+                kind, who = "Autocom / Delphi", "da Autocom/Delphi"
+            elif hex_like:
+                kind, who = "VCDS HEX", "da Ross-Tech"
+            else:
+                kind, who = "com firmware próprio", "do fabricante"
             findings.append({
                 "level": "bad", "com": None, "driver_url": None,
-                "title": f"Interface tipo VCDS HEX ({d['name'] or 'sem nome'})",
-                "detail": ("Este cabo parece um clone de HEX-USB+CAN / HEX-V2: tem um microcontrolador com "
-                           "firmware próprio da Ross-Tech entre o USB e o carro. Não funciona como cabo KKL "
-                           "e não pode ser usado pelo Roots Auto Doctor, mesmo com drivers. "
+                "title": f"Interface {kind} ({d['name'] or 'sem nome'})",
+                "detail": (f"Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, "
+                           "e só fala com o programa desse fabricante. Não funciona como cabo KKL e não pode "
+                           "ser usada pelo Roots Auto Doctor, mesmo com drivers. "
                            "É preciso um cabo KKL 'VAG-COM 409.1' (FTDI ou CH340)."),
             })
             continue
