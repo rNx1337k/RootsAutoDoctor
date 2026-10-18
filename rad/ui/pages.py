@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (
 
 from .. import vag_data, APP_NAME, VERSION
 from ..kline import list_serial_ports
-from .style import ACCENT, OK, WARN, BAD
+from .style import ACCENT, BAD, BLUE, MUTED, OK, WARN
+from .widgets import GaugeCell, LogoLabel, ModuleTile
 
 
 # ------------------------------------------------------------------ helpers
@@ -107,7 +108,8 @@ class GroupCard(QFrame):
         top.addWidget(self.status)
         v.addLayout(top)
         row = QHBoxLayout()
-        self.cells = [FieldCell(i + 1) for i in range(4)]
+        row.setSpacing(10)
+        self.cells = [GaugeCell(i + 1) for i in range(4)]
         for c in self.cells:
             row.addWidget(c)
         v.addLayout(row)
@@ -133,54 +135,117 @@ class GroupCard(QFrame):
 class HomePage(QWidget):
     go = Signal(str)
 
+    VEHICLE_FIELDS = [("client", "Cliente"), ("plate", "Matrícula"), ("model", "Marca / modelo"),
+                      ("vin", "VIN"), ("km", "Quilómetros")]
+
     def __init__(self):
         super().__init__()
-        v = QVBoxLayout(self)
-        v.setContentsMargins(36, 30, 36, 30)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll)
+        body = QWidget()
+        scroll.setWidget(body)
+        v = QVBoxLayout(body)
+        v.setContentsMargins(32, 28, 32, 28)
         v.setSpacing(18)
 
-        hero = card()
-        hv = QVBoxLayout(hero)
-        hv.setContentsMargins(28, 26, 28, 26)
-        t = lbl("ROOTS AUTO DOCTOR", "h1")
-        t.setStyleSheet("font-size: 30pt; letter-spacing: 2px;")
-        hv.addWidget(t)
-        hv.addWidget(lbl(f"Diagnóstico VAG por linha K  ·  KW1281 / KWP2000  ·  v{VERSION}", "muted"))
-        bar = QFrame()
-        bar.setFixedHeight(4)
-        bar.setStyleSheet(f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {ACCENT}, stop:1 transparent); border-radius: 2px;")
-        hv.addWidget(bar)
+        # --- herói: logo + nome + estado da interface
+        hero = QFrame()
+        hero.setObjectName("hero")
+        hh = QHBoxLayout(hero)
+        hh.setContentsMargins(28, 24, 28, 24)
+        hh.setSpacing(24)
+        hh.addWidget(LogoLabel(132), 0, Qt.AlignVCenter)
+        tv = QVBoxLayout()
+        tv.setSpacing(4)
+        tv.addStretch(1)
+        tv.addWidget(lbl("Roots Auto Doctor", "display"))
+        tv.addWidget(lbl("Diagnóstico de centralinas VW, Audi, Seat e Škoda pela linha K "
+                         "— os mesmos protocolos do VCDS (KW1281 e KWP2000).", "muted", wrap=True))
+        tv.addSpacing(10)
+        self.status_lbl = lbl("Interface por configurar", "h2")
+        tv.addWidget(self.status_lbl)
+        tv.addStretch(1)
+        hh.addLayout(tv, 1)
         v.addWidget(hero)
 
+        # --- acções principais
         grid = QGridLayout()
         grid.setSpacing(14)
-        items = [
-            ("modules", "🔌  Seleccionar controlador", "Ligar a um módulo: motor, ABS, airbag, painel…"),
-            ("autoscan", "🔍  Auto-Scan", "Varrer todos os módulos e ler as avarias de uma vez"),
-            ("options", "⚙️  Opções / Interface", "Porta do cabo, velocidade, eco e teste da interface"),
-            ("sim", "🧪  Modo simulador", "Experimentar o programa sem carro ligado"),
+        tiles = [
+            ("modules", "Seleccionar controlador",
+             "Ligar a um módulo e ler informação, avarias, valores de medição, adaptações e codificação."),
+            ("autoscan", "Auto-Scan",
+             "Ler todos os controladores do carro de uma vez e ver onde estão as avarias."),
+            ("report", "Relatório para o cliente",
+             "Gerar um PDF com o logo da oficina, os dados do carro e as avarias encontradas."),
         ]
-        for i, (key, title, sub) in enumerate(items):
-            b = btn(f"{title}\n{sub}", "big", lambda _=False, k=key: self.go.emit(k))
-            b.setMinimumHeight(92)
-            grid.addWidget(b, i // 2, i % 2)
+        for i, (key, title, sub) in enumerate(tiles):
+            b = btn("", "tile", lambda _=False, k=key: self.go.emit(k))
+            b.setMinimumHeight(118)
+            lay = QVBoxLayout(b)
+            lay.setContentsMargins(18, 14, 18, 14)
+            t = lbl(title, "h2")
+            t.setAttribute(Qt.WA_TransparentForMouseEvents)
+            s = lbl(sub, "muted", wrap=True)
+            s.setAttribute(Qt.WA_TransparentForMouseEvents)
+            lay.addWidget(t)
+            lay.addWidget(s)
+            lay.addStretch(1)
+            grid.addWidget(b, 0, i)
         v.addLayout(grid)
 
-        self.status_card = card()
-        sv = QHBoxLayout(self.status_card)
-        sv.setContentsMargins(20, 14, 20, 14)
-        self.status_lbl = lbl("Interface: não configurada", "muted")
-        sv.addWidget(self.status_lbl)
-        v.addWidget(self.status_card)
+        # --- veículo em diagnóstico
+        vc = card()
+        vl = QVBoxLayout(vc)
+        vl.setContentsMargins(22, 18, 22, 20)
+        head = QHBoxLayout()
+        head.addWidget(lbl("Veículo em diagnóstico", "h2"))
+        head.addStretch(1)
+        head.addWidget(btn("Limpar", None, self.clear_vehicle))
+        vl.addLayout(head)
+        vl.addWidget(lbl("Estes dados aparecem no relatório para o cliente.", "muted"))
+        form = QGridLayout()
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(8)
+        self.vehicle_edits = {}
+        for i, (key, name) in enumerate(self.VEHICLE_FIELDS):
+            e = QLineEdit()
+            e.setPlaceholderText(name)
+            if key == "plate":
+                e.setMaxLength(12)
+            if key == "vin":
+                e.setMaxLength(17)
+            self.vehicle_edits[key] = e
+            form.addWidget(lbl(name, "muted"), (i // 3) * 2, i % 3)
+            form.addWidget(e, (i // 3) * 2 + 1, i % 3)
+        vl.addLayout(form)
+        v.addWidget(vc)
 
-        tip = lbl("Dica: ligue o cabo à ficha OBD com a ignição LIGADA (motor pode estar desligado). "
-                  "Em cabos FTDI, ponha o 'Latency Timer' a 1 ms nas propriedades da porta COM "
-                  "para a comunicação ficar muito mais rápida.", "muted", wrap=True)
-        v.addWidget(tip)
+        foot = QHBoxLayout()
+        foot.addWidget(lbl("Sem carro por perto? Experimente todas as funções com centralinas simuladas.",
+                           "muted"))
+        foot.addWidget(btn("Abrir simulador", None, lambda: self.go.emit("sim")))
+        foot.addStretch(1)
+        v.addLayout(foot)
+        v.addWidget(lbl("Ligue o cabo à ficha OBD com a ignição ligada. Em cabos FTDI, ponha o "
+                        "Latency Timer a 1 ms nas propriedades da porta COM para leituras mais rápidas.",
+                        "muted", wrap=True))
         v.addStretch(1)
 
-    def set_port(self, text):
+    def set_port(self, text, ok=False):
         self.status_lbl.setText(text)
+        self.status_lbl.setStyleSheet(f"color: {OK if ok else MUTED};")
+
+    def vehicle(self):
+        return {k: e.text().strip() for k, e in self.vehicle_edits.items()}
+
+    def clear_vehicle(self):
+        for e in self.vehicle_edits.values():
+            e.clear()
 
 
 # ------------------------------------------------------- selecção de módulo
@@ -235,6 +300,8 @@ class ModuleSelectPage(QWidget):
 
 # ---------------------------------------------------------------- módulo
 class ModulePage(QWidget):
+    report_req = Signal()
+
     def __init__(self, worker):
         super().__init__()
         self.w = worker
@@ -310,6 +377,7 @@ class ModulePage(QWidget):
         row.addWidget(btn("Ler avarias", "primary", lambda: self.w.submit("read_faults")))
         row.addWidget(btn("Apagar avarias", "danger", self._clear_faults))
         row.addWidget(btn("Copiar", None, self._copy_faults))
+        row.addWidget(btn("Relatório para o cliente", None, lambda: self.report_req.emit()))
         row.addStretch(1)
         self.fault_count = lbl("", "h2")
         row.addWidget(self.fault_count)
@@ -341,9 +409,18 @@ class ModulePage(QWidget):
         row.addWidget(self.mvb_rate)
         v.addLayout(row)
         self.groups = [GroupCard("Grupo A", 1), GroupCard("Grupo B", 3), GroupCard("Grupo C", 11, False)]
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        inner = QWidget()
+        iv = QVBoxLayout(inner)
+        iv.setContentsMargins(0, 0, 4, 0)
+        iv.setSpacing(12)
         for g in self.groups:
-            v.addWidget(g)
-        v.addStretch(1)
+            iv.addWidget(g)
+        iv.addStretch(1)
+        scroll.setWidget(inner)
+        v.addWidget(scroll, 1)
         self._last_live_t = None
         return w
 
@@ -528,6 +605,8 @@ class ModulePage(QWidget):
                      "Intermitente" if f["intermittent"] else "Permanente"]
             for c, text in enumerate(items):
                 it = QTableWidgetItem(text)
+                if c == 0:
+                    it.setForeground(QBrush(QColor(BLUE)))
                 if c == 3:
                     it.setForeground(QBrush(QColor(WARN if f["intermittent"] else BAD)))
                 t.setItem(r, c, it)
@@ -682,32 +761,62 @@ class ModulePage(QWidget):
 
 # ---------------------------------------------------------------- auto-scan
 class AutoScanPage(QWidget):
+    connect_req = Signal(int)
+    report_req = Signal()
+
     def __init__(self, worker):
         super().__init__()
         self.w = worker
         self.items = []
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Auto-Scan", "Liga a cada controlador, lê a identificação e as avarias."))
+        v.addWidget(page_header("Auto-Scan", "Lê a identificação e as avarias de todos os controladores. "
+                                             "Clique num mosaico para abrir o controlador."))
         row = QHBoxLayout()
         self.start_btn = btn("▶  Iniciar Auto-Scan", "primary", self._toggle)
         row.addWidget(self.start_btn)
         row.addWidget(btn("Copiar relatório", None, self._copy))
         row.addWidget(btn("Guardar .txt", None, self._save))
+        row.addWidget(btn("Relatório para o cliente", None, lambda: self.report_req.emit()))
         row.addStretch(1)
         self.summary = lbl("", "h2")
         row.addWidget(self.summary)
         v.addLayout(row)
+        prow = QHBoxLayout()
         self.progress = QProgressBar()
         self.progress.setValue(0)
-        v.addWidget(self.progress)
+        self.progress.setTextVisible(False)
+        prow.addWidget(self.progress, 1)
+        self.current = lbl("", "muted")
+        self.current.setMinimumWidth(260)
+        prow.addWidget(self.current)
+        v.addLayout(prow)
+        tiles_scroll = QScrollArea()
+        tiles_scroll.setWidgetResizable(True)
+        tiles_scroll.setFrameShape(QFrame.NoFrame)
+        tiles_scroll.setMinimumHeight(120)
+        tiles_box = QWidget()
+        self.tiles = QGridLayout(tiles_box)
+        self.tiles.setContentsMargins(0, 0, 4, 0)
+        self.tiles.setSpacing(10)
+        tiles_scroll.setWidget(tiles_box)
+        v.addWidget(tiles_scroll, 2)
+        self.empty = lbl("Ainda não há resultados. Ligue a ignição e carregue em Iniciar Auto-Scan.", "muted")
+        v.addWidget(self.empty)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Endereço", "Módulo / Avaria", "Estado"])
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        v.addWidget(self.tree, 1)
+        v.addWidget(self.tree, 3)
         self.running = False
+
+    def _clear_tiles(self):
+        while self.tiles.count():
+            it = self.tiles.takeAt(0)
+            wdg = it.widget()
+            if wdg is not None:
+                wdg.deleteLater()
 
     def _toggle(self):
         if self.running:
@@ -716,6 +825,8 @@ class AutoScanPage(QWidget):
             return
         self.items = []
         self.tree.clear()
+        self._clear_tiles()
+        self.empty.hide()
         self.progress.setValue(0)
         self.summary.setText("")
         self.running = True
@@ -725,9 +836,14 @@ class AutoScanPage(QWidget):
     def on_progress(self, i, total, item):
         self.progress.setMaximum(total)
         self.progress.setValue(i)
+        self.current.setText(f"{i}/{total}  ·  {item['address']:02X} {item['module']}")
         if item["status"] == "absent":
             return
         self.items.append(item)
+        tile = ModuleTile(item)
+        tile.picked.connect(self.connect_req.emit)
+        n = len(self.items) - 1
+        self.tiles.addWidget(tile, n // 3, n % 3)
         top = QTreeWidgetItem([f"{item['address']:02X}", "", ""])
         if item["status"] == "ok":
             info = item["info"]
@@ -747,6 +863,10 @@ class AutoScanPage(QWidget):
 
     def done(self, aborted):
         self.running = False
+        self.current.setText("Concluído" if not aborted else "Interrompido")
+        if not self.items:
+            self.empty.setText("Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas Opções.")
+            self.empty.show()
         self.start_btn.setText("▶  Iniciar Auto-Scan")
         nf = sum(len(i.get("faults", [])) for i in self.items)
         self.summary.setText(f"{len(self.items)} módulo(s), {nf} avaria(s)" + ("  (interrompido)" if aborted else ""))
@@ -791,9 +911,17 @@ class OptionsPage(QWidget):
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
-        v = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll)
+        body = QWidget()
+        scroll.setWidget(body)
+        v = QVBoxLayout(body)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Opções", "Configuração da interface (cabo) e da comunicação."))
+        v.addWidget(page_header("Opções", "Interface (cabo), comunicação e dados da oficina."))
         c = card()
         f = QFormLayout(c)
         f.setContentsMargins(20, 18, 20, 18)
@@ -815,6 +943,21 @@ class OptionsPage(QWidget):
         self.raw = QCheckBox("Registar bytes em bruto no log (debug)")
         f.addRow(lbl("Debug", "muted"), self.raw)
         v.addWidget(c)
+
+        wc = card()
+        wf = QFormLayout(wc)
+        wf.setContentsMargins(20, 18, 20, 18)
+        wf.setVerticalSpacing(10)
+        wf.addRow(lbl("Dados da oficina", "h2"))
+        wf.addRow(lbl("Aparecem no cabeçalho do relatório para o cliente.", "muted"))
+        self.ws_edits = {}
+        for key, name in [("name", "Nome da oficina"), ("address", "Morada"), ("phone", "Telefone"),
+                          ("email", "Email"), ("nif", "NIF")]:
+            e = QLineEdit()
+            e.setPlaceholderText(name)
+            self.ws_edits[key] = e
+            wf.addRow(lbl(name, "muted"), e)
+        v.addWidget(wc)
         row = QHBoxLayout()
         row.addWidget(btn("Guardar", "primary", self._save))
         row.addWidget(btn("Testar interface", None, self._test))
@@ -846,6 +989,11 @@ class OptionsPage(QWidget):
             if i >= 0:
                 combo.setCurrentIndex(i)
         self.raw.setChecked(self.settings.value("raw_log", "false") == "true")
+        for k, e in self.ws_edits.items():
+            e.setText(self.settings.value(f"workshop/{k}", "") or "")
+
+    def workshop(self):
+        return {k: e.text().strip() for k, e in self.ws_edits.items()}
 
     def config(self):
         return {"port": self.port.currentData() or "", "baud": self.baud.currentData(),
@@ -857,6 +1005,8 @@ class OptionsPage(QWidget):
         self.settings.setValue("baud", c["baud"])
         self.settings.setValue("echo", c["echo"])
         self.settings.setValue("raw_log", "true" if c["raw_log"] else "false")
+        for k, val in self.workshop().items():
+            self.settings.setValue(f"workshop/{k}", val)
         self.saved.emit(c)
 
     def _test(self):

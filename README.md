@@ -7,6 +7,20 @@ protocolos que o VCDS usa nestes carros:
 - **KW1281** (o "KWP1281" do VCDS) — init a 5 baud, auto-detecção 10400 / 9600 / 4800 baud
 - **KWP2000 sobre linha K** (ISO 14230) — init a 5 baud, como nos EDC15/EDC16 e ABS Mk60
 
+## Novidades da v0.2
+
+- Logo próprio (mostrador + pulso + raízes em pistas de circuito) e ícone da aplicação
+- Tema inspirado no painel de instrumentos VAG: azul-noite, escala azul, ponteiros vermelhos
+- Ecrã de arranque, barra lateral com indicador de pulso (bate enquanto há ligação)
+- Valores de medição em mostradores com ponteiro e histórico das últimas leituras
+- Auto-Scan em mosaicos coloridos (verde sem avarias, âmbar com avarias, vermelho sem comunicação);
+  clique num mosaico para abrir o controlador
+- **Relatório para o cliente** em PDF ou página web: logo, dados da oficina (Opções),
+  dados do veículo (Início), avarias por controlador e observações
+- Notificações discretas em vez de janelas para confirmações
+
+Para regenerar o logo: `python tools/make_logo.py` (precisa de Pillow).
+
 ## Instalar e correr (Windows)
 
 1. Instalar Python 3.10+ (marcar "Add Python to PATH").

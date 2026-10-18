@@ -1,27 +1,33 @@
 """Janela principal do Roots Auto Doctor."""
 import datetime
+import os
 
-from PySide6.QtCore import Qt, QSettings
+from PySide6.QtCore import QSettings, Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, QImage, QPageSize, QTextDocument
 from PySide6.QtWidgets import (
-    QButtonGroup, QDockWidget, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
-    QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
+    QButtonGroup, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QMainWindow,
+    QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, vag_data
+from .. import APP_NAME, VERSION, report, vag_data
 from ..kline import SIM_PORT
 from ..worker import Worker
 from .pages import (AutoScanPage, HomePage, ModulePage, ModuleSelectPage, OptionsPage,
                     btn, lbl)
-from .style import ACCENT, BAD, OK, QSS, WARN
+from .style import BLUE_SOFT, MUTED, OK, QSS, WARN
+from .widgets import LogoLabel, PulseIndicator, Toast, asset_path
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"{APP_NAME} v{VERSION}")
-        self.resize(1280, 820)
+        self.setWindowTitle(f"{APP_NAME}")
+        self.setWindowIcon(QIcon(asset_path("icon.ico")))
+        self.resize(1320, 860)
+        self.setMinimumSize(1080, 700)
         self.setStyleSheet(QSS)
         self.settings = QSettings("Roots", "RootsAutoDoctor")
+        self.module_faults = None
 
         self.worker = Worker()
         self.worker.log.connect(self.append_log)
@@ -30,7 +36,6 @@ class MainWindow(QMainWindow):
         self.worker.error.connect(self.on_error)
         self.worker.live.connect(self.on_live)
         self.worker.scan_progress.connect(self.on_scan_progress)
-        self.worker.busy.connect(self.on_busy)
 
         root = QWidget()
         root.setObjectName("root")
@@ -42,19 +47,28 @@ class MainWindow(QMainWindow):
         # ---------------- barra lateral
         side = QFrame()
         side.setObjectName("sidebar")
-        side.setFixedWidth(230)
+        side.setFixedWidth(236)
         sv = QVBoxLayout(side)
-        sv.setContentsMargins(14, 20, 14, 16)
+        sv.setContentsMargins(14, 18, 14, 16)
         sv.setSpacing(6)
-        sv.addWidget(lbl("ROOTS", "brand"))
-        sv.addWidget(lbl("AUTO  DOCTOR", "brandSub"))
+        brand = QHBoxLayout()
+        brand.setSpacing(10)
+        brand.addWidget(LogoLabel(46))
+        bt = QVBoxLayout()
+        bt.setSpacing(0)
+        bt.addWidget(lbl("Roots", "wordmark"))
+        bt.addWidget(lbl("Auto Doctor", "wordmarkSub"))
+        brand.addLayout(bt)
+        brand.addStretch(1)
+        sv.addLayout(brand)
         sv.addSpacing(22)
+
         self.nav = QButtonGroup(self)
         self.nav.setExclusive(True)
         self.nav_btns = {}
-        for key, text in [("home", "🏠   Início"), ("modules", "🔌   Controladores"),
-                          ("module", "🧩   Módulo ligado"), ("autoscan", "🔍   Auto-Scan"),
-                          ("options", "⚙️   Opções")]:
+        for key, text in [("home", "Início"), ("modules", "Controladores"),
+                          ("module", "Controlador ligado"), ("autoscan", "Auto-Scan"),
+                          ("options", "Opções")]:
             b = btn(text, "nav", lambda _=False, k=key: self.show_page(k))
             b.setCheckable(True)
             self.nav.addButton(b)
@@ -62,11 +76,20 @@ class MainWindow(QMainWindow):
             sv.addWidget(b)
         self.nav_btns["module"].setEnabled(False)
         sv.addStretch(1)
-        self.conn_pill = lbl("●  Desligado", "pill")
-        sv.addWidget(self.conn_pill)
-        self.port_lbl = lbl("", "muted")
-        self.port_lbl.setWordWrap(True)
-        sv.addWidget(self.port_lbl)
+
+        conn = QFrame()
+        conn.setObjectName("card")
+        cv = QVBoxLayout(conn)
+        cv.setContentsMargins(12, 10, 12, 10)
+        cv.setSpacing(4)
+        self.conn_lbl = lbl("Sem ligação", "h2")
+        self.conn_sub = lbl("", "muted")
+        self.conn_sub.setWordWrap(True)
+        self.pulse = PulseIndicator()
+        cv.addWidget(self.conn_lbl)
+        cv.addWidget(self.pulse)
+        cv.addWidget(self.conn_sub)
+        sv.addWidget(conn)
         h.addWidget(side)
 
         # ---------------- páginas
@@ -84,10 +107,13 @@ class MainWindow(QMainWindow):
 
         self.home.go.connect(self._home_go)
         self.select.connect_req.connect(self.connect_module)
+        self.scan.connect_req.connect(self.connect_module)
+        self.scan.report_req.connect(lambda: self.export_report("scan"))
+        self.module.report_req.connect(lambda: self.export_report("module"))
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
 
-        # ---------------- log
+        # ---------------- registo
         self.log = QPlainTextEdit()
         self.log.setObjectName("log")
         self.log.setReadOnly(True)
@@ -96,10 +122,12 @@ class MainWindow(QMainWindow):
         dock.setWidget(self.log)
         dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetClosable)
         self.addDockWidget(Qt.BottomDockWidgetArea, dock)
+        self.resizeDocks([dock], [150], Qt.Vertical)
         self.log_dock = dock
-        self.resizeDocks([dock], [170], Qt.Vertical)
+        self.menuBar().hide()
 
-        self.statusBar().showMessage("Pronto")
+        self.toast = Toast(root)
+        self.statusBar().showMessage(f"{APP_NAME} v{VERSION}")
         self.set_conn_state("disconnected")
         self.worker.start()
         self.apply_config(self.options.config(), quiet=True)
@@ -116,87 +144,159 @@ class MainWindow(QMainWindow):
         if key == "sim":
             self.options.select_simulator()
             self.show_page("modules")
-            self.append_log("Modo simulador: experimente os endereços 01 (motor), 03 (ABS) e 17 (painel).")
+            self.toast.show_msg("Simulador activo: experimente 01 Motor, 03 ABS ou 17 Painel", "info")
+            return
+        if key == "report":
+            self.export_report("auto")
             return
         self.show_page(key)
 
     # -------------------------------------------------------- configuração
     def apply_config(self, cfg, quiet=False):
         self.worker.submit("configure", cfg)
-        port = cfg["port"] or "—"
-        txt = "Simulador" if port == SIM_PORT else port
-        self.port_lbl.setText(f"Interface: {txt}")
-        self.home.set_port(f"Interface: {txt}   ·   velocidade {cfg['baud']}   ·   eco {cfg['echo']}")
+        port = cfg["port"]
+        if not port:
+            self.home.set_port("Escolha a porta do cabo em Opções")
+            self.conn_sub.setText("Interface por configurar")
+        else:
+            txt = "Simulador" if port == SIM_PORT else port
+            self.home.set_port(f"Interface pronta: {txt}", ok=True)
+            self.conn_sub.setText(f"Interface: {txt}")
         if not quiet:
-            self.statusBar().showMessage("Opções guardadas", 3000)
+            self.toast.show_msg("Opções guardadas")
 
     def connect_module(self, address):
         if not self.options.config()["port"]:
-            QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo nas Opções.")
+            QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo em Opções.")
             self.show_page("options")
             return
         self.module.stop_live()
         self.worker.submit("connect", address)
+
+    # ------------------------------------------------------------ relatório
+    def _report_items(self, source):
+        if source == "auto":
+            source = "scan" if self.scan.items else "module"
+        if source == "scan":
+            return self.scan.items
+        if self.module.info is None:
+            return []
+        return [{"address": self.module.info["address"], "module": self.module.info["module"],
+                 "status": "ok", "info": self.module.info, "faults": self.module.faults}]
+
+    def export_report(self, source):
+        items = self._report_items(source)
+        if not items:
+            QMessageBox.information(self, APP_NAME, "Ainda não há dados para o relatório.\n"
+                                    "Faça um Auto-Scan ou ligue a um controlador e leia as avarias.")
+            return
+        vehicle = self.home.vehicle()
+        if not vehicle.get("plate"):
+            plate, ok = QInputDialog.getText(self, APP_NAME, "Matrícula do veículo (opcional):")
+            if ok and plate.strip():
+                self.home.vehicle_edits["plate"].setText(plate.strip().upper())
+                vehicle = self.home.vehicle()
+        notes, ok = QInputDialog.getMultiLineText(self, APP_NAME, "Observações para o cliente (opcional):")
+        if not ok:
+            return
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+        name = f"Diagnostico_{vehicle.get('plate') or 'veiculo'}_{stamp}.pdf".replace(" ", "")
+        path, flt = QFileDialog.getSaveFileName(
+            self, "Guardar relatório", os.path.join(os.path.expanduser("~"), name),
+            "PDF (*.pdf);;Página web (*.html)")
+        if not path:
+            return
+        workshop = self.options.workshop()
+        try:
+            if path.lower().endswith(".html"):
+                html = report.build_html(workshop, vehicle, items,
+                                         report.logo_data_uri(asset_path("logo.png")), notes)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(html)
+            else:
+                if not path.lower().endswith(".pdf"):
+                    path += ".pdf"
+                from PySide6.QtPrintSupport import QPrinter
+                html = report.build_html(workshop, vehicle, items, "logo.png", notes)
+                doc = QTextDocument()
+                doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), QImage(asset_path("logo.png")))
+                doc.setHtml(html)
+                printer = QPrinter(QPrinter.HighResolution)
+                printer.setOutputFormat(QPrinter.PdfFormat)
+                printer.setPageSize(QPageSize(QPageSize.A4))
+                printer.setOutputFileName(path)
+                doc.print_(printer)
+        except Exception as e:
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível gravar o relatório:\n{e}")
+            return
+        self.toast.show_msg("Relatório guardado")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     # ------------------------------------------------------------ sinais
     def append_log(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
         self.log.appendPlainText(f"[{ts}] {msg}")
 
-    def set_conn_state(self, state, text=None):
-        colors = {"disconnected": "#3a4250", "connecting": WARN, "connected": OK}
-        labels = {"disconnected": "●  Desligado", "connecting": "●  A ligar…", "connected": "●  Ligado"}
-        c = colors[state]
-        self.conn_pill.setText(text or labels[state])
-        fg = "#0d0f13" if state != "disconnected" else "#c4c9d2"
-        self.conn_pill.setStyleSheet(f"background: {c}; color: {fg}; border-radius: 10px; padding: 6px 10px; font-weight: 700;")
+    def set_conn_state(self, state, text=None, sub=None):
+        labels = {"disconnected": "Sem ligação", "connecting": "A ligar…", "connected": "Ligado"}
+        colors = {"disconnected": MUTED, "connecting": WARN, "connected": OK}
+        self.conn_lbl.setText(text or labels[state])
+        self.conn_lbl.setStyleSheet(f"color: {colors[state]};")
+        self.pulse.set_mode({"disconnected": "off", "connecting": "connecting", "connected": "on"}[state])
+        if sub is not None:
+            self.conn_sub.setText(sub)
 
     def on_state(self, state, data):
         if state == "connecting":
-            self.set_conn_state("connecting", f"●  A ligar a {data:02X}…")
+            self.set_conn_state("connecting", f"A ligar a {data:02X}…", vag_data.module_name(data))
             self.statusBar().showMessage(f"A ligar ao controlador {data:02X} — {vag_data.module_name(data)}…")
         elif state == "connected":
-            self.set_conn_state("connected", f"●  Ligado: {data['address']:02X}")
+            self.set_conn_state("connected", f"Ligado a {data['address']:02X}",
+                                f"{data['module']}\n{data['protocol']} · {data['baud']} baud")
             self.module.set_info(data)
             self.nav_btns["module"].setEnabled(True)
             self.show_page("module")
-            self.statusBar().showMessage(f"Ligado a {data['address']:02X} ({data['protocol']} @ {data['baud']})")
+            self.statusBar().showMessage(f"Ligado a {data['address']:02X} — {data['part']} {data['component']}")
         else:
-            self.set_conn_state("disconnected")
+            port = self.options.config()["port"]
+            self.set_conn_state("disconnected", None,
+                                f"Interface: {'Simulador' if port == SIM_PORT else port or '—'}")
             self.module.stop_live()
             self.nav_btns["module"].setEnabled(False)
             if self.stack.currentWidget() is self.module:
                 self.show_page("modules")
+            self.statusBar().showMessage(f"Ligação terminada: {data}" if data else "Controlador fechado")
             if data:
-                self.statusBar().showMessage(f"Desligado: {data}")
-            else:
-                self.statusBar().showMessage("Controlador fechado")
-
-    def on_busy(self, busy):
-        if busy:
-            self.statusBar().showMessage("A comunicar…")
+                self.toast.show_msg("Ligação ao controlador perdida", "bad")
 
     def on_result(self, cmd, data):
         if cmd in ("read_faults", "clear_faults"):
             self.module.show_faults(data)
-            self.statusBar().showMessage("Avarias lidas" if cmd == "read_faults" else "Memória de avarias apagada", 4000)
+            if cmd == "clear_faults":
+                self.toast.show_msg("Memória de avarias apagada" if not data
+                                    else f"Apagado — {len(data)} avaria(s) voltaram a aparecer",
+                                    "ok" if not data else "warn")
+            else:
+                self.toast.show_msg("Sem avarias" if not data else f"{len(data)} avaria(s) encontrada(s)",
+                                    "ok" if not data else "warn")
         elif cmd in ("adaptation_read", "adaptation_test", "adaptation_save"):
             self.module.show_adaptation(cmd, data)
+            if cmd == "adaptation_save":
+                self.toast.show_msg("Adaptação gravada")
         elif cmd == "recode":
             self.module.set_info(data)
             self.module.tabs.setCurrentIndex(5)
-            QMessageBox.information(self, APP_NAME, "Codificação aceite pelo controlador.")
+            self.toast.show_msg("Codificação aceite pelo controlador")
         elif cmd == "login":
-            QMessageBox.information(self, APP_NAME, "Login aceite.")
+            self.toast.show_msg("Login aceite")
         elif cmd == "output_test":
             self.module.show_output(data)
         elif cmd == "test_interface":
             (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME, data["message"])
         elif cmd == "autoscan":
             self.scan.done(data["aborted"])
-            self.statusBar().showMessage("Auto-Scan terminado", 5000)
-        else:
-            self.statusBar().showMessage(f"{cmd}: OK", 3000)
+            self.toast.show_msg("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido",
+                                "ok" if not data["aborted"] else "warn")
 
     def on_error(self, cmd, msg):
         self.append_log(f"ERRO ({cmd}): {msg}")
@@ -204,8 +304,10 @@ class MainWindow(QMainWindow):
         if cmd == "autoscan":
             self.scan.done(True)
         if cmd in ("connect", "test_interface", "recode", "login", "adaptation_save", "clear_faults",
-                   "autoscan", "adaptation_read", "adaptation_test", "output_test"):
+                   "autoscan"):
             QMessageBox.warning(self, APP_NAME, msg)
+        else:
+            self.toast.show_msg(msg, "bad")
 
     def on_live(self, data):
         self.module.on_live(data)
@@ -213,6 +315,12 @@ class MainWindow(QMainWindow):
     def on_scan_progress(self, i, total, item):
         self.scan.on_progress(i, total, item)
         self.statusBar().showMessage(f"Auto-Scan {i}/{total}: {item['address']:02X} {item['module']}")
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        if getattr(self, "toast", None) is not None and self.toast.isVisible():
+            par = self.toast.parentWidget()
+            self.toast.move(par.width() - self.toast.width() - 24, par.height() - self.toast.height() - 24)
 
     def closeEvent(self, ev):
         self.module.stop_live()
