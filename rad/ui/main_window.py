@@ -3,17 +3,17 @@ import datetime
 import os
 
 from PySide6.QtCore import QSettings, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon, QImage, QPageSize, QTextDocument
+from PySide6.QtGui import QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QShortcut, QTextDocument
 from PySide6.QtWidgets import (
     QButtonGroup, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QMainWindow,
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, report, vag_data
+from .. import APP_NAME, VERSION, history, report, vag_data
 from ..kline import SIM_PORT
 from ..worker import Worker
-from .pages import (AutoScanPage, HomePage, ModulePage, ModuleSelectPage, OptionsPage,
-                    btn, lbl)
+from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
+                    OptionsPage, btn, lbl)
 from .style import BLUE_SOFT, MUTED, OK, QSS, WARN
 from .widgets import LogoLabel, PulseIndicator, Toast, asset_path
 
@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         self.nav_btns = {}
         for key, text in [("home", "Início"), ("modules", "Controladores"),
                           ("module", "Controlador ligado"), ("autoscan", "Auto-Scan"),
-                          ("options", "Opções")]:
+                          ("history", "Histórico"), ("options", "Opções")]:
             b = btn(text, "nav", lambda _=False, k=key: self.show_page(k))
             b.setCheckable(True)
             self.nav.addButton(b)
@@ -89,7 +89,11 @@ class MainWindow(QMainWindow):
         cv.addWidget(self.conn_lbl)
         cv.addWidget(self.pulse)
         cv.addWidget(self.conn_sub)
+        self.reconnect_btn = btn("Voltar a ligar", "primary", self._reconnect)
+        self.reconnect_btn.hide()
+        cv.addWidget(self.reconnect_btn)
         sv.addWidget(conn)
+        self.last_address = None
         h.addWidget(side)
 
         # ---------------- páginas
@@ -100,8 +104,9 @@ class MainWindow(QMainWindow):
         self.module = ModulePage(self.worker)
         self.scan = AutoScanPage(self.worker)
         self.options = OptionsPage(self.settings)
+        self.hist = HistoryPage()
         self.pages = {"home": self.home, "modules": self.select, "module": self.module,
-                      "autoscan": self.scan, "options": self.options}
+                      "autoscan": self.scan, "history": self.hist, "options": self.options}
         for p in self.pages.values():
             self.stack.addWidget(p)
 
@@ -110,6 +115,7 @@ class MainWindow(QMainWindow):
         self.scan.connect_req.connect(self.connect_module)
         self.scan.report_req.connect(lambda: self.export_report("scan"))
         self.module.report_req.connect(lambda: self.export_report("module"))
+        self.hist.report_req.connect(self.export_session)
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
 
@@ -127,6 +133,7 @@ class MainWindow(QMainWindow):
         self.menuBar().hide()
 
         self.toast = Toast(root)
+        self._shortcuts()
         self.statusBar().showMessage(f"{APP_NAME} v{VERSION}")
         self.set_conn_state("disconnected")
         self.worker.start()
@@ -137,8 +144,37 @@ class MainWindow(QMainWindow):
     def show_page(self, key):
         if key != "module":
             self.module.stop_live()
+        if key == "history":
+            self.hist.refresh()
         self.stack.setCurrentWidget(self.pages[key])
         self.nav_btns[key].setChecked(True)
+
+    def _shortcuts(self):
+        def on_module(fn):
+            def run():
+                if self.stack.currentWidget() is self.module and self.nav_btns["module"].isEnabled():
+                    fn()
+            return run
+        keys = [
+            ("F5", on_module(lambda: self.worker.submit("read_faults"))),
+            ("F6", on_module(self.module._toggle_mvb)),
+            ("Ctrl+R", lambda: self.export_report("auto")),
+            ("Ctrl+1", lambda: self.show_page("home")),
+            ("Ctrl+2", lambda: self.show_page("modules")),
+            ("Ctrl+3", lambda: self.show_page("autoscan")),
+            ("Ctrl+4", lambda: self.show_page("history")),
+            ("Ctrl+L", lambda: self.log_dock.setVisible(not self.log_dock.isVisible())),
+        ]
+        self._sc = []
+        for seq, fn in keys:
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.activated.connect(fn)
+            self._sc.append(sc)
+
+    def _reconnect(self):
+        if self.last_address is not None:
+            self.reconnect_btn.hide()
+            self.connect_module(self.last_address)
 
     def _home_go(self, key):
         if key == "sim":
@@ -199,13 +235,24 @@ class MainWindow(QMainWindow):
         notes, ok = QInputDialog.getMultiLineText(self, APP_NAME, "Observações para o cliente (opcional):")
         if not ok:
             return
+        if self._write_report(items, vehicle, notes):
+            kind = "autoscan" if items is self.scan.items else "modulo"
+            try:
+                history.save_session(kind, vehicle, items, notes)
+            except Exception as e:
+                self.append_log(f"Histórico: não foi possível guardar ({e})")
+
+    def export_session(self, data):
+        self._write_report(data.get("items", []), data.get("vehicle", {}), data.get("notes", ""))
+
+    def _write_report(self, items, vehicle, notes):
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         name = f"Diagnostico_{vehicle.get('plate') or 'veiculo'}_{stamp}.pdf".replace(" ", "")
-        path, flt = QFileDialog.getSaveFileName(
+        path, _flt = QFileDialog.getSaveFileName(
             self, "Guardar relatório", os.path.join(os.path.expanduser("~"), name),
             "PDF (*.pdf);;Página web (*.html)")
         if not path:
-            return
+            return False
         workshop = self.options.workshop()
         try:
             if path.lower().endswith(".html"):
@@ -228,9 +275,10 @@ class MainWindow(QMainWindow):
                 doc.print_(printer)
         except Exception as e:
             QMessageBox.warning(self, APP_NAME, f"Não foi possível gravar o relatório:\n{e}")
-            return
+            return False
         self.toast.show_msg("Relatório guardado")
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        return True
 
     # ------------------------------------------------------------ sinais
     def append_log(self, msg):
@@ -251,6 +299,8 @@ class MainWindow(QMainWindow):
             self.set_conn_state("connecting", f"A ligar a {data:02X}…", vag_data.module_name(data))
             self.statusBar().showMessage(f"A ligar ao controlador {data:02X} — {vag_data.module_name(data)}…")
         elif state == "connected":
+            self.last_address = data["address"]
+            self.reconnect_btn.hide()
             self.set_conn_state("connected", f"Ligado a {data['address']:02X}",
                                 f"{data['module']}\n{data['protocol']} · {data['baud']} baud")
             self.module.set_info(data)
@@ -268,6 +318,11 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Ligação terminada: {data}" if data else "Controlador fechado")
             if data:
                 self.toast.show_msg("Ligação ao controlador perdida", "bad")
+                if self.last_address is not None:
+                    self.reconnect_btn.setText(f"Voltar a ligar a {self.last_address:02X}")
+                    self.reconnect_btn.show()
+            else:
+                self.reconnect_btn.hide()
 
     def on_result(self, cmd, data):
         if cmd in ("read_faults", "clear_faults"):
@@ -295,6 +350,12 @@ class MainWindow(QMainWindow):
             (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME, data["message"])
         elif cmd == "autoscan":
             self.scan.done(data["aborted"])
+            self.select.mark_scan(self.scan.items)
+            if self.scan.items:
+                try:
+                    history.save_session("autoscan", self.home.vehicle(), self.scan.items)
+                except Exception as e:
+                    self.append_log(f"Histórico: não foi possível guardar ({e})")
             self.toast.show_msg("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido",
                                 "ok" if not data["aborted"] else "warn")
 

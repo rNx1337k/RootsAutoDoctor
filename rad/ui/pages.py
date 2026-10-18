@@ -118,6 +118,10 @@ class GroupCard(QFrame):
     def group(self):
         return self.spin.value() if self.enable.isChecked() else None
 
+    def set_labels(self, labels):
+        for i, c in enumerate(self.cells):
+            c.set_label(labels[i] if labels and i < len(labels) else None)
+
     def show_fields(self, fields):
         self.last = fields
         self.status.setText("")
@@ -277,14 +281,39 @@ class ModuleSelectPage(QWidget):
         grid.setSpacing(10)
         common = [0x01, 0x02, 0x03, 0x08, 0x09, 0x15, 0x17, 0x19, 0x25, 0x35, 0x46, 0x56]
         others = [a for a in sorted(vag_data.VAG_MODULES) if a not in common]
+        self.mod_btns = {}
+        self.common = common
         for i, addr in enumerate(common + others):
             b = btn(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}", "module",
                     lambda _=False, a=addr: self.connect_req.emit(a))
-            if addr in common:
-                b.setStyleSheet(f"QPushButton#module {{ border-left: 3px solid {ACCENT}; }}")
+            self.mod_btns[addr] = b
+            self._style_btn(addr, None)
             grid.addWidget(b, i // 3, i % 3)
         scroll.setWidget(inner)
         v.addWidget(scroll, 1)
+
+    def _style_btn(self, addr, color):
+        b = self.mod_btns[addr]
+        if color is None:
+            color = BLUE if addr in self.common else "transparent"
+        b.setStyleSheet(f"QPushButton#module {{ border-left: 3px solid {color}; }}")
+
+    def mark_scan(self, items):
+        """Mostra nos botões o resultado do último Auto-Scan."""
+        for addr, b in self.mod_btns.items():
+            b.setText(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}")
+            self._style_btn(addr, None)
+        for it in items:
+            addr = it["address"]
+            if addr not in self.mod_btns:
+                continue
+            if it["status"] == "ok":
+                n = len(it.get("faults", []))
+                color, tag = (OK, "sem avarias") if n == 0 else (WARN, f"{n} avaria(s)")
+            else:
+                color, tag = BAD, "erro"
+            self.mod_btns[addr].setText(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}   —   {tag}")
+            self._style_btn(addr, color)
 
     def _go_manual(self):
         try:
@@ -668,6 +697,7 @@ class ModulePage(QWidget):
             if isinstance(res, str):
                 card_.show_error(res)
             else:
+                card_.set_labels(vag_data.group_labels(self.info.get("part") if self.info else "", g))
                 card_.show_fields(res)
         if self._last_live_t:
             dt = data["t"] - self._last_live_t
@@ -1019,3 +1049,135 @@ class OptionsPage(QWidget):
         if i >= 0:
             self.port.setCurrentIndex(i)
         self._save()
+
+
+# ---------------------------------------------------------------- histórico
+class HistoryPage(QWidget):
+    report_req = Signal(object)
+
+    COLS = ["Data", "Matrícula", "Cliente", "Veículo", "Tipo", "Módulos", "Avarias"]
+
+    def __init__(self):
+        super().__init__()
+        from .. import history
+        self.history = history
+        self.sessions = []
+        v = QVBoxLayout(self)
+        v.setContentsMargins(30, 24, 30, 24)
+        v.addWidget(page_header("Histórico", "Todos os Auto-Scans e relatórios ficam guardados neste computador. "
+                                             "Procure pela matrícula ou pelo nome do cliente."))
+        row = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Procurar matrícula, cliente ou modelo")
+        self.search.textChanged.connect(self._fill)
+        row.addWidget(self.search, 1)
+        row.addWidget(btn("Relatório", "primary", self._report))
+        row.addWidget(btn("Apagar", "danger", self._delete))
+        row.addWidget(btn("Abrir pasta", None, self._open_dir))
+        v.addLayout(row)
+        self.table = QTableWidget(0, len(self.COLS))
+        self.table.setHorizontalHeaderLabels(self.COLS)
+        hh = self.table.horizontalHeader()
+        for i in range(len(self.COLS)):
+            hh.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(3, QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.setAlternatingRowColors(True)
+        self.table.itemSelectionChanged.connect(self._show_detail)
+        self.table.cellDoubleClicked.connect(lambda *_: self._report())
+        v.addWidget(self.table, 3)
+        self.detail = QTreeWidget()
+        self.detail.setHeaderLabels(["Endereço", "Módulo / Avaria", "Estado"])
+        self.detail.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.detail.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        v.addWidget(self.detail, 2)
+        self.empty = lbl("Ainda não há diagnósticos guardados. Faça um Auto-Scan para começar.", "muted")
+        v.addWidget(self.empty)
+
+    def refresh(self):
+        try:
+            self.sessions = self.history.list_sessions()
+        except Exception:
+            self.sessions = []
+        self._fill()
+
+    def _visible(self):
+        q = self.search.text().strip().lower()
+        if not q:
+            return self.sessions
+        return [s for s in self.sessions
+                if q in f"{s['plate']} {s['client']} {s['model']}".lower()]
+
+    def _fill(self):
+        rows = self._visible()
+        self.table.setRowCount(0)
+        self.detail.clear()
+        self.empty.setVisible(not self.sessions)
+        for s in rows:
+            r = self.table.rowCount()
+            self.table.insertRow(r)
+            date = s["date"].replace("T", "  ")[:17]
+            kind = "Auto-Scan" if s["kind"] == "autoscan" else "Módulo"
+            vals = [date, s["plate"] or "—", s["client"] or "—", s["model"] or "—", kind,
+                    str(s["modules"]), str(s["faults"])]
+            for c, t in enumerate(vals):
+                it = QTableWidgetItem(t)
+                if c == 0:
+                    it.setData(Qt.UserRole, s["id"])
+                if c == 6:
+                    it.setForeground(QBrush(QColor(OK if s["faults"] == 0 else WARN)))
+                self.table.setItem(r, c, it)
+
+    def _selected_id(self):
+        r = self.table.currentRow()
+        if r < 0:
+            return None
+        it = self.table.item(r, 0)
+        return it.data(Qt.UserRole) if it else None
+
+    def _show_detail(self):
+        sid = self._selected_id()
+        self.detail.clear()
+        if not sid:
+            return
+        try:
+            data = self.history.load_session(sid)
+        except Exception as e:
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível abrir o registo: {e}")
+            return
+        for item in data.get("items", []):
+            top = QTreeWidgetItem([f"{item['address']:02X}", item.get("module", ""), ""])
+            if item.get("status") == "ok":
+                n = len(item.get("faults", []))
+                top.setText(1, f"{item['module']}  —  {item['info'].get('part', '')}")
+                top.setText(2, "OK" if n == 0 else f"{n} avaria(s)")
+                top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
+                for f in item.get("faults", []):
+                    QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}  —  {f['elab']}",
+                                          "Intermitente" if f.get("intermittent") else ""])
+            else:
+                top.setText(2, "Erro")
+                top.setForeground(2, QBrush(QColor(BAD)))
+            self.detail.addTopLevelItem(top)
+            top.setExpanded(True)
+
+    def _report(self):
+        sid = self._selected_id()
+        if not sid:
+            QMessageBox.information(self, APP_NAME, "Escolha um diagnóstico da lista.")
+            return
+        self.report_req.emit(self.history.load_session(sid))
+
+    def _delete(self):
+        sid = self._selected_id()
+        if sid and ask(self, APP_NAME, "Apagar este diagnóstico do histórico?"):
+            self.history.delete_session(sid)
+            self.refresh()
+
+    def _open_dir(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl.fromLocalFile(self.history.history_dir()))

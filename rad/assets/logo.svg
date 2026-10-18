@@ -1,25 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-<defs><radialGradient id="g" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#1B2A4D"/><stop offset="1" stop-color="#0C1324"/></radialGradient></defs>
-<circle cx="128" cy="128" r="112" fill="url(#g)" stroke="#4F8DFF" stroke-width="9"/>
-<line x1="43.1" y1="177.0" x2="57.0" y2="169.0" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="31.5" y1="145.0" x2="41.3" y2="143.3" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="31.5" y1="111.0" x2="47.2" y2="113.8" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="43.1" y1="79.0" x2="51.8" y2="84.0" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="65.0" y1="52.9" x2="75.3" y2="65.2" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="94.5" y1="35.9" x2="97.9" y2="45.3" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="128.0" y1="30.0" x2="128.0" y2="46.0" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="161.5" y1="35.9" x2="158.1" y2="45.3" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="191.0" y1="52.9" x2="180.7" y2="65.2" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="212.9" y1="79.0" x2="204.2" y2="84.0" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="224.5" y1="111.0" x2="208.8" y2="113.8" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<line x1="224.5" y1="145.0" x2="214.7" y2="143.3" stroke="#4F8DFF" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="212.9" y1="177.0" x2="199.0" y2="169.0" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round"/>
-<polyline points="122,172 122,214" fill="none" stroke="#4F8DFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="122,180 104,198 88,198" fill="none" stroke="#4F8DFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="122,180 140,198 156,198" fill="none" stroke="#4F8DFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="122" cy="220" r="6" fill="#0C1324" stroke="#4F8DFF" stroke-width="5"/>
-<circle cx="82" cy="198" r="6" fill="#0C1324" stroke="#4F8DFF" stroke-width="5"/>
-<circle cx="162" cy="198" r="6" fill="#0C1324" stroke="#4F8DFF" stroke-width="5"/>
-<polyline points="50,136 84,136 100,104 122,172 144,60 162,136 206,136" fill="none" stroke="#E8343A" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="144" cy="60" r="9" fill="#EAF0FF"/>
+<defs><radialGradient id="bg" cx="50%" cy="40%" r="62%"><stop offset="0" stop-color="#1E305C"/><stop offset="1" stop-color="#0A1020"/></radialGradient><linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>
+<circle cx="128" cy="128" r="114" fill="url(#bg)"/>
+<circle cx="128" cy="128" r="114" fill="none" stroke="#4F8DFF" stroke-width="7"/>
+<circle cx="128" cy="128" r="101" fill="none" stroke="#2A4A8C" stroke-width="1.5"/>
+<line x1="46.6" y1="175.0" x2="60.5" y2="167.0" stroke="#4F8DFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="35.4" y1="144.3" x2="44.3" y2="142.8" stroke="#4F8DFF" stroke-width="3" stroke-linecap="round"/>
+<line x1="35.4" y1="111.7" x2="51.2" y2="114.5" stroke="#4F8DFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="46.6" y1="81.0" x2="54.4" y2="85.5" stroke="#4F8DFF" stroke-width="3" stroke-linecap="round"/>
+<line x1="67.6" y1="56.0" x2="77.9" y2="68.2" stroke="#4F8DFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="95.9" y1="39.7" x2="98.9" y2="48.1" stroke="#4F8DFF" stroke-width="3" stroke-linecap="round"/>
+<line x1="128.0" y1="34.0" x2="128.0" y2="50.0" stroke="#4F8DFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="160.1" y1="39.7" x2="157.1" y2="48.1" stroke="#4F8DFF" stroke-width="3" stroke-linecap="round"/>
+<line x1="188.4" y1="56.0" x2="178.1" y2="68.2" stroke="#4F8DFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="209.4" y1="81.0" x2="201.6" y2="85.5" stroke="#4F8DFF" stroke-width="3" stroke-linecap="round"/>
+<line x1="220.6" y1="111.7" x2="204.8" y2="114.5" stroke="#E8343A" stroke-width="5" stroke-linecap="round"/>
+<line x1="220.6" y1="144.3" x2="211.7" y2="142.8" stroke="#E8343A" stroke-width="3" stroke-linecap="round"/>
+<line x1="209.4" y1="175.0" x2="195.5" y2="167.0" stroke="#E8343A" stroke-width="5" stroke-linecap="round"/>
+<polyline points="128,170 128,206" fill="none" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,180 106,202 92,202" fill="none" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,180 150,202 164,202" fill="none" stroke="#4F8DFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="213" r="6" fill="#0A1020" stroke="#4F8DFF" stroke-width="4.5"/>
+<circle cx="85" cy="202" r="6" fill="#0A1020" stroke="#4F8DFF" stroke-width="4.5"/>
+<circle cx="171" cy="202" r="6" fill="#0A1020" stroke="#4F8DFF" stroke-width="4.5"/>
+<polyline points="54,138 70,138 78,126 86,138 98,138 106,148 118,50 128,170 138,138 150,138 160,122 172,138 202,138" fill="none" stroke="#E8343A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="118" cy="50" r="8" fill="#F0F5FF"/>
 </svg>

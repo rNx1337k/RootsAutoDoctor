@@ -7,6 +7,18 @@ protocolos que o VCDS usa nestes carros:
 - **KW1281** (o "KWP1281" do VCDS) — init a 5 baud, auto-detecção 10400 / 9600 / 4800 baud
 - **KWP2000 sobre linha K** (ISO 14230) — init a 5 baud, como nos EDC15/EDC16 e ABS Mk60
 
+## Novidades da v0.3
+
+- Logo v2: escala de conta-rotações com zona vermelha, ECG completo com brilho e
+  ícone simplificado para 16–32 px (barra de tarefas)
+- Nomes dos campos nos mostradores para motores 1.9 TDI (grupos 1, 2, 3, 4, 8, 10, 11 e 13)
+- Mais de 30 códigos de avaria VAG e 40 P-codes OBD-II adicionados à base
+- **Histórico**: cada Auto-Scan e relatório fica guardado com os dados do veículo;
+  procure por matrícula ou cliente e refaça o relatório quando quiser
+- Botões dos controladores mostram o resultado do último Auto-Scan
+- "Voltar a ligar" quando a ligação cai; nova tentativa automática se a centralina demorar a acordar
+- Atalhos: F5 ler avarias · F6 iniciar/parar leitura · Ctrl+R relatório · Ctrl+1…4 páginas · Ctrl+L registo
+
 ## Novidades da v0.2
 
 - Logo próprio (mostrador + pulso + raízes em pistas de circuito) e ícone da aplicação

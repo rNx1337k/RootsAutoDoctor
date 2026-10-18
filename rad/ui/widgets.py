@@ -77,12 +77,18 @@ class GaugeCell(QWidget):
     def __init__(self, n):
         super().__init__()
         self.n = n
+        self.label = None
         self.field = None
         self.key = None
         self.lo, self.hi = 0.0, 100.0
         self.hist = deque(maxlen=90)
         self.setMinimumSize(170, 200)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    def set_label(self, text):
+        if text != self.label:
+            self.label = text
+            self.update()
 
     def set(self, field):
         if field is None:
@@ -121,7 +127,10 @@ class GaugeCell(QWidget):
 
         p.setPen(QColor(MUTED))
         p.setFont(display_font(9, False))
-        p.drawText(QRectF(12, 6, w - 24, 20), int(Qt.AlignLeft | Qt.AlignVCenter), f"Campo {self.n}")
+        title = self.label or f"Campo {self.n}"
+        title = p.fontMetrics().elidedText(title, Qt.ElideRight, int(w - 24))
+        p.setPen(QColor(TEXT if self.label else MUTED))
+        p.drawText(QRectF(12, 6, w - 24, 20), int(Qt.AlignLeft | Qt.AlignVCenter), title)
 
         spark_h = 30
         size = max(60.0, min(w - 28.0, h - 34.0 - spark_h - 8))

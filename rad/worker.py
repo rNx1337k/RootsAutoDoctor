@@ -161,7 +161,7 @@ class Worker(QThread):
         self._ensure_port()
         self.state.emit("connecting", address)
         s = ECUSession(self.kl, self._log, self.cfg["baud"])
-        info = s.connect(address)
+        info = s.connect(address, retry=True)
         self.session = s
         self.log.emit(f"Ligado a {address:02X} — {info['part']} {info['component']}")
         self.state.emit("connected", info)

@@ -22,11 +22,15 @@ class ECUSession:
     def keep_alive_interval(self):
         return self.proto.keep_alive_interval if self.proto else 1.0
 
-    def connect(self, address):
-        bauds = AUTO_BAUDS if self.baud_setting == "auto" else (int(self.baud_setting),)
+    def connect(self, address, retry=False):
+        """retry=True: se nada responder, tenta mais uma vez (centralinas que demoram a acordar)."""
+        bauds = list(AUTO_BAUDS if self.baud_setting == "auto" else (int(self.baud_setting),))
         res, used_baud = None, None
-        for attempt, baud in enumerate(bauds):
-            if attempt:
+        retried = False
+        i = 0
+        while i < len(bauds):
+            baud = bauds[i]
+            if i or retried:
                 time.sleep(0.4 if not self.kl.is_simulator else 0)
             self.log(f"Init 5 baud → endereço {address:02X} a {baud} baud…")
             r = self.kl.five_baud_init(address, baud)
@@ -34,9 +38,15 @@ class ECUSession:
                 res, used_baud = r, baud
                 break
             if r["status"] == "none":
+                if retry and not retried:
+                    retried = True
+                    self.log("  sem resposta — nova tentativa")
+                    time.sleep(1.0 if not self.kl.is_simulator else 0)
+                    continue
                 raise NoResponse(f"O controlador {address:02X} não responde "
                                  "(verifique ignição, cabo e endereço)")
             self.log(f"  sync inválido (0x{r['byte']:02X}) — a tentar outra velocidade")
+            i += 1
         if res is None:
             raise ConnectError("Sincronização falhou em todas as velocidades")
 

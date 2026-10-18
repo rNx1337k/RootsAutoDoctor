@@ -117,6 +117,35 @@ VAG_DTC = {
     1312: "Barramento de dados do grupo motopropulsor",
     1314: "Unidade de comando do motor",
     1316: "Unidade de comando do ABS",
+    545: "Ligação eléctrica motor-caixa",
+    550: "Regulação do início de injecção",
+    638: "Ligação eléctrica motor-caixa 2",
+    667: "Sinal de temperatura exterior do painel de instrumentos",
+    778: "Sensor do ângulo de direcção (G85)",
+    849: "Contacto S no canhão de ignição (D)",
+    928: "Módulo de fecho dianteiro do condutor (F220)",
+    929: "Módulo de fecho dianteiro do passageiro (F221)",
+    955: "Chave 1",
+    956: "Chave 2",
+    1025: "Luz de avaria do motor (K83)",
+    1042: "Unidade de comando não codificada",
+    1134: "Buzina do alarme (H12)",
+    1165: "Unidade de comando da borboleta (J338)",
+    1235: "Válvula do ar secundário (N112)",
+    1249: "Injector cilindro 1 (N30)",
+    1250: "Injector cilindro 2 (N31)",
+    1251: "Injector cilindro 3 (N32)",
+    1252: "Injector cilindro 4 (N33)",
+    1264: "Bomba do ar secundário (V101)",
+    1299: "Interface de diagnóstico do barramento (J533)",
+    1315: "Unidade de comando da caixa",
+    1317: "Unidade de comando no painel de instrumentos (J285)",
+    1321: "Unidade de comando dos airbags (J234)",
+    1331: "Unidade de comando da porta do condutor (J386)",
+    1332: "Unidade de comando da porta do passageiro (J387)",
+    1333: "Unidade de comando da porta traseira esquerda (J388)",
+    1334: "Unidade de comando da porta traseira direita (J389)",
+    65535: "Unidade de comando avariada",
 }
 
 # Descrições de alguns P-codes (VAG 16xxx/17xxx mapeiam para P0xxx/P1xxx)
@@ -127,7 +156,40 @@ PCODE_DESC = {
     "P0110": "Circuito do sensor de temperatura do ar de admissão",
     "P0115": "Circuito do sensor de temperatura do líquido de refrigeração",
     "P0120": "Circuito do sensor de posição da borboleta/pedal",
+    "P0102": "Medidor de massa de ar — sinal baixo",
+    "P0103": "Medidor de massa de ar — sinal alto",
+    "P0112": "Sensor de temperatura do ar de admissão — sinal baixo",
+    "P0113": "Sensor de temperatura do ar de admissão — sinal alto",
+    "P0117": "Sensor de temperatura do líquido de refrigeração — sinal baixo",
+    "P0118": "Sensor de temperatura do líquido de refrigeração — sinal alto",
+    "P0122": "Sensor de posição da borboleta/pedal — sinal baixo",
+    "P0123": "Sensor de posição da borboleta/pedal — sinal alto",
+    "P0130": "Circuito da sonda lambda (banco 1, sensor 1)",
     "P0170": "Ajuste de combustível (banco 1)",
+    "P0171": "Mistura demasiado pobre (banco 1)",
+    "P0172": "Mistura demasiado rica (banco 1)",
+    "P0201": "Circuito do injector cilindro 1",
+    "P0202": "Circuito do injector cilindro 2",
+    "P0203": "Circuito do injector cilindro 3",
+    "P0204": "Circuito do injector cilindro 4",
+    "P0235": "Circuito do sensor de pressão do turbo",
+    "P0236": "Sensor de pressão do turbo — gama/funcionamento",
+    "P0237": "Sensor de pressão do turbo — sinal baixo",
+    "P0238": "Sensor de pressão do turbo — sinal alto",
+    "P0243": "Circuito da electroválvula do turbo",
+    "P0299": "Pressão do turbo insuficiente",
+    "P0381": "Circuito da luz das velas de incandescência",
+    "P0402": "Fluxo EGR excessivo",
+    "P0403": "Circuito da válvula EGR",
+    "P0404": "Válvula EGR — gama/funcionamento",
+    "P0405": "Sensor da válvula EGR — sinal baixo",
+    "P0440": "Sistema de emissões evaporativas",
+    "P0501": "Sensor de velocidade do veículo — gama/funcionamento",
+    "P0505": "Sistema de controlo do ralenti",
+    "P0562": "Tensão do sistema baixa",
+    "P0563": "Tensão do sistema alta",
+    "P0606": "Processador da unidade de comando",
+    "P0700": "Sistema de controlo da caixa automática",
     "P0234": "Sobrepressão do turbo",
     "P0300": "Falhas de ignição aleatórias",
     "P0301": "Falha de ignição cilindro 1",
@@ -235,6 +297,31 @@ def decode_fault(code, status):
         "intermittent": bool(status & 0x80),
         "status": status,
     }
+
+
+# ------------------------------------------- nomes dos grupos de medição
+# Motores 1.9 TDI EDC15 (bomba rotativa VE e bomba-injector) — os grupos mais usados.
+# Os nomes servem de guia; o significado exacto pode variar com a versão do software.
+_TDI_GROUPS = {
+    1: ["Rotação", "Débito injectado", "Sensor do pistão modulador", "Temperatura do líquido"],
+    2: ["Rotação", "Pedal do acelerador", "Estado de funcionamento", "Temperatura do líquido"],
+    3: ["Rotação", "Massa de ar pretendida", "Massa de ar real", "Ciclo EGR (N18)"],
+    4: ["Rotação", "Início de injecção pretendido", "Início de injecção real", "Ciclo N108"],
+    8: ["Rotação", "Débito pedido", "Limite por rotação", "Limite por massa de ar"],
+    10: ["Massa de ar", "Pressão atmosférica", "Pressão no colector", "Pedal do acelerador"],
+    11: ["Rotação", "Pressão do turbo pretendida", "Pressão do turbo real", "Ciclo N75"],
+    13: ["Desvio cilindro 1", "Desvio cilindro 2", "Desvio cilindro 3", "Desvio cilindro 4"],
+}
+GROUP_LABELS = {"038906": _TDI_GROUPS, "028906": _TDI_GROUPS, "045906": _TDI_GROUPS}
+
+
+def group_labels(part, group):
+    """Nomes dos 4 campos de um grupo para esta peça, ou None se não conhecidos."""
+    part = (part or "").replace(" ", "").upper()
+    for prefix, groups in GROUP_LABELS.items():
+        if part.startswith(prefix):
+            return groups.get(group)
+    return None
 
 
 # --------------------------------------------------------- valores de medição
