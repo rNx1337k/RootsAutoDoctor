@@ -1,130 +1,138 @@
-# Roots Auto Doctor
+<p align="center">
+  <img src="docs/banner.png" alt="Roots Auto Doctor" width="100%">
+</p>
 
-Programa de diagnóstico automóvel ao estilo VCDS, começando pelo grupo VAG em linha K
-(TDI e restantes modelos até ~2005). Fala directamente com as centralinas pelos mesmos
-protocolos que o VCDS usa nestes carros:
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.5.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/UI-PySide6%20%2F%20Qt%206-0E1526?style=flat-square&logo=qt" alt="PySide6">
+  <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
+  <img src="https://img.shields.io/badge/license-proprietary-0E1526?style=flat-square" alt="License">
+</p>
 
-- **KW1281** (o "KWP1281" do VCDS) — init a 5 baud, auto-detecção 10400 / 9600 / 4800 baud
-- **KWP2000 sobre linha K** (ISO 14230) — init a 5 baud, como nos EDC15/EDC16 e ABS Mk60
+<p align="center">
+  <b>Read fault codes, live data, adaptations and coding on VAG cars — straight from the ECU, over the K-line.</b>
+</p>
 
-## Novidades da v0.5
+---
 
-- **Testes guiados** para 1.9 TDI (separador *Testes guiados* no motor 01):
-  equilíbrio dos injectores (grupo 013, 20 s ao ralenti), pressão do turbo (grupo 011)
-  e massa de ar (grupo 003) numa aceleração em 3ª — com resultado e indicação no fim
-- **Gráfico grande ao vivo**: duplo clique num mostrador abre o valor num gráfico com mín/máx/média
-- **Valor máximo** nos mostradores (marca vermelha na escala e "máx" por baixo do valor)
-- **Apagar avarias em todos** os controladores a partir do Auto-Scan (com confirmação)
-- **Repor indicador de revisão** nos painéis tipo Golf IV / Bora / Passat B5 / Octavia I (Informação → Funções rápidas)
-- Simulador com ciclo ralenti → aceleração e grupo 013, para experimentar tudo sem carro
+## Why Roots Auto Doctor
 
-## Novidades da v0.4 — testes e correcções
+Older VW, Audi, Seat and Škoda models talk to diagnostic tools over the **K-line** using the
+same protocols dealer tools have always used: **KW1281** and **KWP2000**. Roots Auto Doctor
+speaks those protocols natively through an inexpensive KKL cable, wrapped in an interface built
+for the workshop floor — clear gauges, one-click Auto-Scan and a report you can hand to the customer.
 
-- Banco de testes de robustez (`tests/test_robustness.py`): ruído na linha K, bytes perdidos,
-  cabos sem eco, centralina que deixa de responder a meio, 1500 leituras seguidas e fuzzing
-  dos descodificadores — nenhum crash, todos os erros tratados
-- Correcção de temporização W4 no init 5 baud (com a latência dos cabos FTDI podia passar dos 50 ms)
-- Pausa curta entre blocos KW1281 em hardware real
-- Auto-Scan espera que a centralina expire depois de um erro antes de passar à seguinte
-- Relatório de texto do Auto-Scan já não falha quando falta o código de oficina
-- Login limitado a 00000–65535 (o protocolo só leva 2 bytes)
-- Gravação CSV: erro tratado se não for possível criar o ficheiro, nomes dos campos no cabeçalho,
-  grupos bloqueados durante a leitura (as colunas já não se desalinham)
-- **Registos em disco**: a comunicação fica em `%APPDATA%\RootsAutoDoctor\registos`
-  (um ficheiro por dia) e qualquer erro inesperado fica em `crash.log`. Opções → *Abrir pasta de registos*
-- `run_tests.bat` corre todos os testes no seu PC
+## Highlights
 
-## Novidades da v0.3
+| | |
+|---|---|
+| 🔍 **Auto-Scan** | Scans every common module, shows results as colour-coded tiles and clears faults across all modules in one go |
+| ⚠️ **Fault codes** | VAG 5-digit codes with OBD-II P-code equivalent, fault type and intermittent/permanent status |
+| 📈 **Live data** | Up to three measuring groups at once on cluster-style gauges with peak markers, live charts and CSV logging |
+| 🧪 **Guided tests** | Injector balance, boost pressure and mass air flow checks for 1.9 TDI engines, with a plain-language verdict |
+| 🛠️ **Workshop functions** | Basic settings, adaptation (read / test / save), coding, login, output tests and service reminder reset |
+| 📄 **Customer reports** | Branded PDF or web report with workshop details, vehicle data, faults per module and technician notes |
+| 🗂️ **History** | Every scan and report is saved locally and searchable by plate or customer |
+| 🧩 **Simulator** | Built-in virtual ECUs (engine, ABS, cluster) to explore every feature without a car |
 
-- Logo v2: escala de conta-rotações com zona vermelha, ECG completo com brilho e
-  ícone simplificado para 16–32 px (barra de tarefas)
-- Nomes dos campos nos mostradores para motores 1.9 TDI (grupos 1, 2, 3, 4, 8, 10, 11 e 13)
-- Mais de 30 códigos de avaria VAG e 40 P-codes OBD-II adicionados à base
-- **Histórico**: cada Auto-Scan e relatório fica guardado com os dados do veículo;
-  procure por matrícula ou cliente e refaça o relatório quando quiser
-- Botões dos controladores mostram o resultado do último Auto-Scan
-- "Voltar a ligar" quando a ligação cai; nova tentativa automática se a centralina demorar a acordar
-- Atalhos: F5 ler avarias · F6 iniciar/parar leitura · Ctrl+R relatório · Ctrl+1…4 páginas · Ctrl+L registo
+## Protocol support
 
-## Novidades da v0.2
+| Feature | KW1281 | KWP2000 (K-line) |
+|---|:---:|:---:|
+| Identification (part number, component) | ✅ | ✅ |
+| Coding / workshop code (read) | ✅ | — |
+| Read & clear fault codes | ✅ | ✅ |
+| Measuring blocks | ✅ | ✅ |
+| Basic settings | ✅ | 🔜 |
+| Adaptation | ✅ | 🔜 |
+| Coding | ✅ | 🔜 |
+| Login | ✅ | 🔜 |
+| Output tests | ✅ | 🔜 |
 
-- Logo próprio (mostrador + pulso + raízes em pistas de circuito) e ícone da aplicação
-- Tema inspirado no painel de instrumentos VAG: azul-noite, escala azul, ponteiros vermelhos
-- Ecrã de arranque, barra lateral com indicador de pulso (bate enquanto há ligação)
-- Valores de medição em mostradores com ponteiro e histórico das últimas leituras
-- Auto-Scan em mosaicos coloridos (verde sem avarias, âmbar com avarias, vermelho sem comunicação);
-  clique num mosaico para abrir o controlador
-- **Relatório para o cliente** em PDF ou página web: logo, dados da oficina (Opções),
-  dados do veículo (Início), avarias por controlador e observações
-- Notificações discretas em vez de janelas para confirmações
+Typical coverage: VAG vehicles up to around 2005 with a K-line diagnostic port — for example
+Golf IV, Bora, Passat B5, Audi A3 8L / A4 B5–B6, Seat Leon 1M and Škoda Octavia I.
 
-Para regenerar o logo: `python tools/make_logo.py` (precisa de Pillow).
+## Hardware
 
-## Instalar e correr (Windows)
+- **Supported:** "dumb" K-line cables (KKL 409.1 and K-line VCDS clones) with an **FTDI** or **CH340** chip
+  that show up as a standard COM port.
+- **Not supported:** HEX-USB+CAN / HEX-V2 interfaces (genuine or clone) — their firmware is closed
+  and only works with Ross-Tech software.
+- **Tip:** on FTDI cables set *Device Manager → Port → Advanced → Latency Timer* to **1 ms** for much faster live data.
 
-1. Instalar Python 3.10+ (marcar "Add Python to PATH").
-2. Duplo clique em `run.bat` — na primeira vez cria o ambiente e instala PySide6 + pyserial.
-3. Para gerar um `.exe`: `build_exe.bat`.
+## Quick start
 
-Manualmente: `pip install -r requirements.txt` e `python main.py`.
-
-## Cabo
-
-Funciona com cabos **KKL "VAG-COM 409.1"** e clones VCDS de **linha K com chip FTDI ou CH340**
-— os que aparecem no Gestor de Dispositivos como porta COM.
-
-- Em cabos FTDI: Propriedades da porta COM → Definições → Avançadas → **Latency Timer = 1 ms**.
-  Sem isto funciona, mas a leitura dos grupos fica bastante mais lenta.
-- Cabos **HEX-USB+CAN / HEX-V2** (originais ou clones) têm firmware fechado da Ross-Tech:
-  não aparecem como porta COM e só funcionam com o VCDS.
-
-## Primeiro teste
-
-1. Opções → escolher a porta → **Testar interface** (com o cabo na ficha OBD e ignição ligada
-   deve dizer "eco da linha K OK").
-2. Controladores → **01 Electrónica do motor**.
-3. Separadores: Informação, Avarias, Valores de medição (3 grupos em simultâneo + gravação CSV),
-   Ajustes básicos, Adaptação, Codificação, Login, Testes de saídas.
-4. **Auto-Scan** varre todos os módulos comuns e gera relatório (copiar / guardar .txt).
-
-Sem carro: Início → **Modo simulador** (endereços 01 motor, 03 ABS em KWP2000, 17 painel a 9600 baud).
-
-## Funções por protocolo
-
-| Função | KW1281 | KWP2000 (linha K) |
-|---|---|---|
-| Identificação (peça, componente) | ✔ | ✔ |
-| Codificação / WSC (leitura) | ✔ | — |
-| Ler / apagar avarias | ✔ | ✔ |
-| Valores de medição (grupos) | ✔ | ✔ |
-| Ajustes básicos | ✔ | próxima versão |
-| Adaptação (ler / testar / gravar) | ✔ | próxima versão |
-| Codificar | ✔ | próxima versão |
-| Login | ✔ | próxima versão |
-| Testes de saídas | ✔ | próxima versão |
-
-## Estrutura
-
-```
-main.py                    arranque da aplicação
-rad/kline.py               porta série, eco, init 5 baud por bit-banging (BREAK)
-rad/protocols/kw1281.py    protocolo KW1281 (blocos com complemento byte a byte)
-rad/protocols/kwp2000.py   KWP2000 sobre linha K
-rad/session.py             init + detecção de protocolo + API única
-rad/vag_data.py            módulos, códigos de avaria, tipos de avaria, fórmulas de medição
-rad/simulator.py           centralinas simuladas ao nível do byte
-rad/worker.py              thread de comunicação (keep-alive, leitura contínua, auto-scan)
-rad/ui/                    interface PySide6
-tests/test_simulator.py    testes de ponta a ponta contra o simulador
+```bat
+git clone https://github.com/<your-user>/roots-auto-doctor.git
+cd roots-auto-doctor
+run.bat
 ```
 
-## Se algo falhar no carro
+`run.bat` creates a virtual environment, installs the dependencies (PySide6, pyserial) and starts the app.
 
-Active **Opções → Registar bytes em bruto** e envie o conteúdo do "Registo de comunicação":
-mostra exactamente o que o carro respondeu e permite corrigir rapidamente.
+1. Plug the cable into the OBD port and turn the **ignition on**.
+2. Open **Options**, select the COM port and click **Test interface**.
+3. Pick a module (for example **01 Engine**) or run an **Auto-Scan**.
 
-## Próximos passos
+No car nearby? On the home screen click **Open simulator** and try addresses `01`, `03` and `17`.
 
-- Ajustes básicos, adaptação e codificação em KWP2000 (EDC16, painéis UDS-on-K)
-- Base de dados de avarias e de nomes de grupos de medição mais completa
-- Carros com CAN (VAG pós-2005 e outras marcas): exige outra interface (ELM327/OBDLink ou J2534)
+### Build a Windows executable
+
+```bat
+build_exe.bat
+```
+
+The app is created in `dist\RootsAutoDoctor\`.
+
+## Testing
+
+```bat
+run_tests.bat
+```
+
+The test suite runs entirely against the simulator and covers:
+
+- full KW1281 and KWP2000 sessions, including automatic baud rate and echo detection;
+- fault injection: line noise, dropped bytes, cables without echo and ECUs dropping out mid-session;
+- long live-data sessions and fuzzing of every decoder;
+- guided test verdicts and diagnostic history.
+
+Communication logs and crash reports are written to `%APPDATA%\RootsAutoDoctor\registos`.
+
+## Project structure
+
+```
+main.py                     application entry point
+rad/kline.py                serial port, echo handling, 5-baud init
+rad/protocols/kw1281.py     KW1281 block protocol
+rad/protocols/kwp2000.py    KWP2000 over K-line
+rad/session.py              init, protocol detection and unified ECU API
+rad/vag_data.py             modules, fault codes, fault types, measuring formulas
+rad/guided.py               guided engine tests
+rad/simulator.py            byte-level virtual ECUs
+rad/worker.py               background communication thread
+rad/ui/                     PySide6 interface
+tests/                      automated tests
+```
+
+## Roadmap
+
+- [ ] Basic settings, adaptation and coding over KWP2000 (EDC16)
+- [ ] Measuring group labels for petrol engines (1.8T, 2.0) and automatic gearboxes
+- [ ] Licence activation and compiled builds for distribution
+- [ ] CAN / UDS support for newer vehicles
+
+## Status
+
+Roots Auto Doctor is in **beta**. All features are validated against the built-in simulator;
+on-vehicle testing is in progress. Bug reports with the communication log attached are very welcome.
+
+## License
+
+Copyright © 2026. All rights reserved. This software is proprietary and may not be copied,
+modified or redistributed without written permission.
+
+<sub>VW, Audi, Seat, Škoda and VCDS are trademarks of their respective owners. Roots Auto Doctor is an
+independent product and is not affiliated with or endorsed by Volkswagen AG or Ross-Tech LLC.</sub>
