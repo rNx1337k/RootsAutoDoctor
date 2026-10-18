@@ -606,8 +606,15 @@ class ModulePage(QWidget):
         self.ad_test_lbl.setText("—")
         self.tabs.setCurrentIndex(0)
 
+    def _lock_groups(self, locked):
+        for g in self.groups:
+            g.enable.setEnabled(not locked)
+            g.spin.setEnabled(not locked)
+
     def stop_live(self):
         self.w.set_live(None, [])
+        self._lock_groups(False)
+        self.basic_group.spin.setEnabled(True)
         self.mvb_btn.setText("▶  Iniciar leitura")
         self.basic_btn.setText("Ajuste básico  ON")
         self._stop_csv()
@@ -676,6 +683,7 @@ class ModulePage(QWidget):
             QMessageBox.information(self, APP_NAME, "Active pelo menos um grupo.")
             return
         self.w.set_live("read", groups)
+        self._lock_groups(True)
         self.mvb_btn.setText("■  Parar leitura")
 
     def _toggle_basic(self):
@@ -683,6 +691,7 @@ class ModulePage(QWidget):
             self.stop_live()
             return
         self.w.set_live("basic", [self.basic_group.spin.value()])
+        self.basic_group.spin.setEnabled(False)
         self.basic_btn.setText("Ajuste básico  OFF")
 
     def on_live(self, data):
@@ -722,16 +731,22 @@ class ModulePage(QWidget):
                                               os.path.join(os.path.expanduser("~"), name), "CSV (*.csv)")
         if not path:
             return
-        self.csv_file = open(path, "w", newline="", encoding="utf-8-sig")
+        try:
+            self.csv_file = open(path, "w", newline="", encoding="utf-8-sig")
+        except OSError as e:
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível criar o ficheiro:\n{e}")
+            return
         self.csv_writer = csv.writer(self.csv_file, delimiter=";")
         header = ["Hora"]
         for card_ in self.groups:
             g = card_.group()
+            names = vag_data.group_labels(self.info.get("part") if self.info else "", g) if g is not None else None
             for i in range(4):
                 unit = ""
                 if card_.last and i < len(card_.last):
                     unit = f" [{card_.last[i]['unit']}]"
-                header.append(f"G{g:03d}.{i + 1}{unit}" if g is not None else "")
+                name = f" {names[i]}" if names and i < len(names) else ""
+                header.append(f"G{g:03d}.{i + 1}{name}{unit}" if g is not None else "")
         self.csv_writer.writerow(header)
         self.csv_btn.setText("⏹  Parar gravação")
         if self.w.live_mode != "read":
@@ -773,8 +788,8 @@ class ModulePage(QWidget):
 
     def _login(self):
         t = self.login_code.text().strip()
-        if not t.isdigit():
-            QMessageBox.warning(self, APP_NAME, "Código de login inválido.")
+        if not t.isdigit() or int(t) > 65535:
+            QMessageBox.warning(self, APP_NAME, "Código de login inválido (00000 a 65535).")
             return
         self.w.submit("login", int(t), self.login_wsc.value())
 
@@ -909,7 +924,8 @@ class AutoScanPage(QWidget):
                 info = it["info"]
                 lines.append(f"   Peça: {info['part']}   Componente: {info['component']}")
                 if info.get("coding") is not None:
-                    lines.append(f"   Codificação: {info['coding']:05d}   WSC: {info['wsc']:05d}")
+                    wsc = f"{info['wsc']:05d}" if info.get("wsc") is not None else "—"
+                    lines.append(f"   Codificação: {info['coding']:05d}   WSC: {wsc}")
                 fl = it["faults"]
                 lines.append(f"   {len(fl)} avaria(s)")
                 for f in fl:
@@ -991,6 +1007,7 @@ class OptionsPage(QWidget):
         row = QHBoxLayout()
         row.addWidget(btn("Guardar", "primary", self._save))
         row.addWidget(btn("Testar interface", None, self._test))
+        row.addWidget(btn("Abrir pasta de registos", None, self._open_logs))
         row.addStretch(1)
         v.addLayout(row)
         v.addWidget(lbl(
@@ -1038,6 +1055,12 @@ class OptionsPage(QWidget):
         for k, val in self.workshop().items():
             self.settings.setValue(f"workshop/{k}", val)
         self.saved.emit(c)
+
+    def _open_logs(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .. import applog
+        QDesktopServices.openUrl(QUrl.fromLocalFile(applog.log_dir()))
 
     def _test(self):
         self._save()

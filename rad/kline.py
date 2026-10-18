@@ -204,7 +204,9 @@ class KLine:
         if kb1 is None or kb2 is None:
             return {"status": "garbage", "byte": sync}
 
-        precise_sleep(0.03)                          # W4: 25–50 ms
+        # W4: o complemento tem de chegar 25–50 ms depois do KB2. A latência do driver
+        # (até 16 ms nos FTDI) já passou quando lemos o KB2, por isso esperamos só 25 ms.
+        precise_sleep(0.025)
         inv = (~kb2) & 0xFF
         try:
             ser.write(bytes([inv]))

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, history, report, vag_data
+from .. import APP_NAME, VERSION, applog, history, report, vag_data
 from ..kline import SIM_PORT
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
@@ -28,6 +28,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(QSS)
         self.settings = QSettings("Roots", "RootsAutoDoctor")
         self.module_faults = None
+        self.disk_log = applog.DiskLog()
 
         self.worker = Worker()
         self.worker.log.connect(self.append_log)
@@ -284,6 +285,7 @@ class MainWindow(QMainWindow):
     def append_log(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
         self.log.appendPlainText(f"[{ts}] {msg}")
+        self.disk_log.write(f"[{ts}] {msg}")
 
     def set_conn_state(self, state, text=None, sub=None):
         labels = {"disconnected": "Sem ligação", "connecting": "A ligar…", "connected": "Ligado"}

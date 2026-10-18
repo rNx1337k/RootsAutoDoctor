@@ -209,7 +209,11 @@ class Worker(QThread):
                 item["status"] = "error"
                 item["error"] = str(e)
             self.scan_progress.emit(i + 1, total, item)
-            time.sleep(0.35 if not self.kl.is_simulator else 0.02)
+            if self.kl.is_simulator:
+                time.sleep(0.02)
+            else:
+                # depois de um erro a ECU pode ficar à espera; deixá-la expirar antes do próximo init
+                time.sleep(1.5 if item["status"] == "error" else 0.35)
         self.result.emit("autoscan", {"aborted": self.abort_scan})
 
     # ------------------------------------------------------------ leitura viva

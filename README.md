@@ -7,6 +7,22 @@ protocolos que o VCDS usa nestes carros:
 - **KW1281** (o "KWP1281" do VCDS) — init a 5 baud, auto-detecção 10400 / 9600 / 4800 baud
 - **KWP2000 sobre linha K** (ISO 14230) — init a 5 baud, como nos EDC15/EDC16 e ABS Mk60
 
+## Novidades da v0.4 — testes e correcções
+
+- Banco de testes de robustez (`tests/test_robustness.py`): ruído na linha K, bytes perdidos,
+  cabos sem eco, centralina que deixa de responder a meio, 1500 leituras seguidas e fuzzing
+  dos descodificadores — nenhum crash, todos os erros tratados
+- Correcção de temporização W4 no init 5 baud (com a latência dos cabos FTDI podia passar dos 50 ms)
+- Pausa curta entre blocos KW1281 em hardware real
+- Auto-Scan espera que a centralina expire depois de um erro antes de passar à seguinte
+- Relatório de texto do Auto-Scan já não falha quando falta o código de oficina
+- Login limitado a 00000–65535 (o protocolo só leva 2 bytes)
+- Gravação CSV: erro tratado se não for possível criar o ficheiro, nomes dos campos no cabeçalho,
+  grupos bloqueados durante a leitura (as colunas já não se desalinham)
+- **Registos em disco**: a comunicação fica em `%APPDATA%\RootsAutoDoctor\registos`
+  (um ficheiro por dia) e qualquer erro inesperado fica em `crash.log`. Opções → *Abrir pasta de registos*
+- `run_tests.bat` corre todos os testes no seu PC
+
 ## Novidades da v0.3
 
 - Logo v2: escala de conta-rotações com zona vermelha, ECG completo com brilho e

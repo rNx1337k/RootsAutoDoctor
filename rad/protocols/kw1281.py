@@ -91,6 +91,8 @@ class KW1281:
         self.counter = 1 if self.counter is None else (self.counter + 1) & 0xFF
         blk = [len(data) + 3, self.counter, title] + data
         self.log(f"→ {Block(self.counter, title, data)}")
+        if not self.kl.is_simulator:
+            precise_sleep(0.003)            # pequena pausa entre blocos (algumas ECU precisam)
         for b in blk:
             self._send_byte_ack(b)
         self.kl.write_byte(0x03)

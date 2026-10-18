@@ -5,7 +5,7 @@ from PySide6.QtCore import QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
-from rad import APP_NAME, VERSION
+from rad import APP_NAME, VERSION, applog
 from rad.ui.main_window import MainWindow
 from rad.ui.style import BLUE, MUTED, NIGHT, RED
 from rad.ui.widgets import asset_path, display_font, logo_pixmap
@@ -38,7 +38,23 @@ def splash_pixmap():
     return pm
 
 
+def install_crash_handler():
+    def hook(exc_type, exc, tb):
+        text = applog.write_crash(exc_type, exc, tb)
+        sys.__excepthook__(exc_type, exc, tb)
+        try:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(None, APP_NAME,
+                                 "Ocorreu um erro inesperado. O programa continua a funcionar.\n\n"
+                                 f"Os detalhes foram guardados em:\n{applog.log_dir()}\\crash.log\n\n"
+                                 + text.strip().splitlines()[-1])
+        except Exception:
+            pass
+    sys.excepthook = hook
+
+
 def main():
+    install_crash_handler()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Roots")
