@@ -3,6 +3,10 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] — 2026-10-18
+### Changed
+- Simplified README with a clearer, more professional structure: overview, features, getting started, compatibility and development
+
 ## [0.9.2] — 2026-10-18
 ### Changed
 - Redesigned README: feature grid, hardware table, architecture diagram, roadmap progress and bug report guide
