@@ -199,6 +199,60 @@ class Worker(QThread):
                "(sem 12 V na ficha o cabo KKL não ecoa).")
         self.result.emit("test_interface", {"ok": ok, "message": msg})
 
+    def _cmd_link_check(self, address):
+        """Verifica a ligação passo a passo e devolve [(passo, ok, detalhe)]."""
+        steps = []
+        self.live_mode = None
+        if self.session:
+            self._cmd_disconnect()
+        old_raw = self.cfg.get("raw_log")
+        self.cfg["raw_log"] = True
+        try:
+            port = self.cfg.get("port")
+            if not port:
+                steps.append(("Porta do cabo", False, "Nenhuma porta escolhida. Use Detectar cabo."))
+                return
+            try:
+                self._ensure_port()
+                steps.append(("Abrir a interface", True, port))
+            except Exception as e:
+                steps.append(("Abrir a interface", False, f"{e}. Feche outros programas que usem o cabo "
+                                                           "(VCDS, Delphi…) e confirme a porta."))
+                return
+            if not getattr(self.kl, "is_j2534", False):
+                try:
+                    ok = self.kl.echo_test()
+                except Exception:
+                    ok = False
+                steps.append(("Eco da linha K", ok,
+                              "O cabo vê a linha K do carro." if ok else
+                              "Sem eco: o cabo não está ligado ao carro, a ignição está desligada, "
+                              "ou não é um cabo KKL."))
+                if not ok:
+                    return
+            try:
+                s = ECUSession(self.kl, self._log, self.cfg["baud"])
+                info = s.connect(address, retry=True)
+                steps.append((f"Ligação ao controlador {address:02X}", True,
+                              f"{info['protocol']} a {info['baud']} baud — {info['part']} {info['component']}"))
+                try:
+                    n = len(s.read_faults())
+                    steps.append(("Leitura de avarias", True, f"{n} avaria(s)"))
+                except Exception as e:
+                    steps.append(("Leitura de avarias", False, str(e)))
+                s.disconnect()
+            except NoResponse as e:
+                steps.append((f"Ligação ao controlador {address:02X}", False,
+                              f"{e}. Confirme que a ignição está ligada; experimente outro endereço (ex.: 17)."))
+            except Exception as e:
+                steps.append((f"Ligação ao controlador {address:02X}", False,
+                              f"{e}. Active o Registo detalhado e crie um pacote de suporte."))
+        finally:
+            self.cfg["raw_log"] = old_raw
+            if self.kl:
+                self.kl.raw_log = bool(old_raw)
+            self.result.emit("link_check", steps)
+
     def _cmd_autoscan(self, addresses):
         self.abort_scan = False
         self.live_mode = None

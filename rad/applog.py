@@ -46,3 +46,31 @@ def write_crash(exc_type, exc, tb):
     except Exception:
         pass
     return text
+
+
+def make_support_bundle(dest):
+    """Cria um .zip com os registos dos últimos dias e informação do sistema, para enviar ao suporte.
+    Não inclui licenças, histórico de clientes nem dados da oficina."""
+    import glob
+    import zipfile
+    from .kline import list_serial_ports
+    info = [f"{APP_NAME} v{VERSION}", f"Python {sys.version}", f"Sistema: {platform.platform()}",
+            f"Data: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}", "", "Portas:"]
+    try:
+        info += [f"  {dev}  —  {desc}" for dev, desc in list_serial_ports()]
+    except Exception as e:
+        info.append(f"  erro: {e}")
+    try:
+        from . import cable
+        info += ["", "Detecção de cabos:"]
+        info += [f"  [{f['level']}] {f['title']}" for f in cable.detect()] or ["  nenhum cabo encontrado"]
+        info += [f"  J2534: {d['name']} ({d['vendor']}) {d['dll']}" for d in cable.j2534_devices()]
+    except Exception as e:
+        info.append(f"  erro: {e}")
+    logs = sorted(glob.glob(os.path.join(log_dir(), "comunicacao_*.log")))[-3:]
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("sistema.txt", "\n".join(info))
+        for p in logs + [os.path.join(log_dir(), "crash.log")]:
+            if os.path.exists(p):
+                z.write(p, os.path.basename(p))
+    return dest

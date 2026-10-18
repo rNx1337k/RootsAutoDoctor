@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
         self.hist.report_req.connect(self.export_session)
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
+        self.options.link_check_req.connect(self.run_link_check)
         self.options.license_changed.connect(lambda _r: self.update_license())
 
         # ---------------- registo
@@ -273,6 +274,38 @@ class MainWindow(QMainWindow):
             return
         self.module.stop_live()
         self.worker.submit("connect", address)
+
+    def run_link_check(self):
+        cfg = self.options.config()
+        if not cfg["port"]:
+            QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo (ou use Detectar cabo).")
+            return
+        addr, ok = QInputDialog.getText(self, "Diagnóstico da ligação",
+                                        "Ligue o cabo ao carro com a ignição ligada.\n\n"
+                                        "Endereço do controlador a testar (hexadecimal):", text="01")
+        if not ok:
+            return
+        try:
+            a = int(addr.strip(), 16)
+        except ValueError:
+            QMessageBox.warning(self, APP_NAME, "Endereço inválido.")
+            return
+        self.options._save()
+        self.toast.show_msg("A verificar a ligação…", "info")
+        self.worker.submit("link_check", a)
+
+    def show_link_check(self, steps):
+        ok_all = steps and all(s[1] for s in steps)
+        rows = "".join(f"<p><b style='color:{OK if s[1] else '#E8343A'}'>{'✔' if s[1] else '✖'}  {s[0]}</b>"
+                       f"<br>{s[2]}</p>" for s in steps)
+        head = ("<p><b>Ligação OK — pode usar o programa no carro.</b></p>" if ok_all else
+                "<p><b>A ligação falhou no passo assinalado.</b> Se não conseguir resolver, use "
+                "<i>Pacote de suporte</i> em Opções e envie o ficheiro.</p>")
+        box = QMessageBox(self)
+        box.setWindowTitle("Diagnóstico da ligação")
+        box.setTextFormat(Qt.RichText)
+        box.setText(head + rows)
+        box.exec()
 
     # ------------------------------------------------------------ relatório
     def _report_items(self, source):
@@ -427,6 +460,8 @@ class MainWindow(QMainWindow):
             self.toast.show_msg("Avarias apagadas em todos os controladores" if not left and not errs
                                 else f"Feito — {left} avaria(s) voltaram a aparecer",
                                 "ok" if not left and not errs else "warn")
+        elif cmd == "link_check":
+            self.show_link_check(data)
         elif cmd == "output_test":
             self.module.show_output(data)
         elif cmd == "test_interface":

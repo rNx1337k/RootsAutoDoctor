@@ -3,6 +3,14 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] — 2026-10-18
+### Added
+- "Connection check" in Options: opens the interface, checks the K-line echo, connects to a module and reads faults, explaining which step failed and what to do
+- "Support package" in Options: zip with recent communication logs, crash log, ports and detected cables (no licences or customer data)
+### Changed
+- 1 ms Windows timer resolution while a K-line port is open, for more precise 5-baud init and protocol timing
+- Fault list no longer shows an empty "—" when a fault has no type text
+
 ## [0.9.0] — 2026-10-18
 ### Added
 - J2534 (PassThru 04.04) interface support: installed J2534 interfaces appear in the port list

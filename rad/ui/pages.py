@@ -1321,6 +1321,7 @@ class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
     license_changed = Signal(dict)
+    link_check_req = Signal()
 
     def __init__(self, settings):
         super().__init__()
@@ -1418,6 +1419,8 @@ class OptionsPage(QWidget):
         row.addWidget(btn("Guardar", "primary", self._save))
         row.addWidget(btn("Detectar cabo", "primary", self._detect_cable))
         row.addWidget(btn("Testar interface", None, self._test))
+        row.addWidget(btn("Diagnóstico da ligação", None, lambda: self.link_check_req.emit()))
+        row.addWidget(btn("Pacote de suporte", None, self._support_bundle))
         row.addWidget(btn("Abrir pasta de registos", None, self._open_logs))
         row.addStretch(1)
         v.addLayout(row)
@@ -1586,6 +1589,22 @@ class OptionsPage(QWidget):
                 os.startfile("devmgmt.msc")      # abre sem pedir administrador (só leitura)
             except Exception:
                 pass
+
+    def _support_bundle(self):
+        from .. import applog
+        name = f"RootsAutoDoctor_suporte_{datetime.datetime.now():%Y%m%d_%H%M}.zip"
+        path, _ = QFileDialog.getSaveFileName(self, "Guardar pacote de suporte",
+                                              os.path.join(os.path.expanduser("~"), "Desktop", name), "Zip (*.zip)")
+        if not path:
+            return
+        try:
+            applog.make_support_bundle(path)
+        except Exception as e:
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível criar o pacote:\n{e}")
+            return
+        QMessageBox.information(self, APP_NAME, f"Pacote de suporte guardado em:\n{path}\n\n"
+                                                "Contém os registos de comunicação dos últimos dias e a lista de "
+                                                "portas e cabos. Não contém licenças nem dados de clientes.")
 
     def _open_logs(self):
         from PySide6.QtCore import QUrl

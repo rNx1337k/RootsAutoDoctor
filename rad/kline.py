@@ -8,6 +8,7 @@ A inicialização a 5 baud (usada pelo VCDS em KW1281 e KWP2000 nos VAG antigos)
 é feita por "bit-banging" com o sinal BREAK da UART: BREAK ligado = linha em
 nível baixo (bit 0), BREAK desligado = nível alto (bit 1), 200 ms por bit.
 """
+import sys
 import time
 
 from .errors import KLineError, KLineTimeout
@@ -23,6 +24,19 @@ def precise_sleep(seconds):
     if seconds > 0.02:
         time.sleep(seconds - 0.016)
     while time.perf_counter() < end:
+        pass
+
+
+def _timer_resolution(enable):
+    """No Windows o relógio do sistema avança em passos de ~15,6 ms; para o init a 5 baud
+    e os tempos da linha K pedimos 1 ms enquanto a porta estiver aberta."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        fn = ctypes.windll.winmm.timeBeginPeriod if enable else ctypes.windll.winmm.timeEndPeriod
+        fn(1)
+    except Exception:
         pass
 
 
@@ -83,6 +97,8 @@ class KLine:
             except Exception as e:  # SerialException, PermissionError...
                 self.ser = None
                 raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}")
+        if not self.is_simulator:
+            _timer_resolution(True)
         # Nos cabos KKL o DTR/RTS costuma alimentar/comutar o driver da linha K/L.
         for attr, val in (("dtr", True), ("rts", False)):
             try:
@@ -99,6 +115,8 @@ class KLine:
                 self.ser.close()
             except Exception:
                 pass
+            if not self.is_simulator:
+                _timer_resolution(False)
         self.ser = None
 
     def _set_timeout(self, t):
