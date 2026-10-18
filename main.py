@@ -67,7 +67,11 @@ def main():
     w = MainWindow()
 
     def reveal():
-        w.show()
+        geo = w.settings.value("ui/geometry")
+        if geo is not None and w.restoreGeometry(geo):
+            w.show()
+        else:
+            w.showMaximized()           # primeira vez: ecrã inteiro
         splash.finish(w)
 
     QTimer.singleShot(1300, reveal)

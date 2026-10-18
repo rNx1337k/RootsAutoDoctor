@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame, QGridLayout,
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QMessageBox, QProgressBar,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar,
     QPushButton, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem, QTabWidget,
     QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
@@ -97,8 +97,10 @@ class GroupCard(QFrame):
         v = QVBoxLayout(self)
         v.setContentsMargins(14, 12, 14, 14)
         top = QHBoxLayout()
-        self.enable = QCheckBox(title)
+        self.enable = QCheckBox("")
+        self.enable.setToolTip(f"Ler este grupo ({title})")
         self.enable.setChecked(enabled)
+        self.enable.setVisible(title != "Grupo")
         self.spin = QSpinBox()
         self.spin.setRange(0, 255)
         self.spin.setValue(default_group)
@@ -184,6 +186,23 @@ class HomePage(QWidget):
         hh.addLayout(tv, 1)
         v.addWidget(hero)
 
+        # --- números da oficina (a partir do histórico)
+        stats = QHBoxLayout()
+        stats.setSpacing(14)
+        self.stat_lbls = {}
+        for key, name in [("today", "Diagnósticos hoje"), ("month", "Diagnósticos este mês"),
+                          ("faults", "Avarias encontradas este mês"), ("vehicles", "Veículos no histórico")]:
+            c = card()
+            cl = QVBoxLayout(c)
+            cl.setContentsMargins(18, 14, 18, 14)
+            cl.setSpacing(0)
+            val = lbl("0", "value")
+            cl.addWidget(val)
+            cl.addWidget(lbl(name, "muted"))
+            self.stat_lbls[key] = val
+            stats.addWidget(c)
+        v.addLayout(stats)
+
         # --- acções principais
         grid = QGridLayout()
         grid.setSpacing(14)
@@ -232,10 +251,33 @@ class HomePage(QWidget):
             if key == "vin":
                 e.setMaxLength(17)
             self.vehicle_edits[key] = e
-            form.addWidget(lbl(name, "muted"), (i // 3) * 2, i % 3)
-            form.addWidget(e, (i // 3) * 2 + 1, i % 3)
+            form.addWidget(lbl(name, "muted"), (i // 2) * 2, i % 2)
+            form.addWidget(e, (i // 2) * 2 + 1, i % 2)
         vl.addLayout(form)
-        v.addWidget(vc)
+        vl.addStretch(1)
+
+        rc = card()
+        rl = QVBoxLayout(rc)
+        rl.setContentsMargins(22, 18, 22, 20)
+        rh = QHBoxLayout()
+        rh.addWidget(lbl("Últimos veículos", "h2"))
+        rh.addStretch(1)
+        rh.addWidget(btn("Ver histórico", None, lambda: self.go.emit("history")))
+        rl.addLayout(rh)
+        self.recent = QListWidget()
+        self.recent.setMinimumHeight(150)
+        self.recent.setStyleSheet("QListWidget { border: none; background: transparent; }"
+                                  "QListWidget::item { padding: 8px 4px; border-bottom: 1px solid #1D2945; }")
+        self.recent.itemDoubleClicked.connect(lambda _it: self.go.emit("history"))
+        rl.addWidget(self.recent, 1)
+        self.recent_empty = lbl("Os diagnósticos guardados aparecem aqui.", "muted")
+        rl.addWidget(self.recent_empty)
+
+        pair = QHBoxLayout()
+        pair.setSpacing(14)
+        pair.addWidget(vc, 3)
+        pair.addWidget(rc, 2)
+        v.addLayout(pair)
 
         foot = QHBoxLayout()
         foot.addWidget(lbl("Sem carro por perto? Experimente todas as funções com centralinas simuladas.",
@@ -247,6 +289,40 @@ class HomePage(QWidget):
                         "Latency Timer a 1 ms nas propriedades da porta COM para leituras mais rápidas.",
                         "muted", wrap=True))
         v.addStretch(1)
+
+    def refresh_stats(self):
+        """Actualiza os números e a lista de últimos veículos a partir do histórico."""
+        from .. import history
+        try:
+            sessions = history.list_sessions()
+        except Exception:
+            sessions = []
+        today = datetime.date.today()
+        month = today.strftime("%Y-%m")
+        day = today.isoformat()
+        in_month = [s for s in sessions if s["date"].startswith(month)]
+        plates = {s["plate"].upper().replace("-", "").replace(" ", "") for s in sessions if s["plate"]}
+        self.stat_lbls["today"].setText(str(sum(1 for s in sessions if s["date"].startswith(day))))
+        self.stat_lbls["month"].setText(str(len(in_month)))
+        self.stat_lbls["faults"].setText(str(sum(s["faults"] for s in in_month)))
+        self.stat_lbls["vehicles"].setText(str(len(plates)))
+        self.recent.clear()
+        seen = set()
+        for s in sessions:
+            key = s["plate"] or s["id"]
+            if key in seen:
+                continue
+            seen.add(key)
+            when = s["date"][8:10] + "/" + s["date"][5:7] + "  " + s["date"][11:16]
+            who = " · ".join(x for x in (s["plate"], s["model"], s["client"]) if x) or "Veículo sem matrícula"
+            state = "sem avarias" if s["faults"] == 0 else f"{s['faults']} avaria(s)"
+            it = QListWidgetItem(f"{who}\n{when}   ·   {state}")
+            it.setForeground(QBrush(QColor("#EAF0FF")))
+            self.recent.addItem(it)
+            if len(seen) >= 6:
+                break
+        self.recent.setVisible(bool(seen))
+        self.recent_empty.setVisible(not seen)
 
     def set_port(self, text, ok=False):
         self.status_lbl.setText(text)
@@ -386,27 +462,55 @@ class ModulePage(QWidget):
 
     def _build_info(self):
         w, v = self._pad()
-        c = card()
-        f = QFormLayout(c)
-        f.setContentsMargins(20, 18, 20, 18)
-        f.setHorizontalSpacing(30)
-        f.setVerticalSpacing(10)
         self.info_lbls = {}
-        for key, name in [("address", "Endereço"), ("module", "Módulo"), ("protocol", "Protocolo"),
-                          ("baud", "Velocidade"), ("part", "Nº de peça VAG"), ("component", "Componente"),
-                          ("coding", "Codificação"), ("wsc", "Código de oficina (WSC)"),
-                          ("extra", "Info extra"), ("raw", "Dados brutos")]:
-            l = lbl("—")
+
+        def value_label(key, big=False):
+            l = lbl("—", "value" if big else None)
             l.setTextInteractionFlags(Qt.TextSelectableByMouse)
             l.setWordWrap(True)
-            if key in ("part", "component", "coding"):
-                l.setStyleSheet("font-size: 13pt; font-weight: 700; color: white;")
-            if key == "raw":
-                l.setStyleSheet("font-family: Consolas, monospace; color: #8a919e;")
             self.info_lbls[key] = l
-            f.addRow(lbl(name, "muted"), l)
+            return l
+
+        # identificação em destaque — o que se aponta numa ficha de oficina
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        for key, name, stretch in (("part", "Nº de peça VAG", 2), ("component", "Componente", 3),
+                                   ("coding", "Codificação", 2)):
+            c = card()
+            cl = QVBoxLayout(c)
+            cl.setContentsMargins(18, 14, 18, 16)
+            cl.setSpacing(2)
+            cl.addWidget(lbl(name, "cellName"))
+            cl.addWidget(value_label(key, big=True))
+            if key == "coding":
+                cl.addWidget(value_label("wsc"))
+            cl.addStretch(1)
+            top.addWidget(c, stretch)
+        v.addLayout(top)
+
+        # detalhes técnicos
+        c = card()
+        g = QGridLayout(c)
+        g.setContentsMargins(20, 16, 20, 16)
+        g.setHorizontalSpacing(24)
+        g.setVerticalSpacing(8)
+        details = [("address", "Endereço"), ("module", "Módulo"), ("protocol", "Protocolo"),
+                   ("baud", "Velocidade"), ("extra", "Info extra")]
+        for i, (key, name) in enumerate(details):
+            r, col = i // 3, (i % 3) * 2
+            g.addWidget(lbl(name, "muted"), r, col)
+            g.addWidget(value_label(key), r, col + 1)
+        g.addWidget(lbl("Dados brutos", "muted"), 2, 0)
+        raw = value_label("raw")
+        raw.setStyleSheet("font-family: Consolas, monospace; color: #6A7BA0; font-size: 8.5pt;")
+        g.addWidget(raw, 2, 1, 1, 5)
+        for col in (1, 3, 5):
+            g.setColumnStretch(col, 1)
         v.addWidget(c)
+
         row = QHBoxLayout()
+        row.addWidget(btn("Ler avarias", "primary", self._quick_faults))
+        row.addWidget(btn("Valores de medição", None, lambda: self.tabs.setCurrentIndex(2)))
         row.addWidget(btn("Copiar informação", None, self._copy_info))
         row.addStretch(1)
         v.addLayout(row)
@@ -424,6 +528,10 @@ class ModulePage(QWidget):
         v.addWidget(self.quick)
         v.addStretch(1)
         return w
+
+    def _quick_faults(self):
+        self.tabs.setCurrentIndex(1)
+        self.w.submit("read_faults")
 
     def _reset_service(self):
         if ask(self, APP_NAME, "Repor o indicador de revisão (canal 02 = 0)?\n"
@@ -618,7 +726,7 @@ class ModulePage(QWidget):
         vals["address"] = f"{info['address']:02X}"
         vals["baud"] = f"{info['baud']} baud"
         vals["coding"] = f"{info['coding']:05d}" if info.get("coding") is not None else "—"
-        vals["wsc"] = f"{info['wsc']:05d}" if info.get("wsc") is not None else "—"
+        vals["wsc"] = f"Código de oficina {info['wsc']:05d}" if info.get("wsc") is not None else "Código de oficina —"
         vals["raw"] = "\n".join(info.get("raw") or []) or "—"
         for k, l in self.info_lbls.items():
             l.setText(str(vals.get(k) or "—"))
@@ -843,11 +951,14 @@ class ModulePage(QWidget):
         if not self.info:
             return
         i = self.info
-        txt = (f"Endereço {i['address']:02X}: {i['module']}\n"
-               f"Nº de peça: {i['part']}\nComponente: {i['component']}\n"
-               f"Codificação: {self.info_lbls['coding'].text()}\nWSC: {self.info_lbls['wsc'].text()}\n"
-               f"Protocolo: {i['protocol']} @ {i['baud']} baud")
-        QGuiApplication.clipboard().setText(txt)
+        lines = [f"Endereço {i['address']:02X}: {i['module']}",
+                 f"Nº de peça: {i['part']}",
+                 f"Componente: {i['component']}",
+                 f"Codificação: {self.info_lbls['coding'].text()}"]
+        if i.get("wsc") is not None:
+            lines.append(f"WSC: {i['wsc']:05d}")
+        lines.append(f"Protocolo: {i['protocol']} @ {i['baud']} baud")
+        QGuiApplication.clipboard().setText("\n".join(lines))
 
     # ------------------------------------------------------- medição viva
     def _toggle_mvb(self):
@@ -1210,7 +1321,7 @@ class OptionsPage(QWidget):
         for t, d in [("Automático", "auto"), ("Com eco (KKL normal)", "on"), ("Sem eco", "off")]:
             self.echo.addItem(t, d)
         f.addRow(lbl("Eco da linha K", "muted"), self.echo)
-        self.raw = QCheckBox("Registar bytes em bruto no log (debug)")
+        self.raw = QCheckBox("Registo detalhado: todos os blocos e bytes (para enviar quando houver problemas)")
         f.addRow(lbl("Debug", "muted"), self.raw)
         v.addWidget(c)
 
@@ -1227,6 +1338,17 @@ class OptionsPage(QWidget):
             e.setPlaceholderText(name)
             self.ws_edits[key] = e
             wf.addRow(lbl(name, "muted"), e)
+        lrow = QHBoxLayout()
+        self.ws_logo_preview = QLabel()
+        self.ws_logo_preview.setFixedSize(150, 60)
+        self.ws_logo_preview.setAlignment(Qt.AlignCenter)
+        self.ws_logo_preview.setStyleSheet("background: #0B1120; border: 1px dashed #3A4A72; border-radius: 8px; color: #7C8BAD;")
+        lrow.addWidget(self.ws_logo_preview)
+        lrow.addWidget(btn("Escolher imagem…", None, self._pick_logo))
+        lrow.addWidget(btn("Remover", None, self._remove_logo))
+        lrow.addStretch(1)
+        wf.addRow(lbl("Logótipo da oficina", "muted"), lrow)
+        wf.addRow(lbl("O logótipo aparece no relatório para o cliente e na barra lateral do programa.", "muted"))
         v.addWidget(wc)
         row = QHBoxLayout()
         row.addWidget(btn("Guardar", "primary", self._save))
@@ -1262,7 +1384,52 @@ class OptionsPage(QWidget):
         self.raw.setChecked(self.settings.value("raw_log", "false") == "true")
         for k, e in self.ws_edits.items():
             e.setText(self.settings.value(f"workshop/{k}", "") or "")
+        self._show_logo()
 
+    @staticmethod
+    def logo_file():
+        from ..applog import log_dir
+        return os.path.join(os.path.dirname(log_dir()), "oficina_logo.png")
+
+    def workshop_logo(self):
+        p = self.logo_file()
+        return p if os.path.exists(p) else None
+
+    def _show_logo(self):
+        from PySide6.QtGui import QPixmap
+        p = self.workshop_logo()
+        if p:
+            pm = QPixmap(p).scaled(140, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.ws_logo_preview.setPixmap(pm)
+        else:
+            self.ws_logo_preview.setPixmap(QPixmap())
+            self.ws_logo_preview.setText("Sem logótipo")
+
+    def _pick_logo(self):
+        from PySide6.QtGui import QImage
+        path, _ = QFileDialog.getOpenFileName(self, "Logótipo da oficina", os.path.expanduser("~"),
+                                              "Imagens (*.png *.jpg *.jpeg *.bmp *.webp)")
+        if not path:
+            return
+        img = QImage(path)
+        if img.isNull():
+            QMessageBox.warning(self, APP_NAME, "Não foi possível abrir essa imagem.")
+            return
+        if img.width() > 800 or img.height() > 400:
+            img = img.scaled(800, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if not img.save(self.logo_file(), "PNG"):
+            QMessageBox.warning(self, APP_NAME, "Não foi possível guardar o logótipo.")
+            return
+        self._show_logo()
+        self.saved.emit(self.config())
+
+    def _remove_logo(self):
+        try:
+            os.remove(self.logo_file())
+        except OSError:
+            pass
+        self._show_logo()
+        self.saved.emit(self.config())
     def workshop(self):
         return {k: e.text().strip() for k, e in self.ws_edits.items()}
 

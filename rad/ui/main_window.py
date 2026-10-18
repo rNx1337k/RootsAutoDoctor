@@ -3,7 +3,8 @@ import datetime
 import os
 
 from PySide6.QtCore import QSettings, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QShortcut, QTextDocument
+from PySide6.QtGui import (QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QPixmap, QShortcut,
+                           QTextDocument)
 from PySide6.QtWidgets import (
     QButtonGroup, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QMainWindow,
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
@@ -77,6 +78,12 @@ class MainWindow(QMainWindow):
             sv.addWidget(b)
         self.nav_btns["module"].setEnabled(False)
         sv.addStretch(1)
+        self.ws_brand = lbl("", "muted")
+        self.ws_brand.setAlignment(Qt.AlignCenter)
+        self.ws_brand.setWordWrap(True)
+        self.ws_brand.setMinimumHeight(10)
+        sv.addWidget(self.ws_brand)
+        sv.addSpacing(6)
 
         conn = QFrame()
         conn.setObjectName("card")
@@ -131,6 +138,13 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, dock)
         self.resizeDocks([dock], [150], Qt.Vertical)
         self.log_dock = dock
+        # o registo técnico fica escondido por omissão; botão na barra de estado e Ctrl+L
+        self.log_btn = btn("Registo técnico", None, lambda: self.log_dock.setVisible(not self.log_dock.isVisible()))
+        self.log_btn.setObjectName("statusBtn")
+        self.log_btn.setCheckable(True)
+        self.statusBar().addPermanentWidget(self.log_btn)
+        dock.visibilityChanged.connect(self.log_btn.setChecked)
+        dock.setVisible(self.settings.value("ui/log_visible", "false") == "true")
         self.menuBar().hide()
 
         self.toast = Toast(root)
@@ -147,6 +161,8 @@ class MainWindow(QMainWindow):
             self.module.stop_live()
         if key == "history":
             self.hist.refresh()
+        if key == "home":
+            self.home.refresh_stats()
         self.stack.setCurrentWidget(self.pages[key])
         self.nav_btns[key].setChecked(True)
 
@@ -189,8 +205,25 @@ class MainWindow(QMainWindow):
         self.show_page(key)
 
     # -------------------------------------------------------- configuração
+    def update_workshop_brand(self):
+        """Mostra o logótipo (ou o nome) da oficina na barra lateral."""
+        path = self.options.workshop_logo()
+        name = self.options.workshop().get("name", "")
+        if path:
+            dpr = self.devicePixelRatioF() or 1.0
+            pm = QPixmap(path)
+            if not pm.isNull():
+                pm = pm.scaled(int(200 * dpr), int(64 * dpr), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pm.setDevicePixelRatio(dpr)
+                self.ws_brand.setPixmap(pm)
+                self.ws_brand.setToolTip(name)
+                return
+        self.ws_brand.setPixmap(QPixmap())
+        self.ws_brand.setText(name)
+
     def apply_config(self, cfg, quiet=False):
         self.worker.submit("configure", cfg)
+        self.update_workshop_brand()
         port = cfg["port"]
         if not port:
             self.home.set_port("Escolha a porta do cabo em Opções")
@@ -255,19 +288,26 @@ class MainWindow(QMainWindow):
         if not path:
             return False
         workshop = self.options.workshop()
+        logo_path = self.options.workshop_logo() or asset_path("logo.png")
+        logo_img = QImage(logo_path)
+        if logo_img.isNull():
+            logo_path, logo_img = asset_path("logo.png"), QImage(asset_path("logo.png"))
+        lh = 64
+        lw = max(1, min(220, round(logo_img.width() * lh / max(1, logo_img.height()))))
+        logo_size = (lw, round(lw * logo_img.height() / max(1, logo_img.width())))
         try:
             if path.lower().endswith(".html"):
                 html = report.build_html(workshop, vehicle, items,
-                                         report.logo_data_uri(asset_path("logo.png")), notes)
+                                         report.logo_data_uri(logo_path), notes, logo_size)
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(html)
             else:
                 if not path.lower().endswith(".pdf"):
                     path += ".pdf"
                 from PySide6.QtPrintSupport import QPrinter
-                html = report.build_html(workshop, vehicle, items, "logo.png", notes)
+                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size)
                 doc = QTextDocument()
-                doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), QImage(asset_path("logo.png")))
+                doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), logo_img)
                 doc.setHtml(html)
                 printer = QPrinter(QPrinter.HighResolution)
                 printer.setOutputFormat(QPrinter.PdfFormat)
@@ -284,7 +324,11 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------ sinais
     def append_log(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        bar = self.log.verticalScrollBar()
+        at_end = bar.value() >= bar.maximum() - 4
         self.log.appendPlainText(f"[{ts}] {msg}")
+        if at_end:
+            bar.setValue(bar.maximum())
         self.disk_log.write(f"[{ts}] {msg}")
 
     def set_conn_state(self, state, text=None, sub=None):
@@ -394,6 +438,8 @@ class MainWindow(QMainWindow):
             self.toast.move(par.width() - self.toast.width() - 24, par.height() - self.toast.height() - 24)
 
     def closeEvent(self, ev):
+        self.settings.setValue("ui/log_visible", "true" if self.log_dock.isVisible() else "false")
+        self.settings.setValue("ui/geometry", self.saveGeometry())
         self.module.stop_live()
         self.worker.submit("disconnect")
         self.worker.stop()

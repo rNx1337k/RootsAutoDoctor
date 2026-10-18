@@ -90,7 +90,7 @@ class SimKW1281:
         """Ciclo de demonstração: 12 s ao ralenti, depois uma aceleração de 6 s (1500→3800 rpm)."""
         t = (time.monotonic() - self.t0) % 18
         if t < 12:
-            return 880 + random.uniform(-15, 15), 0.0
+            return 900 + 25 * math.sin(time.monotonic() * 1.7) + random.uniform(-20, 20), 0.0
         x = (t - 12) / 6
         return 1500 + 2300 * x + random.uniform(-30, 30), min(1.0, x * 3)
 

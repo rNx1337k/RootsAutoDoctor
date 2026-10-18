@@ -15,7 +15,7 @@ def _e(s):
     return html.escape(str(s or ""))
 
 
-def build_html(workshop, vehicle, items, logo_src="logo.png", notes=""):
+def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64)):
     """items: lista no formato do Auto-Scan
        [{"address", "module", "status": ok|error, "info", "faults", "error"}]."""
     now = datetime.datetime.now()
@@ -76,7 +76,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes=""):
  .verdict {{ padding: 10px 12px; border-left: 5px solid {verdict_color}; background: #F3F6FC; font-size: 11pt; }}
 </style></head><body>
 <table><tr>
- <td style="width:70px"><img src="{logo_src}" width="64" height="64"></td>
+ <td style="width:{logo_size[0] + 8}px"><img src="{logo_src}" width="{logo_size[0]}" height="{logo_size[1]}"></td>
  <td><h1>{_e(workshop.get('name') or 'Relatório de diagnóstico')}</h1>
      <span class="muted">{ws_info}</span></td>
  <td style="text-align:right" class="muted">Relatório de diagnóstico<br>{now:%d/%m/%Y %H:%M}</td>

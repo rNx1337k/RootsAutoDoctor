@@ -3,6 +3,18 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-10-18
+### Added
+- Workshop branding: pick your workshop logo in Options; it appears in the customer report header and the sidebar
+- Home dashboard with diagnostics today / this month, faults found this month, vehicles on record and recent vehicles
+- Redesigned module information tab: part number, component and coding highlighted, quick actions
+- Technical log hidden by default, toggled from the status bar ("Technical log") or Ctrl+L
+- Window opens maximised the first time and remembers its size and position
+### Fixed
+- Keep-alive and live data flooded the communication log (~60 lines/s), making it unreadable and growing the log file on disk; blocks are now only logged with "Detailed log" enabled
+- Communication log now keeps following the newest lines
+- Redundant "Group A / Group 1" labels on measuring group headers
+
 ## [0.5.1] — 2026-10-18
 ### Added
 - GitHub README with banner, feature overview and protocol support table

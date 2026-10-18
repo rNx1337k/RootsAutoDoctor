@@ -119,5 +119,8 @@ QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 5px; min-heigh
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 QScrollArea {{ background: transparent; }}
 QStatusBar {{ background: #0B1120; color: {MUTED}; }}
+QStatusBar::item {{ border: none; }}
+QPushButton#statusBtn {{ padding: 3px 12px; border-radius: 6px; font-weight: 500; color: {MUTED}; background: transparent; }}
+QPushButton#statusBtn:checked {{ color: white; background: {PANEL_2}; }}
 QToolTip {{ background: {PANEL_2}; color: white; border: 1px solid {BLUE}; }}
 """

@@ -1,0 +1,26 @@
+# Ambiente Python (criado pelo run.bat)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Executável gerado pelo build_exe.bat
+build/
+dist/
+*.spec
+
+# Ficheiros de trabalho
+*.patch
+*.zip
+*.csv
+*.log
+Diagnostico_*.pdf
+Diagnostico_*.html
+AutoScan_*.txt
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

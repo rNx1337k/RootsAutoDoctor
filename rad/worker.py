@@ -33,6 +33,7 @@ class Worker(QThread):
         self.session = None
         self.live_mode = None              # None | "read" | "basic"
         self.live_groups = []
+        self._quiet = False
         self.abort_scan = False
         self._running = True
 
@@ -70,6 +71,9 @@ class Worker(QThread):
             s = self.session
             if not (s and s.connected):
                 continue
+            # A leitura contínua e o keep-alive geram dezenas de blocos por segundo:
+            # só vão para o registo com "Registo detalhado" ligado nas Opções.
+            self._quiet = not self.cfg.get("raw_log")
             try:
                 if self.live_mode and self.live_groups:
                     self._poll_live()
@@ -78,13 +82,18 @@ class Worker(QThread):
                     s.keep_alive()
                     last = time.monotonic()
             except ProtocolError as e:
+                self._quiet = False
                 self._lost(str(e))
             except Exception as e:
+                self._quiet = False
                 self.log.emit(f"Erro: {e}")
+            finally:
+                self._quiet = False
         self._close_all()
 
     def _log(self, msg):
-        self.log.emit(msg)
+        if not self._quiet:
+            self.log.emit(msg)
 
     def _lost(self, reason):
         self.live_mode = None
