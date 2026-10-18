@@ -11,6 +11,7 @@ import traceback
 from PySide6.QtCore import QThread, Signal
 
 from .kline import KLine
+from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import ProtocolError, NoResponse, RequestRejected, NotSupported
 from . import vag_data
@@ -114,16 +115,19 @@ class Worker(QThread):
 
     def _ensure_port(self):
         c = self.cfg
-        if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"]:
+        if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"] and self.kl.is_open:
             self.kl.raw_log = c["raw_log"]
             return
         if self.kl:
             self.kl.close()
         if not c["port"]:
             raise ProtocolError("Escolha a porta do cabo nas Opções")
-        self.kl = KLine(c["port"], echo=c["echo"], log=self._log, raw_log=c["raw_log"])
+        if is_j2534_port(c["port"]):
+            self.kl = J2534Link(c["port"], log=self._log, raw_log=c["raw_log"])
+        else:
+            self.kl = KLine(c["port"], echo=c["echo"], log=self._log, raw_log=c["raw_log"])
         self.kl.open()
-        self.log.emit(f"Porta {c['port']} aberta")
+        self.log.emit(f"Interface {c['port']} aberta")
 
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):

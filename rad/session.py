@@ -1,9 +1,9 @@
 """Sessão com um controlador: faz o init, detecta o protocolo e expõe uma API única."""
 import time
 
-from .errors import ProtocolError, ConnectError, NoResponse
+from .errors import ProtocolError, ConnectError, NoResponse, KLineError
 from .protocols.kw1281 import KW1281
-from .protocols.kwp2000 import KWP2000
+from .protocols.kwp2000 import KWP2000, KWP2000J2534
 from . import vag_data
 
 AUTO_BAUDS = (10400, 9600, 4800)
@@ -22,8 +22,31 @@ class ECUSession:
     def keep_alive_interval(self):
         return self.proto.keep_alive_interval if self.proto else 1.0
 
+    def _connect_j2534(self, address):
+        link = self.kl
+        self.log(f"J2534: init 5 baud → endereço {address:02X}…")
+        try:
+            kb1, kb2 = link.five_baud_init(address)
+        except KLineError as e:
+            raise NoResponse(f"O controlador {address:02X} não responde pela interface J2534 ({e})")
+        kw = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
+        self.log(f"Sync OK — KB1={kb1:02X} KB2={kb2:02X} (keyword {kw})")
+        if kw == 1281:
+            raise ConnectError("Este controlador usa KW1281, que não pode ser usado por interfaces J2534 "
+                               "(a norma não permite confirmar cada byte a tempo). Use um cabo KKL.")
+        if not 2000 <= kw <= 2047:
+            raise ConnectError(f"Protocolo desconhecido (keyword {kw})")
+        self.proto = KWP2000J2534(link, address, self.log)
+        ident = self.proto.start()
+        self.connected = True
+        self.info = {"address": address, "module": vag_data.module_name(address), "protocol": "KWP2000 (J2534)",
+                     "baud": 10400, "echo": None, **ident}
+        return self.info
+
     def connect(self, address, retry=False):
         """retry=True: se nada responder, tenta mais uma vez (centralinas que demoram a acordar)."""
+        if getattr(self.kl, "is_j2534", False):
+            return self._connect_j2534(address)
         bauds = list(AUTO_BAUDS if self.baud_setting == "auto" else (int(self.baud_setting),))
         res, used_baud = None, None
         retried = False

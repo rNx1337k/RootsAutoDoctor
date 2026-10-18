@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.8.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.9.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/UI-PySide6%20%2F%20Qt%206-0E1526?style=flat-square&logo=qt" alt="PySide6">
@@ -58,6 +58,8 @@ Golf IV, Bora, Passat B5, Audi A3 8L / A4 B5–B6, Seat Leon 1M and Škoda Octav
 
 - **Supported:** "dumb" K-line cables (KKL 409.1 and K-line VCDS clones) with an **FTDI** or **CH340** chip
   that show up as a standard COM port.
+- **J2534 (PassThru):** interfaces with an installed J2534 driver appear in the port list and work with
+  KWP2000 controllers. KW1281 controllers still need a KKL cable.
 - **Not supported:** HEX-USB+CAN / HEX-V2 interfaces (genuine or clone) — their firmware is closed
   and only works with Ross-Tech software.
 - **Tip:** on FTDI cables set *Device Manager → Port → Advanced → Latency Timer* to **1 ms** for much faster live data.

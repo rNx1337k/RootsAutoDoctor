@@ -930,7 +930,8 @@ class ModulePage(QWidget):
             r = t.rowCount()
             t.insertRow(r)
             code = f["vag"] + (f"  ({f['pcode']})" if f["pcode"] else "")
-            items = [code, f["desc"], f"{f['elab_code']:02d} — {f['elab']}",
+            elab = f"{f['elab_code']:02d} — {f['elab']}" if f["elab"] not in ("-", "") else f"{f['elab_code']:02d}"
+            items = [code, f["desc"], elab,
                      "Intermitente" if f["intermittent"] else "Permanente"]
             for c, text in enumerate(items):
                 it = QTableWidgetItem(text)

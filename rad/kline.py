@@ -39,7 +39,13 @@ def list_serial_ports():
             ports.append((p.device, f"{p.device} — {desc}{extra}"))
     except Exception:
         pass
+    try:
+        from .j2534 import list_ports as j2534_ports
+        ports.extend(j2534_ports())
+    except Exception:
+        pass
     ports.append((SIM_PORT, "Simulador (sem carro) — para testar o programa"))
+    ports.append(("J2534:SIMULADOR-J2534", "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
     return ports
 
 

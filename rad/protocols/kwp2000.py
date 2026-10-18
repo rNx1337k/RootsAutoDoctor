@@ -174,3 +174,44 @@ class KWP2000:
 
     basic_setting = adaptation_read = adaptation_test = adaptation_save = _ns
     login = recode = output_test = _ns
+
+
+class KWP2000J2534(KWP2000):
+    """KWP2000 através de uma interface J2534: o driver trata do init, do checksum e dos tempos."""
+
+    def __init__(self, link, address, log=None):
+        super().__init__(link, address, log, address)
+        self.link = link
+
+    def send(self, payload):
+        self.log("→ " + " ".join(f"{b:02X}" for b in payload))
+        n = len(payload)
+        hdr = [0x80 | n, self.address, self.tester] if n < 64 else [0x80, self.address, self.tester, n]
+        self.link.write_frame(hdr + list(payload))
+
+    def recv(self, timeout=1.0):
+        data = self.link.read_frame(timeout)
+        if not data:
+            raise ProtocolError("Mensagem J2534 vazia")
+        fmt = data[0]
+        hl = 3 if fmt & 0xC0 else 1
+        n = fmt & 0x3F
+        if n == 0:
+            if len(data) <= hl:
+                raise ProtocolError("Mensagem J2534 curta")
+            n = data[hl]
+            hl += 1
+        payload = data[hl:hl + n]
+        if len(payload) < n:
+            raise ProtocolError("Mensagem J2534 incompleta")
+        self._last = time.perf_counter()
+        self.log("← " + " ".join(f"{b:02X}" for b in payload))
+        return payload
+
+    def start(self):
+        self._last = time.perf_counter()
+        try:
+            self.request([0x10, 0x89])
+        except RequestRejected as e:
+            self.log(f"Sessão de diagnóstico: {e}")
+        return self.read_ident()
