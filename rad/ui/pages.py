@@ -1157,8 +1157,10 @@ class AutoScanPage(QWidget):
         self.tiles = QGridLayout(tiles_box)
         self.tiles.setContentsMargins(0, 0, 4, 0)
         self.tiles.setSpacing(10)
+        self.tiles.setAlignment(Qt.AlignTop)
         tiles_scroll.setWidget(tiles_box)
-        v.addWidget(tiles_scroll, 2)
+        tiles_scroll.setMaximumHeight(240)
+        v.addWidget(tiles_scroll, 1)
         self.empty = lbl("Ainda não há resultados. Ligue a ignição e carregue em Iniciar Auto-Scan.", "muted")
         v.addWidget(self.empty)
         self.tree = QTreeWidget()
@@ -1260,7 +1262,7 @@ class AutoScanPage(QWidget):
             top.setText(2, "OK" if n == 0 else f"{n} avaria(s)")
             top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
             for f in item["faults"]:
-                QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}  —  {f['elab']}",
+                QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
                                       "Intermitente" if f["intermittent"] else ""])
         else:
             top.setText(1, item["module"])
@@ -1317,6 +1319,7 @@ class AutoScanPage(QWidget):
 class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
+    license_changed = Signal(dict)
 
     def __init__(self, settings):
         super().__init__()
@@ -1331,7 +1334,38 @@ class OptionsPage(QWidget):
         scroll.setWidget(body)
         v = QVBoxLayout(body)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Opções", "Interface (cabo), comunicação e dados da oficina."))
+        v.addWidget(page_header("Opções", "Licença, interface (cabo), comunicação e dados da oficina."))
+
+        from .. import license as lic
+        self.lic = lic
+        lc = card()
+        lv = QVBoxLayout(lc)
+        lv.setContentsMargins(20, 18, 20, 18)
+        lv.setSpacing(8)
+        lh = QHBoxLayout()
+        lh.addWidget(lbl("Licença", "h2"))
+        lh.addStretch(1)
+        self.lic_status = lbl("", "h2")
+        lh.addWidget(self.lic_status)
+        lv.addLayout(lh)
+        mrow = QHBoxLayout()
+        mrow.addWidget(lbl("Código deste PC", "muted"))
+        self.machine_lbl = lbl(lic.machine_code(), "h2")
+        self.machine_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        mrow.addWidget(self.machine_lbl)
+        mrow.addWidget(btn("Copiar", None, lambda: QGuiApplication.clipboard().setText(self.machine_lbl.text())))
+        mrow.addStretch(1)
+        lv.addLayout(mrow)
+        krow = QHBoxLayout()
+        self.key_edit = QLineEdit()
+        self.key_edit.setPlaceholderText("Cole aqui a chave de licença que recebeu")
+        krow.addWidget(self.key_edit, 1)
+        krow.addWidget(btn("Activar", "primary", self._activate))
+        lv.addLayout(krow)
+        lv.addWidget(lbl("Para comprar uma licença envie o código deste PC. Sem licença o programa funciona "
+                         "em modo de avaliação: todas as funções disponíveis, relatórios com a marca "
+                         "\"Versão de avaliação\".", "muted", wrap=True))
+        v.addWidget(lc)
         c = card()
         f = QFormLayout(c)
         f.setContentsMargins(20, 18, 20, 18)
@@ -1395,6 +1429,27 @@ class OptionsPage(QWidget):
         v.addStretch(1)
         self.refresh_ports()
         self._load()
+
+    def show_license(self, info):
+        text = self.lic.STATUS_TEXT.get(info["status"], "")
+        if info["status"] == "valid":
+            exp = f" até {info['expires']}" if info.get("expires") else " (vitalícia)"
+            text = f"{text}{exp} — {info.get('holder', '')}"
+        self.lic_status.setText(text)
+        self.lic_status.setStyleSheet(f"color: {OK if info['status'] == 'valid' else WARN};")
+
+    def _activate(self):
+        key = self.key_edit.text().strip()
+        if not key:
+            return
+        r = self.lic.activate(key)
+        if r["status"] == "valid":
+            self.key_edit.clear()
+            QMessageBox.information(self, APP_NAME, f"Licença activada para {r.get('holder', '')}. Obrigado!")
+            self.license_changed.emit(r)
+        else:
+            QMessageBox.warning(self, APP_NAME, self.lic.STATUS_TEXT.get(r["status"], "Chave inválida") + ".")
+        self.show_license(r if r["status"] == "valid" else self.lic.load())
 
     def refresh_ports(self):
         cur = self.port.currentData() or self.settings.value("port", "")
@@ -1599,7 +1654,7 @@ class HistoryPage(QWidget):
                 top.setText(2, "OK" if n == 0 else f"{n} avaria(s)")
                 top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
                 for f in item.get("faults", []):
-                    QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}  —  {f['elab']}",
+                    QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
                                           "Intermitente" if f.get("intermittent") else ""])
             else:
                 top.setText(2, "Erro")

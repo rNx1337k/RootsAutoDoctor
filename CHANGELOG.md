@@ -3,6 +3,17 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-10-18
+### Added
+- Licensing: per-PC activation with Ed25519-signed keys, evaluation mode with watermarked reports, licence card in Options
+- `tools/keygen.py` to issue licence keys (private key kept out of the repository)
+- `build_release.bat`: Nuitka compiled build and Inno Setup installer (`installer/RootsAutoDoctor.iss`)
+- Third-party licence notices (`LICENSES/THIRD_PARTY.txt`)
+- Measuring group labels for Bosch ME7 petrol engines (1.8 20V / 1.8T)
+- More VAG P1xxx fault descriptions
+### Changed
+- `run.bat` starts the app without a console window
+
 ## [0.7.0] — 2026-10-18
 ### Added
 - Vehicle health score (0–100) after every Auto-Scan, shown as an animated ring and printed on the customer report

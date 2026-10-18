@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.7.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.8.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/UI-PySide6%20%2F%20Qt%206-0E1526?style=flat-square&logo=qt" alt="PySide6">
@@ -78,13 +78,20 @@ run.bat
 
 No car nearby? On the home screen click **Open simulator** and try addresses `01`, `03` and `17`.
 
-### Build a Windows executable
+### Build the installer
 
 ```bat
-build_exe.bat
+build_release.bat
 ```
 
-The app is created in `dist\RootsAutoDoctor\`.
+Compiles the app to native code with Nuitka and, if [Inno Setup 6](https://jrsoftware.org/isdl.php)
+is installed, produces `dist\Setup_RootsAutoDoctor_<version>.exe` with Start menu and desktop shortcuts.
+
+### Licensing
+
+Without a licence the app runs in evaluation mode: every feature works and reports carry an
+"evaluation version" watermark. Each licence is tied to one PC: the customer sends the PC code shown
+in **Options → Licence** and receives a signed key.
 
 ## Testing
 

@@ -41,7 +41,8 @@ def splash_pixmap():
 def install_crash_handler():
     def hook(exc_type, exc, tb):
         text = applog.write_crash(exc_type, exc, tb)
-        sys.__excepthook__(exc_type, exc, tb)
+        if sys.stderr is not None:          # com pythonw não há consola
+            sys.__excepthook__(exc_type, exc, tb)
         try:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.critical(None, APP_NAME,

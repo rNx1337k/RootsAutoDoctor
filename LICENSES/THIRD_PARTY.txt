@@ -1,0 +1,14 @@
+Roots Auto Doctor usa os seguintes componentes de terceiros:
+
+Qt for Python (PySide6) e Qt 6
+  Licença: GNU Lesser General Public License v3 (LGPLv3)
+  https://www.qt.io/qt-for-python  —  https://www.gnu.org/licenses/lgpl-3.0.html
+  As bibliotecas do Qt/PySide6 são distribuídas como ficheiros separados (DLL) na pasta
+  do programa e podem ser substituídas por outras versões compatíveis. O código-fonte do
+  Qt e do PySide6 está disponível em https://code.qt.io
+
+pySerial
+  Licença: BSD-3-Clause  —  https://github.com/pyserial/pyserial
+
+Python
+  Licença: Python Software Foundation License  —  https://docs.python.org/3/license.html

@@ -206,6 +206,16 @@ PCODE_DESC = {
     "P0560": "Tensão do sistema",
     "P0600": "Ligação de comunicação série",
     "P0605": "Erro de memória da unidade de comando",
+    "P1136": "Sistema de ajuste de combustível — mistura pobre (banco 1)",
+    "P1137": "Sistema de ajuste de combustível — mistura rica (banco 1)",
+    "P1176": "Correcção lambda depois do catalisador — limite atingido",
+    "P1250": "Nível de combustível demasiado baixo",
+    "P1296": "Avaria no sistema de refrigeração",
+    "P1386": "Unidade de comando — avaria interna no controlo de detonação",
+    "P1403": "Fluxo EGR — desvio",
+    "P1545": "Controlo da borboleta — avaria",
+    "P1558": "Accionamento da borboleta (G186) — avaria eléctrica",
+    "P1559": "Ajuste da borboleta — avaria na adaptação",
     "P1555": "Pressão do turbo — limite superior excedido",
     "P1556": "Regulação da pressão do turbo — desvio negativo",
     "P1557": "Regulação da pressão do turbo — desvio positivo",
@@ -312,7 +322,17 @@ _TDI_GROUPS = {
     11: ["Rotação", "Pressão do turbo pretendida", "Pressão do turbo real", "Ciclo N75"],
     13: ["Desvio cilindro 1", "Desvio cilindro 2", "Desvio cilindro 3", "Desvio cilindro 4"],
 }
-GROUP_LABELS = {"038906": _TDI_GROUPS, "028906": _TDI_GROUPS, "045906": _TDI_GROUPS}
+# Motores a gasolina Bosch ME7 (1.8 20V / 1.8T e família) — grupos base comuns.
+_ME7_GROUPS = {
+    1: ["Rotação", "Temperatura do líquido", "Correcção lambda", "Estado do ajuste básico"],
+    2: ["Rotação", "Carga do motor", "Tempo de injecção", "Massa de ar"],
+    3: ["Rotação", "Massa de ar", "Ângulo da borboleta", "Avanço da ignição"],
+    4: ["Rotação", "Tensão da bateria", "Temperatura do líquido", "Temperatura do ar de admissão"],
+    115: ["Rotação", "Carga do motor", "Pressão do turbo pretendida", "Pressão do turbo real"],
+}
+GROUP_LABELS = {"038906": _TDI_GROUPS, "028906": _TDI_GROUPS, "045906": _TDI_GROUPS,
+                "06A906032": _ME7_GROUPS, "06A906018": _ME7_GROUPS, "8D0907557": _ME7_GROUPS,
+                "4B0906018": _ME7_GROUPS, "8L0906018": _ME7_GROUPS}
 
 
 def group_labels(part, group):
