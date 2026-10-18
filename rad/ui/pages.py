@@ -1415,6 +1415,7 @@ class OptionsPage(QWidget):
         v.addWidget(wc)
         row = QHBoxLayout()
         row.addWidget(btn("Guardar", "primary", self._save))
+        row.addWidget(btn("Detectar cabo", "primary", self._detect_cable))
         row.addWidget(btn("Testar interface", None, self._test))
         row.addWidget(btn("Abrir pasta de registos", None, self._open_logs))
         row.addStretch(1)
@@ -1530,6 +1531,51 @@ class OptionsPage(QWidget):
         for k, val in self.workshop().items():
             self.settings.setValue(f"workshop/{k}", val)
         self.saved.emit(c)
+
+    def _detect_cable(self):
+        from PySide6.QtGui import QCursor
+        from PySide6.QtWidgets import QApplication
+        from .. import cable
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        try:
+            findings = cable.detect()
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.refresh_ports()
+        colors = {"ok": OK, "warn": WARN, "bad": BAD}
+        if not findings:
+            html = ("<p><b>Nenhum cabo de diagnóstico encontrado.</b></p>"
+                    "<p>Ligue o cabo à porta USB e volte a carregar em Detectar cabo. Se continuar sem aparecer:</p>"
+                    "<ul><li>Experimente outra porta USB (de preferência directamente no PC, sem hub).</li>"
+                    "<li>Abra o Gestor de Dispositivos e veja se aparece um dispositivo com ponto de exclamação "
+                    "em <i>Outros dispositivos</i> — nesse caso falta o driver.</li></ul>")
+        else:
+            parts = []
+            for f in findings:
+                link = (f"<br><a href='{f['driver_url']}'>Página oficial do driver</a>"
+                        if f.get("driver_url") else "")
+                parts.append(f"<p><b style='color:{colors[f['level']]}'>{f['title']}</b><br>{f['detail']}{link}</p>")
+            html = "".join(parts)
+        ready = [f["com"] for f in findings if f.get("com")]
+        if len(ready) == 1:
+            i = self.port.findData(ready[0])
+            if i >= 0:
+                self.port.setCurrentIndex(i)
+                self._save()
+                html += f"<p>A porta <b>{ready[0]}</b> foi escolhida e guardada automaticamente.</p>"
+        box = QMessageBox(self)
+        box.setWindowTitle("Detectar cabo")
+        box.setTextFormat(Qt.RichText)
+        box.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        box.setText(html)
+        dm = box.addButton("Abrir Gestor de Dispositivos", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Ok)
+        box.exec()
+        if box.clickedButton() is dm:
+            try:
+                os.startfile("devmgmt.msc")      # abre sem pedir administrador (só leitura)
+            except Exception:
+                pass
 
     def _open_logs(self):
         from PySide6.QtCore import QUrl
