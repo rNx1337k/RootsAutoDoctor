@@ -22,6 +22,8 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
     ok_items = [i for i in items if i.get("status") == "ok"]
     n_faults = sum(len(i.get("faults", [])) for i in ok_items)
     n_err = sum(1 for i in items if i.get("status") == "error")
+    from .ui_score import health_score, health_text
+    score = health_score(items)
     verdict_color = OK if n_faults == 0 and n_err == 0 else WARN
     verdict = ("Nenhuma avaria registada nos controladores lidos."
                if n_faults == 0 else
@@ -87,7 +89,8 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
 {vrow('VIN', 'vin')}{vrow('Quilómetros', 'km')}</table>
 
 <h2>Resumo</h2>
-<p class="verdict">{verdict}<br><span class="muted">{len(ok_items)} controlador(es) lido(s)
+<p class="verdict"><b style="font-size:15pt">Saúde do veículo: {score if score is not None else "—"}/100</b>
+ &nbsp;·&nbsp; {health_text(score)}<br>{verdict}<br><span class="muted">{len(ok_items)} controlador(es) lido(s)
 {f'· {n_err} sem comunicação' if n_err else ''}</span></p>
 
 <h2>Controladores</h2>

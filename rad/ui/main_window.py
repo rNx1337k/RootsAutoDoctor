@@ -2,7 +2,7 @@
 import datetime
 import os
 
-from PySide6.QtCore import QSettings, Qt, QUrl
+from PySide6.QtCore import QSettings, QSize, Qt, QUrl
 from PySide6.QtGui import (QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QPixmap, QShortcut,
                            QTextDocument)
 from PySide6.QtWidgets import (
@@ -16,7 +16,7 @@ from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
                     OptionsPage, btn, lbl)
 from .style import BLUE_SOFT, MUTED, OK, QSS, WARN
-from .widgets import LogoLabel, PulseIndicator, Toast, asset_path
+from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
 
 
 class MainWindow(QMainWindow):
@@ -72,6 +72,8 @@ class MainWindow(QMainWindow):
                           ("module", "Controlador ligado"), ("autoscan", "Auto-Scan"),
                           ("history", "Histórico"), ("options", "Opções")]:
             b = btn(text, "nav", lambda _=False, k=key: self.show_page(k))
+            b.setIcon(nav_icon(key))
+            b.setIconSize(QSize(20, 20))
             b.setCheckable(True)
             self.nav.addButton(b)
             self.nav_btns[key] = b
@@ -201,6 +203,15 @@ class MainWindow(QMainWindow):
             return
         if key == "report":
             self.export_report("auto")
+            return
+        if key == "autoscan_start":
+            self.show_page("autoscan")
+            if not self.options.config()["port"]:
+                QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo em Opções.")
+                self.show_page("options")
+                return
+            if not self.scan.running:
+                self.scan._toggle()
             return
         self.show_page(key)
 

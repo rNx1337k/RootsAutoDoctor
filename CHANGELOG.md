@@ -3,6 +3,13 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-10-18
+### Added
+- Vehicle health score (0–100) after every Auto-Scan, shown as an animated ring and printed on the customer report
+- "Start Auto-Scan" call to action on the home screen
+- Hand-drawn line icons in the sidebar navigation
+- `.gitignore` for the virtual environment, caches, builds and customer files
+
 ## [0.6.0] — 2026-10-18
 ### Added
 - Workshop branding: pick your workshop logo in Options; it appears in the customer report header and the sidebar

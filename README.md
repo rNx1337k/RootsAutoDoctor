@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.6.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.7.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/UI-PySide6%20%2F%20Qt%206-0E1526?style=flat-square&logo=qt" alt="PySide6">

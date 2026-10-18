@@ -463,3 +463,110 @@ class ChartDialog(QDialog):
         u = field["unit"]
         self.stats_lbl.setText(f"Actual {field['value']} {u}     mín {format_number(mn)}     "
                                f"máx {format_number(mx)}     média {format_number(avg)}")
+
+
+# ---------------------------------------------------------------- ícones
+def nav_icon(kind, color="#7C8BAD", size=20):
+    """Ícones de linha desenhados à mão (sem ficheiros nem fontes externas)."""
+    from PySide6.QtGui import QIcon
+    pm = QPixmap(size * 2, size * 2)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(size * 2 / 24, size * 2 / 24)
+    p.setPen(QPen(QColor(color), 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+    if kind == "home":
+        path = QPainterPath()
+        path.moveTo(4, 11); path.lineTo(12, 4); path.lineTo(20, 11)
+        path.moveTo(6, 9.5); path.lineTo(6, 20); path.lineTo(18, 20); path.lineTo(18, 9.5)
+        p.drawPath(path)
+        p.drawRect(QRectF(10, 14, 4, 6))
+    elif kind == "modules":                       # ficha OBD
+        p.drawRoundedRect(QRectF(3, 7, 18, 10), 3, 3)
+        for x in (7, 10.5, 14, 17):
+            p.drawPoint(QPointF(x, 10.5))
+            p.drawPoint(QPointF(x, 13.5))
+    elif kind == "module":                        # chip / centralina
+        p.drawRoundedRect(QRectF(6, 6, 12, 12), 2, 2)
+        for t in (9, 12, 15):
+            p.drawLine(QPointF(t, 3), QPointF(t, 6)); p.drawLine(QPointF(t, 18), QPointF(t, 21))
+            p.drawLine(QPointF(3, t), QPointF(6, t)); p.drawLine(QPointF(18, t), QPointF(21, t))
+    elif kind == "autoscan":                      # radar
+        p.drawEllipse(QPointF(12, 12), 8.5, 8.5)
+        p.drawEllipse(QPointF(12, 12), 4.5, 4.5)
+        p.drawLine(QPointF(12, 12), QPointF(18, 6))
+    elif kind == "history":                       # relógio
+        p.drawEllipse(QPointF(12, 12), 8.5, 8.5)
+        p.drawLine(QPointF(12, 12), QPointF(12, 7))
+        p.drawLine(QPointF(12, 12), QPointF(15.5, 14))
+    elif kind == "options":                       # engrenagem
+        p.drawEllipse(QPointF(12, 12), 3.2, 3.2)
+        for i in range(8):
+            a = math.radians(i * 45)
+            p.drawLine(QPointF(12 + 6 * math.cos(a), 12 + 6 * math.sin(a)),
+                       QPointF(12 + 8.8 * math.cos(a), 12 + 8.8 * math.sin(a)))
+        p.drawEllipse(QPointF(12, 12), 6, 6)
+    p.end()
+    pm.setDevicePixelRatio(2)
+    return QIcon(pm)
+
+
+# -------------------------------------------------------- saúde do veículo
+from ..ui_score import health_score, health_text  # noqa: E402
+
+
+def health_label(score):
+    text = health_text(score)
+    if score is None:
+        return text, MUTED
+    return text, OK if score >= 85 else (WARN if score >= 60 else RED)
+
+
+class HealthRing(QWidget):
+    """Anel com a pontuação de saúde do veículo (0–100)."""
+
+    def __init__(self, size=120):
+        super().__init__()
+        self.score = None
+        self.shown = 0.0
+        self.setFixedSize(size, size)
+        self.anim = QTimer(self)
+        self.anim.setInterval(16)
+        self.anim.timeout.connect(self._step)
+
+    def set_score(self, score):
+        self.score = score
+        if score is None:
+            self.shown = 0.0
+            self.update()
+            return
+        self.anim.start()
+
+    def _step(self):
+        target = float(self.score or 0)
+        self.shown += (target - self.shown) * 0.15
+        if abs(target - self.shown) < 0.5:
+            self.shown = target
+            self.anim.stop()
+        self.update()
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        s = min(self.width(), self.height())
+        r = QRectF(9, 9, s - 18, s - 18)
+        p.setPen(QPen(QColor(BLUE_SOFT), 10, Qt.SolidLine, Qt.RoundCap))
+        p.drawArc(r, 90 * 16, -360 * 16)
+        _text, color = health_label(self.score)
+        if self.score is not None:
+            p.setPen(QPen(QColor(color), 10, Qt.SolidLine, Qt.RoundCap))
+            p.drawArc(r, 90 * 16, int(-360 * 16 * self.shown / 100))
+        p.setPen(QColor(TEXT))
+        p.setFont(display_font(s / 5.2))
+        p.drawText(QRectF(0, 0, s, s * 0.92), int(Qt.AlignCenter),
+                   "—" if self.score is None else str(int(round(self.shown))))
+        p.setPen(QColor(MUTED))
+        p.setFont(display_font(max(7.0, s / 15), False))
+        p.drawText(QRectF(0, s * 0.56, s, s * 0.2), int(Qt.AlignCenter), "saúde")
+        p.end()

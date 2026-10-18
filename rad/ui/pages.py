@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from .. import vag_data, APP_NAME, VERSION
 from ..kline import list_serial_ports
 from .style import ACCENT, BAD, BLUE, MUTED, OK, WARN
-from .widgets import ChartDialog, GaugeCell, LogoLabel, ModuleTile
+from .widgets import ChartDialog, GaugeCell, HealthRing, LogoLabel, ModuleTile, health_label, health_score
 from .. import guided
 
 
@@ -182,6 +182,15 @@ class HomePage(QWidget):
         tv.addSpacing(10)
         self.status_lbl = lbl("Interface por configurar", "h2")
         tv.addWidget(self.status_lbl)
+        cta = QHBoxLayout()
+        go_scan = btn("Iniciar Auto-Scan", "primary", lambda: self.go.emit("autoscan_start"))
+        go_scan.setMinimumHeight(42)
+        go_scan.setMinimumWidth(200)
+        cta.addWidget(go_scan)
+        cta.addWidget(btn("Escolher controlador", None, lambda: self.go.emit("modules")))
+        cta.addStretch(1)
+        tv.addSpacing(6)
+        tv.addLayout(cta)
         tv.addStretch(1)
         hh.addLayout(tv, 1)
         v.addWidget(hero)
@@ -1119,8 +1128,17 @@ class AutoScanPage(QWidget):
         self.clear_all_btn = btn("Apagar avarias em todos", "danger", self._clear_all)
         row.addWidget(self.clear_all_btn)
         row.addStretch(1)
+        sv = QVBoxLayout()
+        sv.setSpacing(0)
         self.summary = lbl("", "h2")
-        row.addWidget(self.summary)
+        self.health_lbl = lbl("", "muted")
+        sv.addStretch(1)
+        sv.addWidget(self.summary, 0, Qt.AlignRight)
+        sv.addWidget(self.health_lbl, 0, Qt.AlignRight)
+        sv.addStretch(1)
+        row.addLayout(sv)
+        self.ring = HealthRing(96)
+        row.addWidget(self.ring)
         v.addLayout(row)
         prow = QHBoxLayout()
         self.progress = QProgressBar()
@@ -1166,6 +1184,13 @@ class AutoScanPage(QWidget):
         self.current.setText("A apagar avarias…")
         self.w.submit("clear_all", addrs)
 
+    def update_health(self):
+        score = health_score(self.items)
+        text, color = health_label(score)
+        self.ring.set_score(score)
+        self.health_lbl.setText(f"Saúde do veículo: {text}")
+        self.health_lbl.setStyleSheet(f"color: {color}; font-weight: 600;")
+
     def apply_clear_results(self, results):
         """Actualiza os resultados do Auto-Scan depois de apagar as avarias."""
         self.clear_all_btn.setEnabled(True)
@@ -1190,6 +1215,7 @@ class AutoScanPage(QWidget):
             self.on_progress(total, total, it)
         nf = sum(len(i.get("faults", [])) for i in self.items)
         self.summary.setText(f"{len(self.items)} módulo(s), {nf} avaria(s)")
+        self.update_health()
 
     def _clear_tiles(self):
         while self.tiles.count():
@@ -1207,6 +1233,8 @@ class AutoScanPage(QWidget):
         self.tree.clear()
         self._clear_tiles()
         self.empty.hide()
+        self.ring.set_score(None)
+        self.health_lbl.setText("")
         self.progress.setValue(0)
         self.summary.setText("")
         self.running = True
@@ -1243,6 +1271,7 @@ class AutoScanPage(QWidget):
 
     def done(self, aborted):
         self.running = False
+        self.update_health()
         self.current.setText("Concluído" if not aborted else "Interrompido")
         if not self.items:
             self.empty.setText("Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas Opções.")
