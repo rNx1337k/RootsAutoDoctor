@@ -3,6 +3,10 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] — 2026-10-18
+### Changed
+- Redesigned README: feature grid, hardware table, architecture diagram, roadmap progress and bug report guide
+
 ## [0.9.1] — 2026-10-18
 ### Added
 - "Connection check" in Options: opens the interface, checks the K-line echo, connects to a module and reads faults, explaining which step failed and what to do
