@@ -346,6 +346,12 @@ class MainWindow(QMainWindow):
             self.toast.show_msg("Codificação aceite pelo controlador")
         elif cmd == "login":
             self.toast.show_msg("Login aceite")
+        elif cmd == "clear_all":
+            left, errs = self.scan.apply_clear_results(data)
+            self.select.mark_scan(self.scan.items)
+            self.toast.show_msg("Avarias apagadas em todos os controladores" if not left and not errs
+                                else f"Feito — {left} avaria(s) voltaram a aparecer",
+                                "ok" if not left and not errs else "warn")
         elif cmd == "output_test":
             self.module.show_output(data)
         elif cmd == "test_interface":
@@ -366,6 +372,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg, 8000)
         if cmd == "autoscan":
             self.scan.done(True)
+        if cmd == "clear_all":
+            self.scan.clear_all_btn.setEnabled(True)
         if cmd in ("connect", "test_interface", "recode", "login", "adaptation_save", "clear_faults",
                    "autoscan"):
             QMessageBox.warning(self, APP_NAME, msg)

@@ -216,6 +216,30 @@ class Worker(QThread):
                 time.sleep(1.5 if item["status"] == "error" else 0.35)
         self.result.emit("autoscan", {"aborted": self.abort_scan})
 
+    def _cmd_clear_all(self, addresses):
+        """Apaga as avarias em cada endereço e volta a ler o que ficou."""
+        self.live_mode = None
+        if self.session:
+            self._cmd_disconnect()
+        self._ensure_port()
+        out = []
+        for addr in addresses:
+            item = {"address": addr}
+            try:
+                s = ECUSession(self.kl, self._log, self.cfg["baud"])
+                s.connect(addr, retry=True)
+                item["faults"] = s.clear_faults()
+                item["status"] = "ok"
+                s.disconnect()
+            except Exception as e:
+                item["status"] = "error"
+                item["error"] = str(e)
+            out.append(item)
+            self.log.emit(f"Apagar avarias {addr:02X}: "
+                          f"{'ficaram ' + str(len(item['faults'])) if item['status'] == 'ok' else item['error']}")
+            time.sleep(0.02 if self.kl.is_simulator else (1.5 if item["status"] == "error" else 0.35))
+        self.result.emit("clear_all", out)
+
     # ------------------------------------------------------------ leitura viva
     def _poll_live(self):
         s = self.session

@@ -5,7 +5,8 @@ from collections import deque
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QWidget
+from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
+                               QVBoxLayout, QWidget)
 
 from .style import BLUE, BLUE_SOFT, LINE, MUTED, OK, RED, TEXT, WARN, PANEL
 
@@ -72,7 +73,9 @@ def short_num(v):
 
 
 class GaugeCell(QWidget):
-    """Mostrador circular estilo painel VAG: escala azul, ponteiro vermelho, histórico em baixo."""
+    """Mostrador circular estilo painel VAG: escala azul, ponteiro vermelho, histórico em baixo.
+    Guarda o valor máximo (marca vermelha na escala). Duplo clique abre o gráfico grande."""
+    opened = Signal(int)
 
     def __init__(self, n):
         super().__init__()
@@ -82,7 +85,18 @@ class GaugeCell(QWidget):
         self.key = None
         self.lo, self.hi = 0.0, 100.0
         self.hist = deque(maxlen=90)
+        self.peak = None
         self.setMinimumSize(170, 200)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Duplo clique para abrir o gráfico")
+
+    def mouseDoubleClickEvent(self, _ev):
+        if self.field is not None:
+            self.opened.emit(self.n)
+
+    def reset_peak(self):
+        self.peak = None
+        self.update()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def set_label(self, text):
@@ -102,18 +116,21 @@ class GaugeCell(QWidget):
         if key != self.key:
             self.key = key
             self.hist.clear()
+            self.peak = None
             self.lo, self.hi = UNIT_RANGES.get(field["unit"], (0.0, 0.0))
         self.field = field
         v = field.get("numeric")
         if v is not None:
             self.hist.append(v)
+            self.peak = v if self.peak is None else max(self.peak, v)
             if self.hi <= self.lo:
                 self.lo, self.hi = (min(0.0, v), nice_ceil(abs(v) * 1.25) if v else 1.0)
             if v > self.hi:
                 self.hi = nice_ceil(v * 1.2)
             if v < self.lo:
                 self.lo = -nice_ceil(-v * 1.2)
-        self.setToolTip(f"fórmula {field['formula']}   a={field['a']}   b={field['b']}")
+        self.setToolTip(f"fórmula {field['formula']}   a={field['a']}   b={field['b']}\n"
+                        "Duplo clique para abrir o gráfico")
         self.update()
 
     def paintEvent(self, _ev):
@@ -158,6 +175,12 @@ class GaugeCell(QWidget):
             p.setPen(QPen(QColor(BLUE), 5, Qt.SolidLine, Qt.RoundCap))
             if frac > 0.002:
                 p.drawArc(dial, 210 * 16, int(-240 * 16 * frac))
+            if self.peak is not None and self.peak > v:
+                pf = max(0.0, min(1.0, (self.peak - self.lo) / (self.hi - self.lo)))
+                pa = math.radians(210 - 240 * pf)
+                p.setPen(QPen(QColor(RED), 3, Qt.SolidLine, Qt.RoundCap))
+                p.drawLine(QPointF(cx + (rad - 2) * math.cos(pa), cy - (rad - 2) * math.sin(pa)),
+                           QPointF(cx + (rad - 12) * math.cos(pa), cy - (rad - 12) * math.sin(pa)))
             ang = math.radians(210 - 240 * frac)
             rn = rad - 18
             p.setPen(QPen(QColor(RED), 3.2, Qt.SolidLine, Qt.RoundCap))
@@ -190,7 +213,11 @@ class GaugeCell(QWidget):
             p.drawText(QRectF(4, vy, w - 8, 30), int(Qt.AlignCenter), f["value"])
             p.setPen(QColor(BLUE))
             p.setFont(display_font(9, False))
-            p.drawText(QRectF(4, vy + 26, w - 8, 18), int(Qt.AlignCenter), f["unit"])
+            unit = f["unit"]
+            if not big and self.peak is not None:
+                from ..vag_data import format_number
+                unit = f"{unit}   ·   máx {format_number(self.peak)}"
+            p.drawText(QRectF(4, vy + 26, w - 8, 18), int(Qt.AlignCenter), unit)
 
         # histórico (sparkline)
         area = QRectF(12, h - spark_h - 8, w - 24, spark_h)
@@ -319,3 +346,120 @@ class ModuleTile(QPushButton):
             f"QPushButton:hover {{ border-color: {BLUE}; border-left: 4px solid {color}; }}")
         self.setToolTip("Clique para ligar a este controlador")
         self.clicked.connect(lambda: self.picked.emit(item["address"]))
+
+
+# ----------------------------------------------------------- gráfico grande
+class LiveChart(QWidget):
+    """Gráfico de linha de um valor ao longo do tempo, com grelha e escala automática."""
+
+    def __init__(self, maxlen=900):
+        super().__init__()
+        self.values = deque(maxlen=maxlen)
+        self.times = deque(maxlen=maxlen)
+        self.unit = ""
+        self.setMinimumSize(560, 300)
+
+    def add(self, t, v):
+        self.times.append(t)
+        self.values.append(v)
+        self.update()
+
+    def clear(self):
+        self.values.clear()
+        self.times.clear()
+        self.update()
+
+    def stats(self):
+        if not self.values:
+            return None
+        vals = list(self.values)
+        return min(vals), max(vals), sum(vals) / len(vals)
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        p.setPen(QPen(QColor(LINE), 1))
+        p.setBrush(QColor("#0F182D"))
+        p.drawRoundedRect(QRectF(0.5, 0.5, w - 1, h - 1), 12, 12)
+        left, right, top, bottom = 64, w - 18, 18, h - 34
+        plot = QRectF(left, top, right - left, bottom - top)
+        st = self.stats()
+        if st is None:
+            p.setPen(QColor(MUTED))
+            p.setFont(display_font(11, False))
+            p.drawText(plot, int(Qt.AlignCenter), "À espera de dados — inicie a leitura")
+            p.end()
+            return
+        lo, hi, _avg = st
+        if hi - lo < 1e-9:
+            lo, hi = lo - 1, hi + 1
+        pad = (hi - lo) * 0.12
+        lo, hi = lo - pad, hi + pad
+        p.setFont(display_font(8, False))
+        for i in range(5):
+            y = plot.bottom() - plot.height() * i / 4
+            val = lo + (hi - lo) * i / 4
+            p.setPen(QPen(QColor("#1D2945"), 1))
+            p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y))
+            p.setPen(QColor(MUTED))
+            p.drawText(QRectF(4, y - 9, left - 10, 18), int(Qt.AlignRight | Qt.AlignVCenter), short_num(val))
+        t0, t1 = self.times[0], self.times[-1]
+        span = max(t1 - t0, 1e-6)
+        p.setPen(QColor(MUTED))
+        p.drawText(QRectF(left, bottom + 6, 120, 18), int(Qt.AlignLeft | Qt.AlignVCenter), f"-{span:.0f} s")
+        p.drawText(QRectF(right - 120, bottom + 6, 120, 18), int(Qt.AlignRight | Qt.AlignVCenter), "agora")
+        path = QPainterPath()
+        for i, (t, v) in enumerate(zip(self.times, self.values)):
+            x = plot.left() + plot.width() * (t - t0) / span
+            y = plot.bottom() - plot.height() * (v - lo) / (hi - lo)
+            if i == 0:
+                path.moveTo(x, y)
+            else:
+                path.lineTo(x, y)
+        p.setPen(QPen(QColor(BLUE), 2.0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(path)
+        p.end()
+
+
+class ChartDialog(QDialog):
+    """Janela com o gráfico grande de um campo de um grupo de medição."""
+
+    def __init__(self, parent, group, index, title):
+        super().__init__(parent)
+        self.group, self.index = group, index
+        self.setWindowTitle(f"Grupo {group:03d} · campo {index} — {title}")
+        self.resize(820, 460)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(18, 16, 18, 16)
+        self.title = QLabel(title)
+        self.title.setObjectName("h1")
+        v.addWidget(self.title)
+        self.stats_lbl = QLabel("")
+        self.stats_lbl.setObjectName("h2")
+        v.addWidget(self.stats_lbl)
+        self.chart = LiveChart()
+        v.addWidget(self.chart, 1)
+        row = QHBoxLayout()
+        clear = QPushButton("Limpar")
+        clear.clicked.connect(self.chart.clear)
+        close = QPushButton("Fechar")
+        close.clicked.connect(self.close)
+        row.addWidget(clear)
+        row.addStretch(1)
+        row.addWidget(close)
+        v.addLayout(row)
+
+    def feed(self, t, field):
+        v = field.get("numeric")
+        if v is None:
+            self.stats_lbl.setText(f"Valor actual: {field['value']} {field['unit']} (não numérico)")
+            return
+        self.chart.unit = field["unit"]
+        self.chart.add(t, v)
+        from ..vag_data import format_number
+        mn, mx, avg = self.chart.stats()
+        u = field["unit"]
+        self.stats_lbl.setText(f"Actual {field['value']} {u}     mín {format_number(mn)}     "
+                               f"máx {format_number(mx)}     média {format_number(avg)}")

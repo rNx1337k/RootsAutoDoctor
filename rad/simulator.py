@@ -86,30 +86,51 @@ class SimKW1281:
                 self._send_next(out)
 
     # --------------------------------------------------------- pedidos
+    def engine_state(self):
+        """Ciclo de demonstração: 12 s ao ralenti, depois uma aceleração de 6 s (1500→3800 rpm)."""
+        t = (time.monotonic() - self.t0) % 18
+        if t < 12:
+            return 880 + random.uniform(-15, 15), 0.0
+        x = (t - 12) / 6
+        return 1500 + 2300 * x + random.uniform(-30, 30), min(1.0, x * 3)
+
     def group_data(self, g):
         t = time.monotonic() - self.t0
         wob = lambda amp, per=3.0: amp * math.sin(t * 2 * math.pi / per) + random.uniform(-amp / 4, amp / 4)
+        rpm, load = self.engine_state()
+        b_rpm = max(0, min(255, int(round(rpm / 40))))          # fórmula 1, a=200 → 40 rpm/bit
+        clamp = lambda x: max(0, min(255, int(round(x))))
         if g == 0:
             return [37, 0, 1, 37, 0, 2]
         if g == 1:
-            rpm = 880 + wob(20)
-            return [1, 200, int(rpm * 5 / 200) & 0xFF,
-                    39, 0x0F, int(256 * (4.2 + wob(0.3)) / 15) & 0xFF,
-                    21, 0xC8, int((1.45 + wob(0.02)) * 1000 / 200) & 0xFF,
-                    5, 10, int(90 / 1.0 + 100) & 0xFF]
+            iq = 4.2 + 40 * load + wob(0.3)
+            return [1, 200, b_rpm,
+                    39, 0xFF, clamp(iq * 256 / 255),
+                    21, 0xC8, clamp((1.45 + 0.6 * load + wob(0.02)) * 5),
+                    5, 10, clamp(90 + 100)]
         if g == 3:
-            return [1, 200, int((880 + wob(20)) * 5 / 200) & 0xFF,
-                    25, 0, int((290 + wob(10)) / 1.421) & 0xFF,
-                    25, 0, int((300 + wob(5)) / 1.421) & 0xFF,
-                    33, 100, int(48 + wob(3)) & 0xFF]
+            spec = 300 + 520 * load
+            act = spec * self.p.get("maf_ratio", 0.97) + wob(8)
+            return [1, 200, b_rpm,
+                    8, 50, clamp(spec / 5),
+                    8, 50, clamp(act / 5),
+                    33, 100, clamp(48 * (1 - load) + wob(2))]
         if g == 11:
-            return [1, 200, int((880 + wob(20)) * 5 / 200) & 0xFF,
-                    18, 25, int((1010 + wob(15)) / (0.04 * 25)) & 0xFF,
-                    18, 25, int((1000 + wob(5)) / (0.04 * 25)) & 0xFF,
-                    33, 100, int(27 + wob(2)) & 0xFF]
+            spec = 1010 + 1000 * load
+            act = spec - self.p.get("boost_loss", 40) * load + wob(12)
+            return [1, 200, b_rpm,
+                    18, 250, clamp(spec / 10),
+                    18, 250, clamp(act / 10),
+                    33, 100, clamp(27 + 55 * load + wob(2))]
+        if g == 13:
+            devs = self.p.get("injectors", [0.4, -0.9, 0.6, -0.2])
+            out = []
+            for d in devs:                                       # fórmula 51: (b-128)/255*a, a=64
+                out += [51, 64, clamp(128 + (d + random.uniform(-0.15, 0.15)) * 255 / 64)]
+            return out
         if g == 2:
-            return [1, 200, int((880 + wob(20)) * 5 / 200) & 0xFF,
-                    33, 100, 0,
+            return [1, 200, b_rpm,
+                    33, 100, clamp(100 * load),
                     16, 0xFF, 0b00001010,
                     5, 10, 190]
         return None

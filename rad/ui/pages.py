@@ -15,7 +15,8 @@ from PySide6.QtWidgets import (
 from .. import vag_data, APP_NAME, VERSION
 from ..kline import list_serial_ports
 from .style import ACCENT, BAD, BLUE, MUTED, OK, WARN
-from .widgets import GaugeCell, LogoLabel, ModuleTile
+from .widgets import ChartDialog, GaugeCell, LogoLabel, ModuleTile
+from .. import guided
 
 
 # ------------------------------------------------------------------ helpers
@@ -88,6 +89,8 @@ class FieldCell(QFrame):
 
 
 class GroupCard(QFrame):
+    open_chart = Signal(int, int)        # grupo, campo (1-4)
+
     def __init__(self, title, default_group, enabled=True):
         super().__init__()
         self.setObjectName("card")
@@ -112,6 +115,7 @@ class GroupCard(QFrame):
         self.cells = [GaugeCell(i + 1) for i in range(4)]
         for c in self.cells:
             row.addWidget(c)
+            c.opened.connect(lambda n: self.open_chart.emit(self.spin.value(), n))
         v.addLayout(row)
         self.last = None
 
@@ -127,6 +131,10 @@ class GroupCard(QFrame):
         self.status.setText("")
         for i, c in enumerate(self.cells):
             c.set(fields[i] if i < len(fields) else None)
+
+    def reset_peaks(self):
+        for c in self.cells:
+            c.reset_peak()
 
     def show_error(self, msg):
         self.last = None
@@ -361,6 +369,11 @@ class ModulePage(QWidget):
         self.tabs.addTab(self._build_coding(), "Codificação")
         self.tabs.addTab(self._build_login(), "Login")
         self.tabs.addTab(self._build_outputs(), "Testes de saídas")
+        self.tabs.addTab(self._build_guided(), "Testes guiados")
+        self.GUIDED_TAB = self.tabs.count() - 1
+        self.charts = []
+        for g in self.groups + [self.basic_group]:
+            g.open_chart.connect(self._open_chart)
         self.tabs.currentChanged.connect(self._tab_changed)
 
     # ---------------------------------------------------------- separadores
@@ -397,8 +410,27 @@ class ModulePage(QWidget):
         row.addWidget(btn("Copiar informação", None, self._copy_info))
         row.addStretch(1)
         v.addLayout(row)
+        self.quick = card()
+        qv = QVBoxLayout(self.quick)
+        qv.setContentsMargins(20, 16, 20, 16)
+        qv.addWidget(lbl("Funções rápidas", "h2"))
+        qv.addWidget(lbl("Painéis de instrumentos do tipo Golf IV / Bora / Passat B5 / Octavia I: "
+                         "a revisão é reposta escrevendo 0 no canal de adaptação 02.", "muted", wrap=True))
+        qrow = QHBoxLayout()
+        qrow.addWidget(btn("Repor indicador de revisão", "primary", self._reset_service))
+        qrow.addStretch(1)
+        qv.addLayout(qrow)
+        self.quick.hide()
+        v.addWidget(self.quick)
         v.addStretch(1)
         return w
+
+    def _reset_service(self):
+        if ask(self, APP_NAME, "Repor o indicador de revisão (canal 02 = 0)?\n"
+                               "Use só em painéis compatíveis."):
+            wsc = self.info.get("wsc") or 0 if self.info else 0
+            self.w.submit("adaptation_test", 2, 0)
+            self.w.submit("adaptation_save", 2, 0, wsc)
 
     def _build_faults(self):
         w, v = self._pad()
@@ -597,6 +629,11 @@ class ModulePage(QWidget):
         kw = info["protocol"] == "KW1281"
         for i in (3, 4, 5, 6, 7):
             self.tabs.setTabEnabled(i, kw)
+        self.tabs.setTabEnabled(self.GUIDED_TAB, guided.available_for(info))
+        self.quick.setVisible(kw and info["address"] == 0x17)
+        for c in self.charts:
+            c.close()
+        self.charts = []
         self.fault_table.setRowCount(0)
         self.fault_count.setText("")
         self.out_list.clear()
@@ -612,6 +649,10 @@ class ModulePage(QWidget):
             g.spin.setEnabled(not locked)
 
     def stop_live(self):
+        if getattr(self, "guided_test", None) is not None:
+            self.guided_test = None
+            self.gd_btn.setText("▶  Iniciar teste")
+            self.gd_timer_lbl.setText("")
         self.w.set_live(None, [])
         self._lock_groups(False)
         self.basic_group.spin.setEnabled(True)
@@ -621,6 +662,141 @@ class ModulePage(QWidget):
 
     def _tab_changed(self, _i):
         self.stop_live()
+
+    # ------------------------------------------------------- gráfico grande
+    def _open_chart(self, group, index):
+        title = f"Campo {index}"
+        labels = vag_data.group_labels(self.info.get("part") if self.info else "", group)
+        if labels and index - 1 < len(labels):
+            title = labels[index - 1]
+        for c in self.charts:
+            if c.group == group and c.index == index and c.isVisible():
+                c.raise_()
+                return
+        dlg = ChartDialog(self, group, index, title)
+        self.charts.append(dlg)
+        dlg.show()
+
+    def _feed_charts(self, data):
+        self.charts = [c for c in self.charts if c.isVisible()]
+        for c in self.charts:
+            res = data["groups"].get(c.group)
+            if isinstance(res, list) and c.index - 1 < len(res):
+                c.feed(data["t"], res[c.index - 1])
+
+    # ------------------------------------------------------- testes guiados
+    def _build_guided(self):
+        w, v = self._pad()
+        v.addWidget(lbl("Testes rápidos ao motor 1.9 TDI. Escolha o teste, siga as instruções e veja o "
+                        "resultado no fim. As referências são valores habituais de oficina.", "muted", wrap=True))
+        row = QHBoxLayout()
+        self.gd_buttons = []
+        for i, t in enumerate(guided.TESTS):
+            b = btn(t.title, None, lambda _=False, k=i: self._guided_select(k))
+            b.setCheckable(True)
+            self.gd_buttons.append(b)
+            row.addWidget(b)
+        row.addStretch(1)
+        v.addLayout(row)
+        c = card()
+        cv = QVBoxLayout(c)
+        cv.setContentsMargins(20, 16, 20, 16)
+        self.gd_title = lbl("Escolha um teste", "h2")
+        self.gd_instr = lbl("", "muted", wrap=True)
+        cv.addWidget(self.gd_title)
+        cv.addWidget(self.gd_instr)
+        brow = QHBoxLayout()
+        self.gd_btn = btn("▶  Iniciar teste", "primary", self._guided_toggle)
+        self.gd_btn.setEnabled(False)
+        self.gd_timer_lbl = lbl("", "muted")
+        brow.addWidget(self.gd_btn)
+        brow.addWidget(self.gd_timer_lbl)
+        brow.addStretch(1)
+        cv.addLayout(brow)
+        v.addWidget(c)
+        self.gd_card = GroupCard("Grupo", 13)
+        self.gd_card.enable.setEnabled(False)
+        self.gd_card.spin.setEnabled(False)
+        self.gd_card.open_chart.connect(self._open_chart)
+        v.addWidget(self.gd_card)
+        self.gd_result = card()
+        rv = QVBoxLayout(self.gd_result)
+        rv.setContentsMargins(20, 16, 20, 16)
+        self.gd_verdict = lbl("", "h2")
+        self.gd_verdict.setWordWrap(True)
+        self.gd_lines = lbl("", None, wrap=True)
+        rv.addWidget(self.gd_verdict)
+        rv.addWidget(self.gd_lines)
+        self.gd_result.hide()
+        v.addWidget(self.gd_result)
+        v.addStretch(1)
+        self.guided_test = None
+        self.gd_selected = None
+        self.gd_samples = []
+        self.gd_t0 = None
+        return w
+
+    def _guided_select(self, k):
+        if self.guided_test is not None:
+            return
+        for i, b in enumerate(self.gd_buttons):
+            b.setChecked(i == k)
+        t = guided.TESTS[k]
+        self.gd_selected = t
+        self.gd_title.setText(f"{t.title}  ·  grupo {t.group:03d}")
+        self.gd_instr.setText(t.instructions)
+        self.gd_card.spin.setValue(t.group)
+        self.gd_card.set_labels(vag_data.group_labels(self.info.get("part") if self.info else "", t.group))
+        self.gd_btn.setEnabled(True)
+        self.gd_result.hide()
+
+    def _guided_toggle(self):
+        if self.guided_test is not None:
+            self._guided_finish()
+            return
+        if self.gd_selected is None:
+            return
+        self.stop_live()
+        self.guided_test = self.gd_selected
+        self.gd_samples = []
+        self.gd_t0 = None
+        self.gd_result.hide()
+        self.gd_card.reset_peaks()
+        self.w.set_live("read", [self.guided_test.group])
+        self.gd_btn.setText("■  Parar e ver resultado")
+
+    def _guided_feed(self, data):
+        t = self.guided_test
+        res = data["groups"].get(t.group)
+        if isinstance(res, str):
+            self.gd_card.show_error(res)
+            return
+        if not isinstance(res, list):
+            return
+        self.gd_card.show_fields(res)
+        if self.gd_t0 is None:
+            self.gd_t0 = data["t"]
+        self.gd_samples.append(res)
+        elapsed = data["t"] - self.gd_t0
+        if t.duration:
+            self.gd_timer_lbl.setText(f"{elapsed:.0f} / {t.duration} s   ·   {len(self.gd_samples)} leituras")
+            if elapsed >= t.duration:
+                self._guided_finish()
+        else:
+            self.gd_timer_lbl.setText(f"{elapsed:.0f} s   ·   {len(self.gd_samples)} leituras")
+
+    def _guided_finish(self):
+        t, samples = self.guided_test, self.gd_samples
+        self.stop_live()
+        if t is None:
+            return
+        r = t.analyze(samples)
+        color = MUTED if r["ok"] is None else (OK if r["ok"] else WARN)
+        icon = "?" if r["ok"] is None else ("✔" if r["ok"] else "⚠")
+        self.gd_verdict.setText(f"{icon}  {r['summary']}")
+        self.gd_verdict.setStyleSheet(f"color: {color};")
+        self.gd_lines.setText("\n".join(r["lines"]))
+        self.gd_result.show()
 
     # ------------------------------------------------------------ avarias
     def show_faults(self, faults):
@@ -682,6 +858,8 @@ class ModulePage(QWidget):
         if not groups:
             QMessageBox.information(self, APP_NAME, "Active pelo menos um grupo.")
             return
+        for g in self.groups:
+            g.reset_peaks()
         self.w.set_live("read", groups)
         self._lock_groups(True)
         self.mvb_btn.setText("■  Parar leitura")
@@ -695,6 +873,10 @@ class ModulePage(QWidget):
         self.basic_btn.setText("Ajuste básico  OFF")
 
     def on_live(self, data):
+        self._feed_charts(data)
+        if self.guided_test is not None:
+            self._guided_feed(data)
+            return
         cards = self.groups if data["mode"] == "read" else [self.basic_group]
         for card_ in cards:
             g = card_.spin.value()
@@ -823,6 +1005,8 @@ class AutoScanPage(QWidget):
         row.addWidget(btn("Copiar relatório", None, self._copy))
         row.addWidget(btn("Guardar .txt", None, self._save))
         row.addWidget(btn("Relatório para o cliente", None, lambda: self.report_req.emit()))
+        self.clear_all_btn = btn("Apagar avarias em todos", "danger", self._clear_all)
+        row.addWidget(self.clear_all_btn)
         row.addStretch(1)
         self.summary = lbl("", "h2")
         row.addWidget(self.summary)
@@ -855,6 +1039,46 @@ class AutoScanPage(QWidget):
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         v.addWidget(self.tree, 3)
         self.running = False
+
+    def _clear_all(self):
+        addrs = [i["address"] for i in self.items if i.get("status") == "ok" and i.get("faults")]
+        if self.running:
+            return
+        if not addrs:
+            QMessageBox.information(self, APP_NAME, "Não há avarias para apagar. Faça primeiro um Auto-Scan.")
+            return
+        names = ", ".join(f"{a:02X}" for a in addrs)
+        if not ask(self, APP_NAME, f"Apagar a memória de avarias em {len(addrs)} controlador(es) ({names})?\n\n"
+                                   "Recomenda-se gravar ou imprimir o relatório antes."):
+            return
+        self.clear_all_btn.setEnabled(False)
+        self.current.setText("A apagar avarias…")
+        self.w.submit("clear_all", addrs)
+
+    def apply_clear_results(self, results):
+        """Actualiza os resultados do Auto-Scan depois de apagar as avarias."""
+        self.clear_all_btn.setEnabled(True)
+        by_addr = {r["address"]: r for r in results}
+        for it in self.items:
+            r = by_addr.get(it["address"])
+            if r and r["status"] == "ok":
+                it["faults"] = r["faults"]
+        self.rebuild()
+        left = sum(len(r.get("faults", [])) for r in results if r["status"] == "ok")
+        errs = sum(1 for r in results if r["status"] != "ok")
+        self.current.setText("Avarias apagadas" + (f" — {left} voltaram" if left else "")
+                             + (f" — {errs} sem comunicação" if errs else ""))
+        return left, errs
+
+    def rebuild(self):
+        items, self.items = self.items, []
+        self.tree.clear()
+        self._clear_tiles()
+        total = max(self.progress.maximum(), 1)
+        for it in items:
+            self.on_progress(total, total, it)
+        nf = sum(len(i.get("faults", [])) for i in self.items)
+        self.summary.setText(f"{len(self.items)} módulo(s), {nf} avaria(s)")
 
     def _clear_tiles(self):
         while self.tiles.count():

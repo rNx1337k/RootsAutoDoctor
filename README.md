@@ -7,6 +7,17 @@ protocolos que o VCDS usa nestes carros:
 - **KW1281** (o "KWP1281" do VCDS) — init a 5 baud, auto-detecção 10400 / 9600 / 4800 baud
 - **KWP2000 sobre linha K** (ISO 14230) — init a 5 baud, como nos EDC15/EDC16 e ABS Mk60
 
+## Novidades da v0.5
+
+- **Testes guiados** para 1.9 TDI (separador *Testes guiados* no motor 01):
+  equilíbrio dos injectores (grupo 013, 20 s ao ralenti), pressão do turbo (grupo 011)
+  e massa de ar (grupo 003) numa aceleração em 3ª — com resultado e indicação no fim
+- **Gráfico grande ao vivo**: duplo clique num mostrador abre o valor num gráfico com mín/máx/média
+- **Valor máximo** nos mostradores (marca vermelha na escala e "máx" por baixo do valor)
+- **Apagar avarias em todos** os controladores a partir do Auto-Scan (com confirmação)
+- **Repor indicador de revisão** nos painéis tipo Golf IV / Bora / Passat B5 / Octavia I (Informação → Funções rápidas)
+- Simulador com ciclo ralenti → aceleração e grupo 013, para experimentar tudo sem carro
+
 ## Novidades da v0.4 — testes e correcções
 
 - Banco de testes de robustez (`tests/test_robustness.py`): ruído na linha K, bytes perdidos,
