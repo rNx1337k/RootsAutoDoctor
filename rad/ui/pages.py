@@ -1556,6 +1556,15 @@ class OptionsPage(QWidget):
                         if f.get("driver_url") else "")
                 parts.append(f"<p><b style='color:{colors[f['level']]}'>{f['title']}</b><br>{f['detail']}{link}</p>")
             html = "".join(parts)
+        j2534 = cable.j2534_devices()
+        if j2534:
+            html += "<p><b>Interfaces J2534 (PassThru) instaladas:</b></p><ul>"
+            for d in j2534:
+                html += (f"<li><b>{d['name']}</b> — {d['vendor']} ({d['view']})<br>"
+                         f"Protocolos: {', '.join(d['protocols']) or '—'}<br><small>{d['dll']}</small></li>")
+            html += "</ul>"
+        else:
+            html += "<p>Nenhuma interface J2534 (PassThru) registada neste PC.</p>"
         ready = [f["com"] for f in findings if f.get("com")]
         if len(ready) == 1:
             i = self.port.findData(ready[0])

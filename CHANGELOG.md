@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 ## [0.8.1] — 2026-10-18
 ### Added
 - "Detect cable" in Options: identifies FTDI / CH340 / PL2303 / CP210x cables, missing drivers, FTDI cables without a COM port (Load VCP), Ross-Tech HEX clones that cannot work as KKL cables, and the FTDI latency timer; selects the COM port automatically
+- J2534 (PassThru) driver detection in "Detect cable"
+- Autocom / Delphi interfaces identified by name in "Detect cable"
 
 ## [0.8.0] — 2026-10-18
 ### Added

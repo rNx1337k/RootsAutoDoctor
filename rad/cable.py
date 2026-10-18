@@ -169,3 +169,46 @@ def detect():
     if sys.platform != "win32":
         return []
     return classify(list_usb_devices(), ftdi_latency())
+
+
+def j2534_devices():
+    """Interfaces J2534 (PassThru 04.04) registadas no Windows: [{name, vendor, dll, protocols}]."""
+    out = []
+    try:
+        import winreg
+    except ImportError:
+        return out
+    for view in (winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY):
+        try:
+            root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\PassThruSupport.04.04", 0,
+                                  winreg.KEY_READ | view)
+        except OSError:
+            continue
+        i = 0
+        while True:
+            try:
+                sub = winreg.EnumKey(root, i)
+            except OSError:
+                break
+            i += 1
+            try:
+                k = winreg.OpenKey(root, sub)
+                vals = {}
+                j = 0
+                while True:
+                    try:
+                        n, v, _t = winreg.EnumValue(k, j)
+                    except OSError:
+                        break
+                    vals[n] = v
+                    j += 1
+            except OSError:
+                continue
+            protos = [p for p in ("ISO9141", "ISO14230", "CAN", "ISO15765", "J1850VPW", "J1850PWM")
+                      if vals.get(p) == 1]
+            dev = {"name": vals.get("Name", sub), "vendor": vals.get("Vendor", ""),
+                   "dll": vals.get("FunctionLibrary", ""), "protocols": protos,
+                   "view": "32-bit" if view == winreg.KEY_WOW64_32KEY else "64-bit"}
+            if all(dev["dll"] != o["dll"] for o in out):
+                out.append(dev)
+    return out
