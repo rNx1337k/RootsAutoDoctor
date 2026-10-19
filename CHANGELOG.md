@@ -3,6 +3,11 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-10-19
+### Added
+- `tools/hex_capture.py`: reads a Wireshark/USBPcap capture (.pcapng or .pcap) of an FTDI interface and prints, in order and with timestamps, the FTDI control requests (baud rate, DTR/RTS, BREAK, latency, purge) and the bytes exchanged with the cable, grouped into the HEX microcontroller's 53/4D frames with the command name; ends with the list of opcodes seen, marking those not implemented yet. Standard library only, read-only
+- Tests with synthetic USBPcap captures (`tests/test_hex_capture.py`)
+
 ## [1.1.0] — 2026-10-19
 ### Fixed
 - The HEX-USB clone (FTDI 0403:FA24, S/N RT000001) never reached the K-line: it is a HEX-USB+CAN clone with an ATmega162 between the FTDI chip and the OBD plug, which in its default "intelligent" mode swallows plain K-line bytes, so the echo test could never pass. All earlier "successful" readings in the history came from the simulator, not from the car

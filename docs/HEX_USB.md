@@ -45,6 +45,15 @@ sessão real (ver "Próximo passo").
 3. Com o cabo no carro e a ignição ligada, fazer no programa de referência: Opções → Testar; depois
    01-Motor → Códigos de avaria; fechar.
 4. Parar e guardar como `captura_hex.pcapng`.
+5. Analisar:
+
+```powershell
+.venv\Scripts\python.exe tools\hex_capture.py captura_hex.pcapng -o analise_hex.txt
+```
+
+O `tools/hex_capture.py` fica só com o cabo (FTDI), tira os 2 bytes de estado de cada pacote do chip, mostra por
+ordem os pedidos de controlo (velocidade, DTR/RTS, BREAK) e os pacotes 53/4D com o nome do comando, e lista no fim
+os opcodes que ainda estão por implementar.
 
 O Roots Auto Doctor não passa a depender de nenhum outro programa: a captura serve só para conhecer os bytes que
 o cabo espera.
