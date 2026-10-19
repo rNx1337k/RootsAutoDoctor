@@ -1,5 +1,8 @@
 """Camada física: linha K através de cabo KKL / clone VCDS "dumb" (FTDI, CH340...).
 
+A porta pode ser uma COM normal (pyserial), um chip FTDI por USB directo (rad/ftdi_direct.py, "FTDI:...")
+ou um chip FTDI com driver D2XX próprio (rad/d2xx.py, "D2XX:..."). Todos imitam o serial.Serial.
+
 O cabo KKL é um conversor USB-série com um transístor que liga o TX/RX ao pino 7
 (linha K) da ficha OBD. A linha K é um fio único, por isso tudo o que enviamos
 volta também ao nosso RX ("eco") e tem de ser descartado.
@@ -57,6 +60,16 @@ def list_serial_ports():
     except Exception:
         log.warning("Não foi possível listar as portas série", exc_info=True)
     try:
+        from .ftdi_direct import list_ports as ftdi_ports
+        ports.extend(ftdi_ports())
+    except Exception:
+        log.warning("Não foi possível listar as interfaces USB directas (libusb)", exc_info=True)
+    try:
+        from .d2xx import list_ports as d2xx_ports
+        ports.extend(d2xx_ports())
+    except Exception:
+        log.warning("Não foi possível listar as interfaces D2XX", exc_info=True)
+    try:
         from .j2534 import list_ports as j2534_ports
         ports.extend(j2534_ports())
     except Exception:
@@ -92,6 +105,12 @@ class KLine:
         if self.is_simulator:
             from .simulator import SimSerial
             self.ser = SimSerial()
+        elif self.port_name.startswith("FTDI:"):
+            from .ftdi_direct import FtdiSerial      # chip FTDI sem porta COM (WinUSB), ex.: clone HEX-USB
+            self.ser = FtdiSerial(self.port_name, 10400, timeout=0.5)
+        elif self.port_name.startswith("D2XX:"):
+            from .d2xx import open_serial          # chip FTDI com driver D2XX próprio (ex.: RT-USB da Ross-Tech)
+            self.ser = open_serial(self.port_name)
         else:
             import serial
             try:

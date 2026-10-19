@@ -33,7 +33,8 @@ def test_ch340_and_missing_driver():
 
 
 def test_hex_clone_and_ignored_devices():
-    assert levels([HEX, MOUSE]) == [("bad", None)]
+    # clone HEX-USB (chip FTDI) sem serviço de driver: pede o WinUSB (ver test_usb_transports)
+    assert levels([HEX, MOUSE]) == [("warn", None)]
     assert levels([MOUSE]) == []
 
 

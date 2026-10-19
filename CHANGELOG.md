@@ -3,6 +3,20 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-10-19
+### Added
+- HEX-USB clone support (FTDI FT232R with Ross-Tech PID 0403:FA24) as a K-line cable, through two transports:
+  - `D2XX:<serial>` (`rad/d2xx.py`, `rad/d2xx_bridge.py`): uses the D2XX library shipped with the RT-USB driver (32-bit, runs in a bridge process like J2534); VCDS keeps working
+  - `FTDI:<vid>:<pid>:<serial>` (`rad/ftdi_direct.py`): direct USB access with the WinUSB driver (Zadig) via pyftdi + libusb, 1 ms latency
+- "Detect cable" identifies the FTDI chip from the USB revision and explains what each driver state needs (no driver, RT-USB, WinUSB, missing 32-bit Python or pyftdi) and selects the port
+- `tools/hex_probe.py`: command-line probe for hardware tests (USB detection, open, K-line echo, read-only ECU identification, faults and group 1)
+- `docs/HEX_USB.md`: driver installation, hardware test plan, supported protocols and verification status
+- Tests for both transports without hardware, including 5-baud init decoded from BREAK timing
+### Changed
+- "Connection check" explains that no echo on a USB-direct/D2XX interface means it has a microcontroller and cannot be used as a KKL cable
+- Requirements: `pyftdi`, `libusb-package`
+- `build_exe.bat` ships the J2534 and D2XX bridge scripts
+
 ## [0.10.0] — 2026-10-19
 ### Added
 - `erros.log`: errors the app recovers from (port, cable, J2534, end of session...) are now logged with their traceback instead of being silently ignored; included in the support package

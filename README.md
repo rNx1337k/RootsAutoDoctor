@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.10.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.11.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -62,7 +62,8 @@ Passat B5, Audi A3 8L / A4 B5–B6, Seat Leon 1M and Škoda Octavia I.
 |---|---|
 | KKL 409.1 / K-line cables (FTDI, CH340) | KW1281 and KWP2000 |
 | J2534 PassThru (04.04) | KWP2000 only |
-| HEX-USB+CAN / HEX-V2 | Not supported |
+| HEX-USB clone (FTDI FT232R, VID 0403 PID FA24) | K-line only, if the cable has no microcontroller — see [docs/HEX_USB.md](docs/HEX_USB.md) |
+| Genuine HEX-V2 / HEX-NET, other firmware-based interfaces | Not supported |
 
 For FTDI cables, setting the latency timer to 1 ms in Device Manager makes live data much faster.
 

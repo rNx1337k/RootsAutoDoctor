@@ -230,10 +230,17 @@ class Worker(QThread):
                 except Exception:
                     log.warning("Teste de eco falhou", exc_info=True)
                     ok = False
-                steps.append(("Eco da linha K", ok,
-                              "O cabo vê a linha K do carro." if ok else
-                              "Sem eco: o cabo não está ligado ao carro, a ignição está desligada, "
-                              "ou não é um cabo KKL."))
+                if ok:
+                    why = "O cabo vê a linha K do carro."
+                elif port.startswith(("FTDI:", "D2XX:")):
+                    why = ("Sem eco: a interface abriu pelo USB mas os bytes não voltam da linha K. Com o cabo "
+                           "no carro e a ignição ligada, isto quer dizer que há um microcontrolador entre o chip "
+                           "FTDI e a ficha OBD (clone 'inteligente') e a interface não pode ser usada como "
+                           "cabo KKL. Use um cabo KKL 409.1 ou uma interface J2534.")
+                else:
+                    why = ("Sem eco: o cabo não está ligado ao carro, a ignição está desligada, "
+                           "ou não é um cabo KKL.")
+                steps.append(("Eco da linha K", ok, why))
                 if not ok:
                     return
             try:

@@ -62,7 +62,7 @@ def find_python(bits):
                 return path
         except Exception:
             continue
-    raise ConnectError(f"Esta interface J2534 usa um driver de {bits} bits. Instale o Python 3 de {bits} bits "
+    raise ConnectError(f"Esta interface usa um driver de {bits} bits. Instale o Python 3 de {bits} bits "
                        f"(python.org → Windows installer ({bits}-bit)) e volte a tentar.")
 
 
