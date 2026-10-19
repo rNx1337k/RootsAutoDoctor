@@ -3,6 +3,14 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — 2026-10-19
+### Added
+- "Connection check" and "Test interface" try the four DTR/RTS combinations when there is no K-line echo and remember the one that works for that port (some clones power or switch the K-line transceiver with these lines)
+### Changed
+- D2XX bridge requests 1 ms timer resolution (per-process since Windows 10 2004): read timeouts went from ~15.6 ms steps to 1 ms on the real cable
+### Removed
+- Licence activation: no activation key, licence card, "evaluation version" title or report banner; `rad/license.py`, `rad/ed25519.py`, `tools/keygen.py` and their tests removed (still in git history)
+
 ## [0.11.0] — 2026-10-19
 ### Added
 - HEX-USB clone support (FTDI FT232R with Ross-Tech PID 0403:FA24) as a K-line cable, through two transports:

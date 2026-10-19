@@ -15,7 +15,7 @@ def _e(s):
     return html.escape(str(s or ""))
 
 
-def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64), demo=False):
+def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64)):
     """items: lista no formato do Auto-Scan
        [{"address", "module", "status": ok|error, "info", "faults", "error"}]."""
     now = datetime.datetime.now()
@@ -59,8 +59,6 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                      f"<span class='muted'>{(_e(f['elab']) + ' · ') if f['elab'] not in ('-', '') else ''}{kind}</span></div>")
         rows.append(f"<tr><td class='addr'>{addr}</td><td>{cell}</td><td>{status}</td></tr>")
 
-    demo_banner = ('<p style="background:#FDECEC; color:#B3261E; padding:6px 10px; font-weight:bold; '
-                   'text-align:center">VERSÃO DE AVALIAÇÃO — Roots Auto Doctor</p>' if demo else "")
     notes_html = (f"<h2>Observações</h2><p>{_e(notes).replace(chr(10), '<br>')}</p>" if notes.strip() else "")
 
     return f"""<!doctype html>
@@ -79,7 +77,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
  .fault {{ margin-top: 6px; padding-left: 8px; border-left: 3px solid {WARN}; }}
  .verdict {{ padding: 10px 12px; border-left: 5px solid {verdict_color}; background: #F3F6FC; font-size: 11pt; }}
 </style></head><body>
-{demo_banner}<table><tr>
+<table><tr>
  <td style="width:{logo_size[0] + 8}px"><img src="{logo_src}" width="{logo_size[0]}" height="{logo_size[1]}"></td>
  <td><h1>{_e(workshop.get('name') or 'Relatório de diagnóstico')}</h1>
      <span class="muted">{ws_info}</span></td>
@@ -100,7 +98,6 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
 {notes_html}
 <p class="muted" style="margin-top:24px">Gerado por {APP_NAME} v{VERSION}. As avarias indicam o que os
 controladores registaram no momento da leitura; o diagnóstico final cabe ao técnico.</p>
-{demo_banner}
 </body></html>"""
 
 

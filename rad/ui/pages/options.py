@@ -1,9 +1,8 @@
-"""Opções: interface, oficina, licença e ferramentas de suporte."""
+"""Opções: interface, oficina e ferramentas de suporte."""
 import datetime
 import os
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
     QScrollArea, QVBoxLayout, QWidget,
@@ -18,7 +17,6 @@ from .common import lbl, btn, card, page_header
 class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
-    license_changed = Signal(dict)
     link_check_req = Signal()
 
     def __init__(self, settings):
@@ -34,38 +32,8 @@ class OptionsPage(QWidget):
         scroll.setWidget(body)
         v = QVBoxLayout(body)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Opções", "Licença, interface (cabo), comunicação e dados da oficina."))
+        v.addWidget(page_header("Opções", "Interface (cabo), comunicação e dados da oficina."))
 
-        from ... import license as lic
-        self.lic = lic
-        lc = card()
-        lv = QVBoxLayout(lc)
-        lv.setContentsMargins(20, 18, 20, 18)
-        lv.setSpacing(8)
-        lh = QHBoxLayout()
-        lh.addWidget(lbl("Licença", "h2"))
-        lh.addStretch(1)
-        self.lic_status = lbl("", "h2")
-        lh.addWidget(self.lic_status)
-        lv.addLayout(lh)
-        mrow = QHBoxLayout()
-        mrow.addWidget(lbl("Código deste PC", "muted"))
-        self.machine_lbl = lbl(lic.machine_code(), "h2")
-        self.machine_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        mrow.addWidget(self.machine_lbl)
-        mrow.addWidget(btn("Copiar", None, lambda: QGuiApplication.clipboard().setText(self.machine_lbl.text())))
-        mrow.addStretch(1)
-        lv.addLayout(mrow)
-        krow = QHBoxLayout()
-        self.key_edit = QLineEdit()
-        self.key_edit.setPlaceholderText("Cole aqui a chave de licença que recebeu")
-        krow.addWidget(self.key_edit, 1)
-        krow.addWidget(btn("Activar", "primary", self._activate))
-        lv.addLayout(krow)
-        lv.addWidget(lbl("Para comprar uma licença envie o código deste PC. Sem licença o programa funciona "
-                         "em modo de avaliação: todas as funções disponíveis, relatórios com a marca "
-                         "\"Versão de avaliação\".", "muted", wrap=True))
-        v.addWidget(lc)
         c = card()
         f = QFormLayout(c)
         f.setContentsMargins(20, 18, 20, 18)
@@ -126,33 +94,13 @@ class OptionsPage(QWidget):
             "Cabos suportados: cabos KKL 'VAG-COM 409.1' e clones VCDS de linha K com chip FTDI ou CH340 "
             "(aparecem como porta COM normal). Para máxima velocidade em cabos FTDI: Gestor de dispositivos → "
             "Portas (COM) → Propriedades → Definições da porta → Avançadas → Latency Timer = 1 ms.\n\n"
-            "Cabos HEX-USB+CAN / HEX-V2 (originais ou clones) usam firmware fechado da Ross-Tech e só "
-            "funcionam com o VCDS — não aparecem como porta COM e não podem ser usados por outro programa.",
+            "Clones HEX-USB com chip FTDI (VID 0403 PID FA24) aparecem como D2XX:… (driver RT-USB) ou "
+            "FTDI:… (driver WinUSB) — use Detectar cabo e depois Diagnóstico da ligação com a ignição ligada. "
+            "Interfaces HEX-V2 / HEX-NET genuínas usam firmware fechado da Ross-Tech e não são suportadas.",
             "muted", wrap=True))
         v.addStretch(1)
         self.refresh_ports()
         self._load()
-
-    def show_license(self, info):
-        text = self.lic.STATUS_TEXT.get(info["status"], "")
-        if info["status"] == "valid":
-            exp = f" até {info['expires']}" if info.get("expires") else " (vitalícia)"
-            text = f"{text}{exp} — {info.get('holder', '')}"
-        self.lic_status.setText(text)
-        self.lic_status.setStyleSheet(f"color: {OK if info['status'] == 'valid' else WARN};")
-
-    def _activate(self):
-        key = self.key_edit.text().strip()
-        if not key:
-            return
-        r = self.lic.activate(key)
-        if r["status"] == "valid":
-            self.key_edit.clear()
-            QMessageBox.information(self, APP_NAME, f"Licença activada para {r.get('holder', '')}. Obrigado!")
-            self.license_changed.emit(r)
-        else:
-            QMessageBox.warning(self, APP_NAME, self.lic.STATUS_TEXT.get(r["status"], "Chave inválida") + ".")
-        self.show_license(r if r["status"] == "valid" else self.lic.load())
 
     def refresh_ports(self):
         cur = self.port.currentData() or self.settings.value("port", "")
@@ -302,7 +250,7 @@ class OptionsPage(QWidget):
             return
         QMessageBox.information(self, APP_NAME, f"Pacote de suporte guardado em:\n{path}\n\n"
                                                 "Contém os registos de comunicação dos últimos dias e a lista de "
-                                                "portas e cabos. Não contém licenças nem dados de clientes.")
+                                                "portas e cabos. Não contém dados de clientes.")
 
     def _open_logs(self):
         from PySide6.QtCore import QUrl

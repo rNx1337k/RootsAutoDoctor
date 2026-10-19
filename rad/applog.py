@@ -70,7 +70,7 @@ def write_crash(exc_type, exc, tb):
 
 def make_support_bundle(dest):
     """Cria um .zip com os registos dos últimos dias e informação do sistema, para enviar ao suporte.
-    Não inclui licenças, histórico de clientes nem dados da oficina."""
+    Não inclui histórico de clientes nem dados da oficina."""
     import glob
     import zipfile
     from .kline import list_serial_ports

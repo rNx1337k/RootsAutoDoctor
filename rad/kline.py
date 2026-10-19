@@ -20,6 +20,8 @@ from .errors import KLineError, KLineTimeout
 log = logging.getLogger(__name__)
 
 SIM_PORT = "SIMULADOR"
+DEFAULT_LINES = (True, False)                      # (DTR, RTS) — o normal nos cabos KKL
+LINE_COMBOS = (DEFAULT_LINES, (False, False), (True, True), (False, True))
 
 
 def precise_sleep(seconds):
@@ -89,6 +91,7 @@ class KLine:
         self.ser = None
         self._timeout = None
         self._pushback = []
+        self.lines = DEFAULT_LINES
 
     # ------------------------------------------------------------------ porta
     @property
@@ -121,12 +124,7 @@ class KLine:
                 raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}")
         if not self.is_simulator:
             _timer_resolution(True)
-        # Nos cabos KKL o DTR/RTS costuma alimentar/comutar o driver da linha K/L.
-        for attr, val in (("dtr", True), ("rts", False)):
-            try:
-                setattr(self.ser, attr, val)
-            except Exception:
-                log.warning("%s: não foi possível definir %s", self.port_name, attr.upper(), exc_info=True)
+        self.set_lines(*self.lines)
         self._timeout = None
         self._pushback.clear()
 
@@ -276,6 +274,31 @@ class KLine:
         keyword = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         return {"status": "ok", "kb1": kb1, "kb2": kb2, "keyword": keyword,
                 "address_byte": addr_byte}
+
+    def set_lines(self, dtr, rts):
+        """Nos cabos KKL o DTR/RTS costuma alimentar/comutar o driver da linha K/L."""
+        self.lines = (bool(dtr), bool(rts))
+        for attr, val in (("dtr", self.lines[0]), ("rts", self.lines[1])):
+            try:
+                setattr(self.ser, attr, val)
+            except Exception:
+                log.warning("%s: não foi possível definir %s", self.port_name, attr.upper(), exc_info=True)
+
+    def find_lines(self):
+        """Experimenta as combinações de DTR/RTS até haver eco na linha K.
+        Fica com a que funcionou e devolve-a; sem eco em nenhuma, repõe a anterior e devolve None."""
+        before = self.lines
+        for combo in (before,) + tuple(c for c in LINE_COMBOS if c != before):
+            self.set_lines(*combo)
+            if not self.is_simulator:
+                precise_sleep(0.05)                  # deixar o transceptor estabilizar
+            if self.echo_test():
+                if combo != before:
+                    self.log(f"Interface: eco com DTR={'on' if combo[0] else 'off'} "
+                             f"RTS={'on' if combo[1] else 'off'}")
+                return combo
+        self.set_lines(*before)
+        return None
 
     # ------------------------------------------------------------ teste do cabo
     def echo_test(self):

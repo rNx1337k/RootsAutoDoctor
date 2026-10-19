@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, applog, history, license, report, vag_data
+from .. import APP_NAME, VERSION, applog, history, report, vag_data
 from ..kline import SIM_PORT
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
@@ -129,7 +129,6 @@ class MainWindow(QMainWindow):
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
         self.options.link_check_req.connect(self.run_link_check)
-        self.options.license_changed.connect(lambda _r: self.update_license())
 
         # ---------------- registo
         self.log = QPlainTextEdit()
@@ -152,10 +151,6 @@ class MainWindow(QMainWindow):
         self.menuBar().hide()
 
         self.toast = Toast(root)
-        self.lic_btn = btn("", None, lambda: self.show_page("options"))
-        self.lic_btn.setObjectName("statusBtn")
-        self.statusBar().addPermanentWidget(self.lic_btn)
-        self.update_license()
         self._shortcuts()
         self.statusBar().showMessage(f"{APP_NAME} v{VERSION}")
         self.set_conn_state("disconnected")
@@ -222,21 +217,6 @@ class MainWindow(QMainWindow):
         self.show_page(key)
 
     # -------------------------------------------------------- configuração
-    @property
-    def is_demo(self):
-        return self.lic_info.get("status") != "valid"
-
-    def update_license(self):
-        self.lic_info = license.load()
-        self.options.show_license(self.lic_info)
-        if self.is_demo:
-            self.setWindowTitle(f"{APP_NAME} — Versão de avaliação")
-            self.lic_btn.setText("Versão de avaliação · Activar licença")
-            self.lic_btn.show()
-        else:
-            self.setWindowTitle(APP_NAME)
-            self.lic_btn.setText(f"Licenciado a {self.lic_info.get('holder', '')}")
-
     def update_workshop_brand(self):
         """Mostra o logótipo (ou o nome) da oficina na barra lateral."""
         path = self.options.workshop_logo()
@@ -362,14 +342,14 @@ class MainWindow(QMainWindow):
         try:
             if path.lower().endswith(".html"):
                 html = report.build_html(workshop, vehicle, items,
-                                         report.logo_data_uri(logo_path), notes, logo_size, self.is_demo)
+                                         report.logo_data_uri(logo_path), notes, logo_size)
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(html)
             else:
                 if not path.lower().endswith(".pdf"):
                     path += ".pdf"
                 from PySide6.QtPrintSupport import QPrinter
-                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size, self.is_demo)
+                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size)
                 doc = QTextDocument()
                 doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), logo_img)
                 doc.setHtml(html)

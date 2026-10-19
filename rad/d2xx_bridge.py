@@ -238,7 +238,18 @@ def handle(backend, req):
     return {}
 
 
+def _timer_1ms():
+    """Desde o Windows 10 2004 a resolução do relógio é por processo: sem isto, os timeouts do FT_Read
+    arredondam para ~15,6 ms (medido no clone HEX-USB com o RT-USB.DLL)."""
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.winmm.timeBeginPeriod(1)
+        except Exception:
+            pass
+
+
 def main():
+    _timer_1ms()
     backend = None
     for line in sys.stdin:
         try:

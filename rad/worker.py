@@ -130,8 +130,25 @@ class Worker(QThread):
             self.kl = J2534Link(c["port"], log=self._log, raw_log=c["raw_log"])
         else:
             self.kl = KLine(c["port"], echo=c["echo"], log=self._log, raw_log=c["raw_log"])
+        saved = _saved_lines(c["port"])
+        if saved and not getattr(self.kl, "is_j2534", False):
+            self.kl.lines = saved
         self.kl.open()
         self.log.emit(f"Interface {c['port']} aberta")
+
+    def _echo(self):
+        """Teste de eco; se falhar, procura o DTR/RTS que liga o transceptor e guarda-o para esta porta."""
+        if getattr(self.kl, "is_j2534", False):
+            return self.kl.echo_test(), ""
+        before = self.kl.lines
+        combo = self.kl.find_lines()
+        if combo is None:
+            return False, ""
+        note = ""
+        if combo != before:
+            _save_lines(self.cfg["port"], combo)
+            note = f" (DTR {'on' if combo[0] else 'off'}, RTS {'on' if combo[1] else 'off'} — guardado)"
+        return True, note
 
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):
@@ -196,8 +213,8 @@ class Worker(QThread):
 
     def _cmd_test_interface(self):
         self._ensure_port()
-        ok = self.kl.echo_test()
-        msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD."
+        ok, note = self._echo()
+        msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD." + note
                if ok else
                "A porta abriu, mas não houve eco na linha K.\n"
                "Ligue o cabo ao carro com a ignição ligada e volte a testar "
@@ -226,12 +243,12 @@ class Worker(QThread):
                 return
             if not getattr(self.kl, "is_j2534", False):
                 try:
-                    ok = self.kl.echo_test()
+                    ok, note = self._echo()
                 except Exception:
                     log.warning("Teste de eco falhou", exc_info=True)
-                    ok = False
+                    ok, note = False, ""
                 if ok:
-                    why = "O cabo vê a linha K do carro."
+                    why = "O cabo vê a linha K do carro." + note
                 elif port.startswith(("FTDI:", "D2XX:")):
                     why = ("Sem eco: a interface abriu pelo USB mas os bytes não voltam da linha K. Com o cabo "
                            "no carro e a ignição ligada, isto quer dizer que há um microcontrolador entre o chip "
@@ -332,3 +349,24 @@ class Worker(QThread):
             except (RequestRejected, NotSupported) as e:
                 out["groups"][g] = str(e)
         self.live.emit(out)
+
+
+def _saved_lines(port):
+    """(DTR, RTS) que deu eco nesta porta da última vez, ou None."""
+    try:
+        from PySide6.QtCore import QSettings
+        v = QSettings("Roots", "RootsAutoDoctor").value(f"lines/{port}")
+        if v:
+            dtr, rts = str(v).split(",")
+            return (dtr == "1", rts == "1")
+    except Exception:
+        log.warning("Não foi possível ler o DTR/RTS guardado", exc_info=True)
+    return None
+
+
+def _save_lines(port, combo):
+    try:
+        from PySide6.QtCore import QSettings
+        QSettings("Roots", "RootsAutoDoctor").setValue(f"lines/{port}", f"{int(combo[0])},{int(combo[1])}")
+    except Exception:
+        log.warning("Não foi possível guardar o DTR/RTS", exc_info=True)

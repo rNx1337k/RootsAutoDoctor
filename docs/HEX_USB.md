@@ -94,11 +94,30 @@ interface J2534 com ISO 15765 para carros CAN.
 |---|---|
 | Identificação USB (VID/PID, chip, série, driver) | **Verificado no hardware** |
 | Detecção na aplicação (`Detectar cabo`, lista de portas `D2XX:RT000001`) | **Verificado no hardware** |
-| Abrir o chip pelo D2XX | Não verificado — falta o Python de 32 bits |
+| Abrir o chip pelo D2XX (FT232R, latência 1 ms, driver 2.10.00, biblioteca 3.02.07) | **Verificado no hardware** |
+| BREAK, mudança de velocidade, escrita e timeouts de leitura pelo D2XX | **Verificado no hardware** (tempos em baixo) |
+| Diagnóstico da ligação na app até ao passo do eco | **Verificado no hardware** (sem carro: "sem eco", como esperado) |
 | Abrir o chip por WinUSB | Não verificado — o driver actual é o RT-USB |
 | Eco da linha K, init 5 baud, KW1281/KWP2000 com centralina real | Não verificado — precisa do carro |
 | KLine + KW1281 sobre `FtdiSerial` (init 5 baud descodificado pelos tempos do BREAK) | Testado com chip simulado |
 | KLine + KW1281/KWP2000 sobre a ponte D2XX (processo à parte) | Testado com backend simulado |
+
+## Tempos medidos na ponte D2XX (cabo real, sem carro)
+
+| Operação | Mediana | Máximo | Limite que importa |
+|---|---|---|---|
+| Escrever 1 byte | 0,85 ms | 1,2 ms | complemento KW1281 tem de chegar em < ~50 ms |
+| BREAK ligar/desligar | 1,9 ms | 2,3 ms | bits do init a 5 baud de 200 ms |
+| Ler com timeout de 1 / 25 / 60 ms | 1,0 / 25,0 / 60,1 ms | 2 / 26 / 61 ms | W4 do init: 25–50 ms |
+| Limpar buffer (FT_Purge) | 12 ms | 12 ms | só usado durante o bit de stop de 200 ms |
+
+Sem `timeBeginPeriod(1)` na ponte, os timeouts arredondavam para 15,6 ms — corrigido.
+
+## DTR / RTS
+
+Alguns clones ligam ou comutam o transceptor da linha K pelo DTR/RTS. Se o primeiro teste de eco falhar, o
+Diagnóstico da ligação e o Testar interface experimentam as 4 combinações e guardam a que der eco para essa
+porta (`lines/<porta>` nas definições). Se nenhuma der eco com a ignição ligada, o cabo não serve como KKL.
 
 ## Protocolos
 

@@ -217,6 +217,43 @@ def test_kline_over_ftdi_direct_absent_module():
     _with_fake(run)
 
 
+def test_line_search_finds_dtr_rts():
+    """Clone cujo transceptor só liga com DTR desligado e RTS ligado: o eco só aparece nessa combinação."""
+    class PickyFtdi(FakeFtdi):
+        def __init__(self):
+            super().__init__()
+            self.dtr_on, self.rts_on = True, False
+            self.sim.echo = False
+
+        def set_dtr(self, on):
+            self.dtr_on = on
+            self.sim.echo = (not self.dtr_on) and self.rts_on
+
+        def set_rts(self, on):
+            self.rts_on = on
+            self.sim.echo = (not self.dtr_on) and self.rts_on
+
+    fake = PickyFtdi()
+    old = ftdi_direct._open_ftdi
+    ftdi_direct._open_ftdi = lambda vid, pid, serial: fake
+    try:
+        kl = KLine(PORT)
+        kl.open()
+        assert kl.echo_test() is False
+        assert kl.find_lines() == (False, True) and kl.lines == (False, True)
+        assert kl.echo_test() is True
+        kl.close()
+
+        fake = PickyFtdi()
+        fake.set_dtr = fake.set_rts = lambda on: None          # nenhuma combinação dá eco
+        kl = KLine(PORT)
+        kl.open()
+        assert kl.find_lines() is None and kl.lines == (True, False)
+        kl.close()
+    finally:
+        ftdi_direct._open_ftdi = old
+
+
 # ------------------------------------------------------------------ D2XX (ponte em processo à parte)
 def test_d2xx_bridge_end_to_end():
     kl = KLine(d2xx.SIM_PORT, echo="auto")
