@@ -337,7 +337,7 @@ def test_hex_usb_with_rt_usb_driver():
             raise RuntimeError("sem python")
         j2534.find_python = no_python
         f = cable.classify([_hex("OK", "RT-USB")])
-        assert f[0]["level"] == "warn" and "Python de" in f[0]["title"]
+        assert f[0]["level"] == "warn" and "componente de" in f[0]["title"] and "runtime/py" in f[0]["detail"]
 
         j2534.find_python = lambda bits: sys.executable
         f = cable.classify([_hex("OK", "RT-USB")])

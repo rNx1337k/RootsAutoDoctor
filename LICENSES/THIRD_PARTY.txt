@@ -12,3 +12,5 @@ pySerial
 
 Python
   Licença: Python Software Foundation License  —  https://docs.python.org/3/license.html
+  A pasta runtime contém a distribuição "embeddable" oficial do Python (32 e 64 bits), sem
+  alterações, usada para correr as pontes das interfaces D2XX / J2534.

@@ -4,6 +4,9 @@ venv/
 __pycache__/
 *.py[cod]
 
+# Python portátil das pontes D2XX/J2534 (tools/get_runtime.py)
+runtime/
+
 # Executável gerado pelo build_exe.bat
 build/
 dist/

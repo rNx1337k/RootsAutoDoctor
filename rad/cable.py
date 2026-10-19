@@ -106,12 +106,12 @@ def _d2xx_finding(d, name, chip, serial, caveat):
     try:
         find_python(bits)
     except Exception:
-        return {**base, "level": "warn", "driver_url": "https://www.python.org/downloads/windows/",
-                "title": f"{name} — driver RT-USB OK, falta o Python de {bits} bits",
-                "detail": (f"O {dll} é de {bits} bits e só pode ser carregado por um Python de {bits} bits. "
-                           f"Instale o Python 3 'Windows installer ({bits}-bit)' de python.org (fica ao lado do "
-                           "actual) e volte a carregar em Detectar cabo. Em alternativa troque o driver pelo "
-                           "WinUSB com o Zadig (acesso USB directo, não precisa de outro Python). " + caveat)}
+        return {**base, "level": "warn", "driver_url": None,
+                "title": f"{name} — driver RT-USB OK, falta o componente de {bits} bits do programa",
+                "detail": (f"O {dll} é de {bits} bits e é carregado pelo componente de {bits} bits que vem com o "
+                           f"Roots Auto Doctor (pasta runtime/py{bits}), que não foi encontrado. Volte a instalar "
+                           "o programa (ou, no código-fonte, execute o run.bat) e carregue outra vez em Detectar "
+                           "cabo. " + caveat)}
     return {**base, "level": "ok", "com": PREFIX + (serial or ""),
             "title": f"{name} pronta pelo driver RT-USB ({chip}, S/N {serial or '—'})",
             "detail": ("Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da "

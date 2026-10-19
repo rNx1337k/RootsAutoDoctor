@@ -7,5 +7,11 @@ if not exist .venv\Scripts\pythonw.exe (
     .venv\Scripts\python.exe -m pip install --upgrade pip
     .venv\Scripts\python.exe -m pip install -r requirements.txt || (pause & exit /b 1)
 )
+REM Python portatil de 32/64 bits para os cabos com driver de 32 bits (HEX-USB, J2534).
+REM Sem internet o programa abre na mesma; so essas interfaces ficam sem funcionar.
+.venv\Scripts\python.exe tools\get_runtime.py --check >nul 2>&1 || (
+    echo A preparar o componente para interfaces de 32 bits...
+    .venv\Scripts\python.exe tools\get_runtime.py
+)
 REM pythonw abre so a janela do programa, sem a consola preta
 start "" ".venv\Scripts\pythonw.exe" main.py

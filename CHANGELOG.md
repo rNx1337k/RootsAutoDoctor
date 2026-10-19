@@ -3,6 +3,16 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-10-19
+### Fixed
+- On another PC the HEX-USB clone (driver RT-USB, 32-bit DLL) asked to install a 32-bit Python. The app now ships the official Python "embeddable" runtime (python.org, 32 and 64 bits, stdlib only) in `runtime/py32` and `runtime/py64`, and the D2XX / J2534 bridges run on it: nothing to install
+- Compiled build (Nuitka / PyInstaller): the bridge scripts were not included and a 64-bit J2534 driver tried to start the app's own .exe as the bridge; the bridges, the simulator they use and the runtime are now copied into the build, and a compiled app always uses the bundled runtime
+### Added
+- `tools/get_runtime.py`: downloads the embeddable zips from python.org, checks the pinned SHA-256 and extracts them to `runtime/`; used by `run.bat` (first start, or when missing), `build_release.bat` and `build_exe.bat`
+- `RootsAutoDoctor.exe --selftest [file]`: checks the installation without a car (portable runtimes, J2534 and D2XX bridges with the simulators, and the RT-USB.DLL if the Ross-Tech driver is installed) and writes a report (default `%APPDATA%\RootsAutoDoctor\registos\autoteste.txt`)
+### Changed
+- "Detectar cabo" and the connection error say which program component is missing instead of asking to install Python
+
 ## [1.0.1] — 2026-10-19
 ### Fixed
 - Without K-line echo (cable not in the car, ignition off, or a HEX clone with a microcontroller) connecting took 7 s and an Auto-Scan over a minute before saying only "does not respond". Connect and Auto-Scan now check the echo first (0.3–1.5 s) and explain the cause, with the HEX/FTDI microcontroller case named explicitly. Skipped when "Eco da linha K" is set to "Sem eco" and on J2534

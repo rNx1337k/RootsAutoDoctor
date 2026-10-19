@@ -82,6 +82,9 @@ def install_crash_handler():
 
 
 def main():
+    if "--selftest" in sys.argv:                  # auto-teste da instalação, sem janela (rad/selftest.py)
+        from rad import selftest
+        sys.exit(selftest.main(sys.argv))
     applog.setup_logging()
     install_crash_handler()
     app = QApplication(sys.argv)

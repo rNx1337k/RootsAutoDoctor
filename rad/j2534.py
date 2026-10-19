@@ -47,11 +47,34 @@ def _python_console(exe):
     return exe
 
 
+def app_root():
+    """Pasta do programa: a do projecto (código-fonte) ou a do executável compilado (Nuitka/PyInstaller)."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def is_frozen():
+    return bool(getattr(sys, "frozen", False)) or "__compiled__" in globals()
+
+
+def bundled_python(bits):
+    """python.exe portátil que vem com o programa (runtime/py32, runtime/py64 — ver tools/get_runtime.py)."""
+    base = os.environ.get("RAD_RUNTIME_DIR") or os.path.join(app_root(), "runtime")
+    exe = os.path.join(base, f"py{bits}", "python.exe")
+    return exe if os.path.exists(exe) else None
+
+
 def find_python(bits):
-    """Executável Python com o número de bits pedido."""
+    """Executável Python com o número de bits pedido, para correr as pontes D2XX / J2534.
+    1) o próprio Python do programa, quando corre do código-fonte e os bits batem certo;
+    2) o Python portátil que vem com o programa (runtime/py32 ou py64) — o caso normal noutro PC;
+    3) um Python instalado no sistema (lançador py)."""
     mine = struct.calcsize("P") * 8
-    if bits in (None, mine):
+    want = bits or mine
+    if want == mine and not is_frozen():
         return _python_console(sys.executable)
+    exe = bundled_python(want)
+    if exe:
+        return exe
     flags = 0x08000000 if sys.platform == "win32" else 0
     for cmd in (["py", f"-3-{bits}"],):
         try:
@@ -62,8 +85,10 @@ def find_python(bits):
                 return path
         except Exception:
             continue
-    raise ConnectError(f"Esta interface usa um driver de {bits} bits. Instale o Python 3 de {bits} bits "
-                       f"(python.org → Windows installer ({bits}-bit)) e volte a tentar.")
+    where = ("volte a instalar o Roots Auto Doctor" if is_frozen() else
+             r"execute o run.bat (prepara a pasta runtime) ou: .venv\Scripts\python.exe tools\get_runtime.py")
+    raise ConnectError(f"Esta interface usa um driver de {want} bits e falta o componente de {want} bits do "
+                       f"programa (pasta runtime/py{want}): {where}.")
 
 
 class J2534Link:

@@ -25,7 +25,7 @@ O chip FTDI comporta-se como uma UART. O Roots Auto Doctor usa-o como um cabo KK
 
 | Porta na lista | Módulo | Driver necessário | Notas |
 |---|---|---|---|
-| `D2XX:RT000001` | `rad/d2xx.py` + `rad/d2xx_bridge.py` | RT-USB (o que já está instalado) | O `RT-USB.DLL` é de 32 bits → precisa de um **Python 3 de 32 bits** instalado ao lado. O VCDS continua a funcionar. |
+| `D2XX:RT000001` | `rad/d2xx.py` + `rad/d2xx_bridge.py` | RT-USB (o que já está instalado) | O `RT-USB.DLL` é de 32 bits → a ponte corre no **Python portátil de 32 bits que vem com o programa** (`runtime/py32`). O VCDS continua a funcionar. |
 | `FTDI:0403:FA24:RT000001` | `rad/ftdi_direct.py` (pyftdi + libusb) | **WinUSB** (Zadig) | Corre no próprio processo, latência 1 ms. O VCDS deixa de reconhecer o cabo enquanto tiver WinUSB. |
 
 Só são usados pedidos normais do chip FTDI (velocidade, 8N1, BREAK, DTR/RTS, latência, purge, read/write).
@@ -40,11 +40,8 @@ cd $env:USERPROFILE\Desktop\RootsAutoDoctor
 
 ### Opção A — manter o driver RT-USB (D2XX)
 
-1. Instalar o Python 3 de 32 bits ao lado do actual (não substitui o de 64 bits):
-   ```powershell
-   winget install --id Python.Python.3.13 --architecture x86
-   py -0p        # deve aparecer -V:3.13-32
-   ```
+1. Nada a instalar: o instalador traz o Python portátil de 32 bits (`runtime\py32`). No código-fonte, o
+   `run.bat` prepara-o na primeira vez (ou `.venv\Scripts\python.exe tools\get_runtime.py`).
 2. Opções → **Detectar cabo** → deve dizer "pronta pelo driver RT-USB" e escolher `D2XX:RT000001`.
 
 Se o `RT-USB.DLL` estiver noutro sítio: `$env:RAD_D2XX_DLL = "C:\caminho\RT-USB.DLL"`.

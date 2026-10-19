@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.2-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -46,7 +46,9 @@ cd RootsAutoDoctor
 run.bat
 ```
 
-`run.bat` creates a virtual environment, installs the dependencies and starts the app.
+`run.bat` creates a virtual environment, installs the dependencies, prepares the portable 32/64-bit Python
+used by the HEX-USB / J2534 bridges (`runtime/`) and starts the app. The installer (`build_release.bat`)
+ships everything, so nothing else needs to be installed on the workshop PC.
 
 1. Connect the cable to the OBD port and turn the ignition on.
 2. In **Options**, click **Detect cable**, then **Connection check**.
