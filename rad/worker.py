@@ -354,8 +354,8 @@ class Worker(QThread):
 def _saved_lines(port):
     """(DTR, RTS) que deu eco nesta porta da última vez, ou None."""
     try:
-        from PySide6.QtCore import QSettings
-        v = QSettings("Roots", "RootsAutoDoctor").value(f"lines/{port}")
+        from .settings import app_settings
+        v = app_settings().value(f"lines/{port}")
         if v:
             dtr, rts = str(v).split(",")
             return (dtr == "1", rts == "1")
@@ -366,7 +366,7 @@ def _saved_lines(port):
 
 def _save_lines(port, combo):
     try:
-        from PySide6.QtCore import QSettings
-        QSettings("Roots", "RootsAutoDoctor").setValue(f"lines/{port}", f"{int(combo[0])},{int(combo[1])}")
+        from .settings import app_settings
+        app_settings().setValue(f"lines/{port}", f"{int(combo[0])},{int(combo[1])}")
     except Exception:
         log.warning("Não foi possível guardar o DTR/RTS", exc_info=True)

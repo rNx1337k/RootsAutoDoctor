@@ -3,7 +3,7 @@ import base64
 import datetime
 import html
 
-from . import APP_NAME, VERSION
+from . import APP_NAME, VERSION, fault_advice
 
 BLUE = "#2F6FE4"
 RED = "#D62F36"
@@ -55,8 +55,15 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
         for f in faults:
             kind = "intermitente" if f.get("intermittent") else "permanente"
             pc = f" ({_e(f['pcode'])})" if f.get("pcode") else ""
-            cell += (f"<div class='fault'><b>{_e(f['vag'])}{pc}</b> — {_e(f['desc'])}<br>"
-                     f"<span class='muted'>{(_e(f['elab']) + ' · ') if f['elab'] not in ('-', '') else ''}{kind}</span></div>")
+            adv = fault_advice.advice(f, it.get("address"))
+            sev_color = {"alta": RED, "media": WARN}.get(adv["severity"], BLUE)
+            causes = ""
+            if adv["causes"]:
+                causes = (f"<br><span class='cause'>Causas prováveis: "
+                          f"{_e('; '.join(c[0].lower() + c[1:] for c in adv['causes'][:2]))}.</span>")
+            cell += (f"<div class='fault' style='border-left-color:{sev_color}'><b>{_e(f['vag'])}{pc}</b> — {_e(f['desc'])}<br>"
+                     f"<span class='muted'>{(_e(f['elab']) + ' · ') if f['elab'] not in ('-', '') else ''}{kind}"
+                     f" · <span style='color:{sev_color}'>{_e(adv['severity_text'].lower())}</span></span>{causes}</div>")
         rows.append(f"<tr><td class='addr'>{addr}</td><td>{cell}</td><td>{status}</td></tr>")
 
     notes_html = (f"<h2>Observações</h2><p>{_e(notes).replace(chr(10), '<br>')}</p>" if notes.strip() else "")
@@ -75,6 +82,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
  .k {{ color: #6A7591; width: 32%; }}
  .addr {{ font-weight: bold; color: {BLUE}; width: 40px; font-size: 11pt; }}
  .fault {{ margin-top: 6px; padding-left: 8px; border-left: 3px solid {WARN}; }}
+ .cause {{ color: #3B4A6B; font-size: 9pt; }}
  .verdict {{ padding: 10px 12px; border-left: 5px solid {verdict_color}; background: #F3F6FC; font-size: 11pt; }}
 </style></head><body>
 <table><tr>

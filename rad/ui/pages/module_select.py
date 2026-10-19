@@ -1,5 +1,5 @@
 """Escolha do módulo (controlador) a ligar."""
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame, QGridLayout, QHBoxLayout, QLineEdit, QMessageBox, QScrollArea, QVBoxLayout, QWidget,
 )
@@ -17,7 +17,8 @@ class ModuleSelectPage(QWidget):
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
         v.addWidget(page_header("Seleccionar controlador",
-                                "Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS)."))
+                                "Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS).",
+                                "Controladores"))
         row = QHBoxLayout()
         self.addr = QLineEdit()
         self.addr.setPlaceholderText("Endereço (ex.: 01)")
@@ -26,6 +27,13 @@ class ModuleSelectPage(QWidget):
         self.addr.returnPressed.connect(self._go_manual)
         row.addWidget(self.addr)
         row.addWidget(btn("Ligar!", "primary", self._go_manual))
+        row.addSpacing(16)
+        self.filter = QLineEdit()
+        self.filter.setPlaceholderText("Filtrar (ex.: motor, abs, 17)")
+        self.filter.setClearButtonEnabled(True)
+        self.filter.setMaximumWidth(320)
+        self.filter.textChanged.connect(self._filter)
+        row.addWidget(self.filter, 1)
         row.addStretch(1)
         v.addLayout(row)
 
@@ -35,10 +43,13 @@ class ModuleSelectPage(QWidget):
         inner = QWidget()
         grid = QGridLayout(inner)
         grid.setSpacing(10)
+        grid.setAlignment(Qt.AlignTop)
+        self.grid = grid
         common = [0x01, 0x02, 0x03, 0x08, 0x09, 0x15, 0x17, 0x19, 0x25, 0x35, 0x46, 0x56]
         others = [a for a in sorted(vag_data.VAG_MODULES) if a not in common]
         self.mod_btns = {}
         self.common = common
+        self.order = common + others
         for i, addr in enumerate(common + others):
             b = btn(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}", "module",
                     lambda _=False, a=addr: self.connect_req.emit(a))
@@ -47,6 +58,19 @@ class ModuleSelectPage(QWidget):
             grid.addWidget(b, i // 3, i % 3)
         scroll.setWidget(inner)
         v.addWidget(scroll, 1)
+
+    def _filter(self, text):
+        q = text.strip().lower()
+        for b in self.mod_btns.values():
+            self.grid.removeWidget(b)
+        n = 0
+        for addr in self.order:
+            b = self.mod_btns[addr]
+            ok = not q or q in f"{addr:02x} {vag_data.VAG_MODULES[addr]}".lower()
+            b.setVisible(ok)
+            if ok:
+                self.grid.addWidget(b, n // 3, n % 3)
+                n += 1
 
     def _style_btn(self, addr, color):
         b = self.mod_btns[addr]

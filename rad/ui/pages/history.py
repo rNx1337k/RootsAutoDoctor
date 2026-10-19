@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from ... import APP_NAME
-from ..style import BAD, OK, WARN
+from ..style import BAD, CYAN, MUTED, OK, WARN
 from .common import lbl, btn, page_header, ask
 
 
@@ -24,13 +24,15 @@ class HistoryPage(QWidget):
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
         v.addWidget(page_header("Histórico", "Todos os Auto-Scans e relatórios ficam guardados neste computador. "
-                                             "Procure pela matrícula ou pelo nome do cliente."))
+                                             "Procure pela matrícula ou pelo nome do cliente.",
+                                "Oficina"))
         row = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Procurar matrícula, cliente ou modelo")
         self.search.textChanged.connect(self._fill)
         row.addWidget(self.search, 1)
         row.addWidget(btn("Relatório", "primary", self._report))
+        row.addWidget(btn("Comparar com anterior", None, self._compare))
         row.addWidget(btn("Apagar", "danger", self._delete))
         row.addWidget(btn("Abrir pasta", None, self._open_dir))
         v.addLayout(row)
@@ -129,6 +131,47 @@ class HistoryPage(QWidget):
             QMessageBox.information(self, APP_NAME, "Escolha um diagnóstico da lista.")
             return
         self.report_req.emit(self.history.load_session(sid))
+
+    def compare_text(self, sid):
+        """Texto (HTML) com o que mudou entre esta sessão e a anterior do mesmo veículo, ou None."""
+        data = self.history.load_session(sid)
+        plate = data.get("vehicle", {}).get("plate", "")
+        prev = self.history.previous_for_plate(plate, before=sid)
+        if prev is None:
+            return None
+        diff = self.history.compare(prev.get("items", []), data.get("items", []))
+
+        def block(title, color, faults):
+            if not faults:
+                return f"<p><b style='color:{color}'>{title}: 0</b></p>"
+            rows = "".join(f"<li><b>{f['address']:02X}</b> {f.get('vag', '')} — {f.get('desc', '')}</li>" for f in faults)
+            return f"<p><b style='color:{color}'>{title}: {len(faults)}</b></p><ul>{rows}</ul>"
+
+        d0, d1 = prev["date"], data["date"]
+        head = (f"<p><b>{plate}</b>: visita de {d1[8:10]}/{d1[5:7]}/{d1[:4]} comparada com "
+                f"{d0[8:10]}/{d0[5:7]}/{d0[:4]}.<br><span style='color:{MUTED}'>Só entram os controladores lidos "
+                "nas duas visitas.</span></p>")
+        return (head + block("Novas", CYAN, diff["new"]) + block("Resolvidas", OK, diff["resolved"])
+                + block("Mantêm-se", WARN, diff["persisting"]))
+
+    def _compare(self):
+        sid = self._selected_id()
+        if not sid:
+            QMessageBox.information(self, APP_NAME, "Escolha um diagnóstico da lista.")
+            return
+        try:
+            text = self.compare_text(sid)
+        except Exception as e:
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível comparar: {e}")
+            return
+        if text is None:
+            QMessageBox.information(self, APP_NAME, "Não há uma visita anterior com a mesma matrícula para comparar.")
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Comparar com a visita anterior")
+        box.setTextFormat(Qt.RichText)
+        box.setText(text)
+        box.exec()
 
     def _delete(self):
         sid = self._selected_id()

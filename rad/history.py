@@ -151,3 +151,57 @@ def delete_session(sid, directory=None):
             db.execute("DELETE FROM sessions WHERE id = ?", (sid,))
     finally:
         db.close()
+
+
+def plate_key(plate):
+    return re.sub(r"[^A-Z0-9]", "", (plate or "").upper())
+
+
+def previous_for_plate(plate, before=None, directory=None):
+    """Sessão mais recente com a mesma matrícula (ignora traços, espaços e maiúsculas), anterior à
+    sessão `before` (pela data e, no mesmo segundo, pela ordem em que foram guardadas).
+    Devolve a sessão completa ou None."""
+    key = plate_key(plate)
+    if not key:
+        return None
+    db = _open(directory)
+    try:
+        sql = "SELECT id, plate FROM sessions"
+        args = ()
+        if before is not None:
+            ref = db.execute("SELECT date, rowid FROM sessions WHERE id = ?", (before,)).fetchone()
+            if ref is not None:
+                sql += " WHERE date < ? OR (date = ? AND rowid < ?)"
+                args = (ref["date"], ref["date"], ref["rowid"])
+        rows = db.execute(sql + " ORDER BY date DESC, rowid DESC", args).fetchall()
+    finally:
+        db.close()
+    for r in rows:
+        if r["id"] != before and plate_key(r["plate"]) == key:
+            return load_session(r["id"], directory)
+    return None
+
+
+def _fault_keys(items):
+    out = {}
+    for it in items or []:
+        if it.get("status") != "ok":
+            continue
+        for f in it.get("faults", []):
+            out[(it["address"], f.get("vag"))] = dict(f, address=it["address"], module=it.get("module", ""))
+    return out
+
+
+def compare(old_items, new_items):
+    """Compara dois diagnósticos: {"new": [...], "resolved": [...], "persisting": [...]}.
+    Cada avaria leva também "address" e "module". Só entram os módulos lidos nos dois diagnósticos,
+    para um módulo que não respondeu não parecer "resolvido"."""
+    read_old = {i["address"] for i in old_items or [] if i.get("status") == "ok"}
+    read_new = {i["address"] for i in new_items or [] if i.get("status") == "ok"}
+    both = read_old & read_new
+    a, b = _fault_keys(old_items), _fault_keys(new_items)
+    return {
+        "new": [b[k] for k in b if k not in a and k[0] in both],
+        "resolved": [a[k] for k in a if k not in b and k[0] in both],
+        "persisting": [b[k] for k in b if k in a],
+    }

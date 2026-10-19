@@ -1,16 +1,17 @@
 """Página inicial: dados do veículo, estatísticas e veículos recentes."""
 import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QFrame, QGridLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QVBoxLayout,
     QWidget,
 )
 
-from ..style import MUTED, OK
-from ..widgets import LogoLabel
-from .common import lbl, btn, card
+from ... import VERSION
+from ..style import BLUE, CYAN, MUTED, OK, WARN
+from ..widgets import HeroBanner, IconBadge, LogoLabel, glow, nav_icon
+from .common import StatCard, lbl, btn, card
 
 
 # ------------------------------------------------------------------- início
@@ -34,28 +35,46 @@ class HomePage(QWidget):
         v.setContentsMargins(32, 28, 32, 28)
         v.setSpacing(18)
 
-        # --- herói: logo + nome + estado da interface
-        hero = QFrame()
-        hero.setObjectName("hero")
+        # --- herói: logo + nome + estado da interface, sobre um banner animado
+        hero = HeroBanner()
         hh = QHBoxLayout(hero)
-        hh.setContentsMargins(28, 24, 28, 24)
-        hh.setSpacing(24)
-        hh.addWidget(LogoLabel(132), 0, Qt.AlignVCenter)
+        hh.setContentsMargins(32, 26, 32, 26)
+        hh.setSpacing(28)
+        hh.addWidget(LogoLabel(148), 0, Qt.AlignVCenter)
         tv = QVBoxLayout()
         tv.setSpacing(4)
         tv.addStretch(1)
+        tv.addWidget(lbl(f"VERSÃO {VERSION}  ·  DIAGNÓSTICO VAG", "eyebrow"))
         tv.addWidget(lbl("Roots Auto Doctor", "display"))
-        tv.addWidget(lbl("Diagnóstico de centralinas VW, Audi, Seat e Škoda pela linha K "
-                         "— os mesmos protocolos do VCDS (KW1281 e KWP2000).", "muted", wrap=True))
-        tv.addSpacing(10)
+        sub = lbl("Centralinas VW, Audi, Seat e Škoda pela linha K — KW1281 e KWP2000, com mapa do "
+                  "veículo, assistente de avarias e comparação entre visitas.", "muted", wrap=True)
+        sub.setMaximumWidth(620)
+        tv.addWidget(sub)
+        tv.addSpacing(8)
+        srow = QHBoxLayout()
+        srow.setSpacing(8)
+        self.status_dot = lbl("●")
+        srow.addWidget(self.status_dot)
         self.status_lbl = lbl("Interface por configurar", "h2")
-        tv.addWidget(self.status_lbl)
+        srow.addWidget(self.status_lbl)
+        srow.addStretch(1)
+        tv.addLayout(srow)
         cta = QHBoxLayout()
-        go_scan = btn("Iniciar Auto-Scan", "primary", lambda: self.go.emit("autoscan_start"))
-        go_scan.setMinimumHeight(42)
-        go_scan.setMinimumWidth(200)
+        cta.setSpacing(10)
+        go_scan = btn("  Iniciar Auto-Scan", "primary", lambda: self.go.emit("autoscan_start"))
+        go_scan.setIcon(nav_icon("autoscan", "#031024"))
+        go_scan.setIconSize(QSize(20, 20))
+        go_scan.setMinimumHeight(44)
+        go_scan.setMinimumWidth(210)
+        glow(go_scan, CYAN, 36, 120)
         cta.addWidget(go_scan)
-        cta.addWidget(btn("Escolher controlador", None, lambda: self.go.emit("modules")))
+        pick = btn("Escolher controlador", None, lambda: self.go.emit("modules"))
+        pick.setMinimumHeight(44)
+        cta.addWidget(pick)
+        cmd = btn("  Procurar…   Ctrl+K", "ghost", lambda: self.go.emit("palette"))
+        cmd.setIcon(nav_icon("search"))
+        cmd.setMinimumHeight(44)
+        cta.addWidget(cmd)
         cta.addStretch(1)
         tv.addSpacing(6)
         tv.addLayout(cta)
@@ -67,16 +86,12 @@ class HomePage(QWidget):
         stats = QHBoxLayout()
         stats.setSpacing(14)
         self.stat_lbls = {}
-        for key, name in [("today", "Diagnósticos hoje"), ("month", "Diagnósticos este mês"),
-                          ("faults", "Avarias encontradas este mês"), ("vehicles", "Veículos no histórico")]:
-            c = card()
-            cl = QVBoxLayout(c)
-            cl.setContentsMargins(18, 14, 18, 14)
-            cl.setSpacing(0)
-            val = lbl("0", "value")
-            cl.addWidget(val)
-            cl.addWidget(lbl(name, "muted"))
-            self.stat_lbls[key] = val
+        for key, icon, color, name in [("today", "bolt", CYAN, "Diagnósticos hoje"),
+                                       ("month", "history", BLUE, "Diagnósticos este mês"),
+                                       ("faults", "fault", WARN, "Avarias encontradas este mês"),
+                                       ("vehicles", "modules", OK, "Veículos no histórico")]:
+            c = StatCard(icon, name, color)
+            self.stat_lbls[key] = c.value
             stats.addWidget(c)
         v.addLayout(stats)
 
@@ -84,25 +99,30 @@ class HomePage(QWidget):
         grid = QGridLayout()
         grid.setSpacing(14)
         tiles = [
-            ("modules", "Seleccionar controlador",
+            ("modules", "modules", "Seleccionar controlador",
              "Ligar a um módulo e ler informação, avarias, valores de medição, adaptações e codificação."),
-            ("autoscan", "Auto-Scan",
-             "Ler todos os controladores do carro de uma vez e ver onde estão as avarias."),
-            ("report", "Relatório para o cliente",
-             "Gerar um PDF com o logo da oficina, os dados do carro e as avarias encontradas."),
+            ("autoscan", "autoscan", "Auto-Scan com mapa do veículo",
+             "Ler todos os controladores de uma vez e ver no carro onde estão as avarias."),
+            ("report", "report", "Relatório para o cliente",
+             "PDF com o logo da oficina, a saúde do veículo, as avarias e as causas prováveis."),
         ]
-        for i, (key, title, sub) in enumerate(tiles):
+        for i, (key, icon, title, sub) in enumerate(tiles):
             b = btn("", "tile", lambda _=False, k=key: self.go.emit(k))
-            b.setMinimumHeight(118)
-            lay = QVBoxLayout(b)
-            lay.setContentsMargins(18, 14, 18, 14)
+            b.setMinimumHeight(128)
+            lay = QHBoxLayout(b)
+            lay.setContentsMargins(18, 16, 18, 16)
+            lay.setSpacing(14)
+            lay.addWidget(IconBadge(icon, CYAN, 46), 0, Qt.AlignTop)
+            col = QVBoxLayout()
+            col.setSpacing(4)
             t = lbl(title, "h2")
             t.setAttribute(Qt.WA_TransparentForMouseEvents)
             s = lbl(sub, "muted", wrap=True)
             s.setAttribute(Qt.WA_TransparentForMouseEvents)
-            lay.addWidget(t)
-            lay.addWidget(s)
-            lay.addStretch(1)
+            col.addWidget(t)
+            col.addWidget(s)
+            col.addStretch(1)
+            lay.addLayout(col, 1)
             grid.addWidget(b, 0, i)
         v.addLayout(grid)
 
@@ -156,12 +176,16 @@ class HomePage(QWidget):
         pair.addWidget(rc, 2)
         v.addLayout(pair)
 
-        foot = QHBoxLayout()
-        foot.addWidget(lbl("Sem carro por perto? Experimente todas as funções com centralinas simuladas.",
-                           "muted"))
-        foot.addWidget(btn("Abrir simulador", None, lambda: self.go.emit("sim")))
-        foot.addStretch(1)
-        v.addLayout(foot)
+        foot = QFrame()
+        foot.setObjectName("banner")
+        fl = QHBoxLayout(foot)
+        fl.setContentsMargins(16, 12, 16, 12)
+        fl.setSpacing(12)
+        fl.addWidget(IconBadge("sim", CYAN, 36))
+        fl.addWidget(lbl("Sem carro por perto? Experimente todas as funções com centralinas simuladas "
+                         "(motor 1.9 TDI, ABS e painel).", None, wrap=True), 1)
+        fl.addWidget(btn("Abrir simulador", "primary", lambda: self.go.emit("sim")))
+        v.addWidget(foot)
         v.addWidget(lbl("Ligue o cabo à ficha OBD com a ignição ligada. Em cabos FTDI, ponha o "
                         "Latency Timer a 1 ms nas propriedades da porta COM para leituras mais rápidas.",
                         "muted", wrap=True))
@@ -203,7 +227,9 @@ class HomePage(QWidget):
 
     def set_port(self, text, ok=False):
         self.status_lbl.setText(text)
-        self.status_lbl.setStyleSheet(f"color: {OK if ok else MUTED};")
+        color = OK if ok else MUTED
+        self.status_lbl.setStyleSheet(f"color: {color};")
+        self.status_dot.setStyleSheet(f"color: {color}; font-size: 12pt;")
 
     def vehicle(self):
         return {k: e.text().strip() for k, e in self.vehicle_edits.items()}

@@ -11,11 +11,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ... import vag_data, APP_NAME
-from ..style import BAD, BLUE, MUTED, OK, WARN
+from ... import fault_advice, guided, vag_data, APP_NAME
+from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import ChartDialog
-from ... import guided
-from .common import lbl, btn, card, ask, GroupCard
+from .common import FaultAdviceCard, lbl, btn, card, ask, GroupCard
 
 
 class ModulePage(QWidget):
@@ -157,20 +156,30 @@ class ModulePage(QWidget):
         self.fault_count = lbl("", "h2")
         row.addWidget(self.fault_count)
         v.addLayout(row)
-        self.fault_table = QTableWidget(0, 4)
-        self.fault_table.setHorizontalHeaderLabels(["Código", "Descrição", "Tipo de avaria", "Estado"])
+        self.fault_table = QTableWidget(0, 5)
+        self.fault_table.setHorizontalHeaderLabels(["Código", "Descrição", "Tipo de avaria", "Estado", "Gravidade"])
         hh = self.fault_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
-        hh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        for c in (2, 3, 4):
+            hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
         self.fault_table.verticalHeader().setVisible(False)
         self.fault_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.fault_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fault_table.setAlternatingRowColors(True)
+        self.fault_table.itemSelectionChanged.connect(self._fault_selected)
         v.addWidget(self.fault_table, 1)
+        self.fault_advice = FaultAdviceCard()
+        v.addWidget(self.fault_advice)
         self.faults = []
         return w
+
+    def _fault_selected(self):
+        r = self.fault_table.currentRow()
+        if 0 <= r < len(self.faults):
+            self.fault_advice.set_fault(self.faults[r], self.info["address"] if self.info else None)
+        else:
+            self.fault_advice.clear()
 
     def _build_mvb(self):
         w, v = self._pad()
@@ -517,6 +526,7 @@ class ModulePage(QWidget):
         self.faults = faults
         t = self.fault_table
         t.setRowCount(0)
+        self.fault_advice.clear()
         if not faults:
             self.fault_count.setText("✔  Nenhuma avaria")
             self.fault_count.setStyleSheet(f"color: {OK};")
@@ -528,15 +538,19 @@ class ModulePage(QWidget):
             t.insertRow(r)
             code = f["vag"] + (f"  ({f['pcode']})" if f["pcode"] else "")
             elab = f"{f['elab_code']:02d} — {f['elab']}" if f["elab"] not in ("-", "") else f"{f['elab_code']:02d}"
+            adv = fault_advice.advice(f, self.info["address"] if self.info else None)
             items = [code, f["desc"], elab,
-                     "Intermitente" if f["intermittent"] else "Permanente"]
+                     "Intermitente" if f["intermittent"] else "Permanente", adv["severity_text"].split()[-1].capitalize()]
             for c, text in enumerate(items):
                 it = QTableWidgetItem(text)
                 if c == 0:
-                    it.setForeground(QBrush(QColor(BLUE)))
+                    it.setForeground(QBrush(QColor(CYAN)))
                 if c == 3:
                     it.setForeground(QBrush(QColor(WARN if f["intermittent"] else BAD)))
+                if c == 4:
+                    it.setForeground(QBrush(QColor(severity_color(adv["severity"]))))
                 t.setItem(r, c, it)
+        t.selectRow(0)
 
     def _clear_faults(self):
         if ask(self, APP_NAME, "Apagar a memória de avarias deste controlador?"):

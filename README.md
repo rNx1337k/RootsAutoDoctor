@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.12.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -25,12 +25,15 @@ It is designed for workshops: scan the car, review the results and hand the cust
 
 ## Features
 
-- **Auto-Scan** of all common modules with a vehicle health score and one-click fault clearing
+- **Auto-Scan with a vehicle map** showing where each module sits and its status, a vehicle health score and one-click fault clearing
+- **Diagnostic assistant** with severity, probable causes and what to check for each fault
+- **Visit comparison**: new, resolved and recurring faults since the car's last visit
+- **Command palette** (Ctrl+K) to jump anywhere, connect to a module or look up any fault code
 - **Fault codes** in VAG 5-digit and OBD-II format, with fault type and status
 - **Live data** on gauges and charts, up to three measuring groups at once, with CSV logging
 - **Guided tests** for 1.9 TDI engines: injector balance, boost pressure and mass air flow
 - **Workshop functions**: basic settings, adaptation, coding, login, output tests and service reset
-- **Customer reports** in PDF or web format, branded with your workshop logo
+- **Customer reports** in PDF or web format, branded with your workshop logo, with probable causes
 - **Diagnostic history** searchable by plate or customer
 - **Cable detection and connection check** to identify drivers, latency and wiring problems
 - **Built-in simulator** to use every feature without a car

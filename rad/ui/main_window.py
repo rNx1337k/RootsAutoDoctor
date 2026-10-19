@@ -2,7 +2,7 @@
 import datetime
 import os
 
-from PySide6.QtCore import QSettings, QSize, Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import (QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QPixmap, QShortcut,
                            QTextDocument)
 from PySide6.QtWidgets import (
@@ -11,11 +11,14 @@ from PySide6.QtWidgets import (
 )
 
 from .. import APP_NAME, VERSION, applog, history, report, vag_data
+from ..settings import app_settings
 from ..kline import SIM_PORT
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
                     OptionsPage, btn, lbl)
-from .style import BLUE_SOFT, MUTED, OK, QSS, WARN
+from .pages.common import FaultInfoDialog
+from .palette import Command, CommandPalette
+from .style import MUTED, OK, QSS, WARN
 from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
 
 
@@ -27,7 +30,7 @@ class MainWindow(QMainWindow):
         self.resize(1320, 860)
         self.setMinimumSize(1080, 700)
         self.setStyleSheet(QSS)
-        self.settings = QSettings("Roots", "RootsAutoDoctor")
+        self.settings = app_settings()
         self.module_faults = None
         self.disk_log = applog.DiskLog()
 
@@ -63,7 +66,19 @@ class MainWindow(QMainWindow):
         brand.addLayout(bt)
         brand.addStretch(1)
         sv.addLayout(brand)
-        sv.addSpacing(22)
+        sv.addSpacing(16)
+        self.search_btn = btn("  Procurar…", "search", self.open_palette)
+        self.search_btn.setIcon(nav_icon("search"))
+        self.search_btn.setIconSize(QSize(18, 18))
+        self.search_btn.setToolTip("Paleta de comandos (Ctrl+K): páginas, controladores, acções e avarias")
+        sl = QHBoxLayout(self.search_btn)
+        sl.setContentsMargins(0, 0, 10, 0)
+        sl.addStretch(1)
+        kb = lbl("Ctrl K", "kbd")
+        kb.setAttribute(Qt.WA_TransparentForMouseEvents)
+        sl.addWidget(kb)
+        sv.addWidget(self.search_btn)
+        sv.addSpacing(12)
 
         self.nav = QButtonGroup(self)
         self.nav.setExclusive(True)
@@ -103,6 +118,11 @@ class MainWindow(QMainWindow):
         self.reconnect_btn.hide()
         cv.addWidget(self.reconnect_btn)
         sv.addWidget(conn)
+        ver = lbl(f"v{VERSION}", "muted")
+        ver.setAlignment(Qt.AlignCenter)
+        ver.setStyleSheet("color: #4A5880; font-size: 8.5pt;")
+        sv.addSpacing(4)
+        sv.addWidget(ver)
         self.last_address = None
         h.addWidget(side)
 
@@ -151,6 +171,7 @@ class MainWindow(QMainWindow):
         self.menuBar().hide()
 
         self.toast = Toast(root)
+        self.palette = CommandPalette(self, self._commands, self.show_fault)
         self._shortcuts()
         self.statusBar().showMessage(f"{APP_NAME} v{VERSION}")
         self.set_conn_state("disconnected")
@@ -184,6 +205,8 @@ class MainWindow(QMainWindow):
             ("Ctrl+3", lambda: self.show_page("autoscan")),
             ("Ctrl+4", lambda: self.show_page("history")),
             ("Ctrl+L", lambda: self.log_dock.setVisible(not self.log_dock.isVisible())),
+            ("Ctrl+K", self.open_palette),
+            ("Ctrl+P", self.open_palette),
         ]
         self._sc = []
         for seq, fn in keys:
@@ -196,7 +219,51 @@ class MainWindow(QMainWindow):
             self.reconnect_btn.hide()
             self.connect_module(self.last_address)
 
+    # ----------------------------------------------------- paleta de comandos
+    def open_palette(self):
+        self.palette.popup()
+
+    def show_fault(self, fault, address=None):
+        FaultInfoDialog(self, fault, address).exec()
+
+    def _commands(self):
+        c = [
+            Command("Início", "Página inicial", lambda: self.show_page("home"), "home", "inicio pagina"),
+            Command("Controladores", "Escolher um módulo para ligar", lambda: self.show_page("modules"), "modules",
+                    "modulos seleccionar"),
+            Command("Auto-Scan", "Ver o último Auto-Scan e o mapa do veículo", lambda: self.show_page("autoscan"),
+                    "autoscan", "scan mapa"),
+            Command("Iniciar Auto-Scan", "Ler todos os controladores agora", lambda: self._home_go("autoscan_start"),
+                    "bolt", "scan comecar"),
+            Command("Histórico", "Diagnósticos guardados", lambda: self.show_page("history"), "history",
+                    "historico matricula"),
+            Command("Opções", "Porta do cabo, oficina e suporte", lambda: self.show_page("options"), "options",
+                    "definicoes porta cabo oficina"),
+            Command("Relatório para o cliente", "PDF ou página web", lambda: self.export_report("auto"), "report",
+                    "pdf imprimir"),
+            Command("Abrir simulador", "Experimentar sem carro", lambda: self._home_go("sim"), "sim", "demo teste"),
+            Command("Detectar cabo", "Identificar o cabo e o driver", self.options._detect_cable, "bolt",
+                    "usb ftdi driver porta"),
+            Command("Diagnóstico da ligação", "Verificar cabo, eco e ligação ao carro", self.run_link_check, "bolt",
+                    "teste ligacao eco"),
+            Command("Registo técnico", "Mostrar ou esconder (Ctrl+L)",
+                    lambda: self.log_dock.setVisible(not self.log_dock.isVisible()), "log", "log debug"),
+        ]
+        if self.nav_btns["module"].isEnabled():
+            c.insert(1, Command("Controlador ligado", self.module.title.text(), lambda: self.show_page("module"),
+                                "module", "ligado"))
+            c.insert(2, Command("Ler avarias", "Controlador ligado (F5)",
+                                lambda: (self.show_page("module"), self.module._quick_faults()), "fault", "avarias"))
+        for addr in sorted(vag_data.VAG_MODULES):
+            name = vag_data.VAG_MODULES[addr]
+            c.append(Command(f"Ligar a {addr:02X} · {name}", "Controlador", lambda a=addr: self.connect_module(a),
+                             "module", f"{addr:02x} ligar"))
+        return c
+
     def _home_go(self, key):
+        if key == "palette":
+            self.open_palette()
+            return
         if key == "sim":
             self.options.select_simulator()
             self.show_page("modules")
@@ -451,7 +518,11 @@ class MainWindow(QMainWindow):
             self.select.mark_scan(self.scan.items)
             if self.scan.items:
                 try:
-                    history.save_session("autoscan", self.home.vehicle(), self.scan.items)
+                    vehicle = self.home.vehicle()
+                    sid = history.save_session("autoscan", vehicle, self.scan.items)
+                    prev = history.previous_for_plate(vehicle.get("plate"), before=sid)
+                    if prev is not None:
+                        self.scan.show_compare(prev["date"], history.compare(prev.get("items", []), self.scan.items))
                 except Exception as e:
                     self.append_log(f"Histórico: não foi possível guardar ({e})")
             self.statusBar().showMessage("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido")

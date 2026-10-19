@@ -32,7 +32,7 @@ class OptionsPage(QWidget):
         scroll.setWidget(body)
         v = QVBoxLayout(body)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Opções", "Interface (cabo), comunicação e dados da oficina."))
+        v.addWidget(page_header("Opções", "Interface (cabo), comunicação e dados da oficina.", "Configuração"))
 
         c = card()
         f = QFormLayout(c)

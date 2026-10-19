@@ -3,6 +3,23 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-10-19
+### Added
+- **Vehicle map** in Auto-Scan: top view of the car with every control module where it sits; a scan line sweeps the car while it reads, each module lights up green / amber / red and the module being probed pulses. Click a module to connect
+- **Diagnostic assistant** (`rad/fault_advice.py`): for each fault, severity (high / medium / low), system, probable causes and what to check, plus a hint from the fault type (open circuit, short to ground, implausible signal...). Shown under the fault list in the module page and in Auto-Scan; severity column in the fault table
+- **Visit comparison**: after an Auto-Scan with a plate, the faults are compared with the previous visit of the same car (new / resolved / still present) and new faults are tagged NOVA; "Compare with previous" in History
+- **Command palette** (Ctrl+K or the search box in the sidebar): go to any page, connect to any module, start actions, or look up a fault by code (00532, P0299) or description (turbo, abs)
+- Customer report shows the severity and the two most likely causes of each fault
+- Module list filter (name or address)
+- `RAD_SETTINGS_INI` environment variable stores settings in an .ini file instead of the registry (used by the tests)
+- Tests: diagnostic assistant, visit comparison, report advice and an end-to-end UI test with the simulator (offscreen)
+### Changed
+- New "night cockpit" look: deep blue gradients, cyan glow, gradient primary buttons, icon badges and status pills
+- Live data gauges redrawn: blue→cyan gradient scale with glow, ticks that light up to the value, tapered needle with smooth animation and a filled history line
+- Home page: animated hero banner (perspective road), statistics with icons, action tiles with icons
+- Auto-Scan tiles, health ring, ECG connection indicator, charts, toasts (slide-in and fade) and splash screen redesigned
+- History of the same plate is found ignoring dashes, spaces and case
+
 ## [0.12.0] — 2026-10-19
 ### Added
 - "Connection check" and "Test interface" try the four DTR/RTS combinations when there is no K-line echo and remember the one that works for that port (some clones power or switch the K-line transceiver with these lines)

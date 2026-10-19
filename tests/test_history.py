@@ -41,6 +41,41 @@ def test_imports_old_json_files():
     assert os.path.exists(os.path.join(d, "importados", "com_erro", "estragado.json"))   # guardado, não se perde
 
 
+
+def _item(addr, codes, status="ok"):
+    from rad import vag_data
+    return {"address": addr, "module": vag_data.module_name(addr), "status": status,
+            "info": {"part": "P", "component": "C"}, "faults": [vag_data.decode_fault(c, 0) for c in codes]}
+
+
+def test_compare_new_resolved_persisting():
+    old = [_item(1, [532, 1247]), _item(3, []), _item(0x17, [771])]
+    new = [_item(1, [1247, 522]), _item(3, [283]), _item(0x17, [], status="error")]
+    d = history.compare(old, new)
+    assert sorted((f["address"], f["vag"]) for f in d["new"]) == [(1, "00522"), (3, "00283")]
+    assert [(f["address"], f["vag"]) for f in d["resolved"]] == [(1, "00532")]   # o 17 não foi lido agora
+    assert [(f["address"], f["vag"]) for f in d["persisting"]] == [(1, "01247")]
+    assert history.compare([], []) == {"new": [], "resolved": [], "persisting": []}
+
+
+def test_previous_for_plate():
+    d = tempfile.mkdtemp()
+    a = history.save_session("autoscan", {"plate": "12-ab-34"}, [_item(1, [532])], directory=d)
+    history.save_session("autoscan", {"plate": "99-ZZ-99"}, [], directory=d)
+    b = history.save_session("autoscan", {"plate": "12 AB 34"}, [_item(1, [])], directory=d)
+    prev = history.previous_for_plate("12AB34", before=b, directory=d)
+    assert prev is not None and prev["id"] == a                       # ignora traços, espaços e maiúsculas
+    assert history.previous_for_plate("12AB34", before=a, directory=d) is None
+    assert history.previous_for_plate("12AB34", directory=d)["id"] == b
+    assert history.previous_for_plate("", directory=d) is None
+
+
+def test_report_includes_advice():
+    items = [_item(1, [1247])]
+    html = report.build_html({"name": "Oficina"}, {"plate": "AA"}, items)
+    assert "Causas prováveis" in html and "N75" in html and "gravidade média" in html
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
