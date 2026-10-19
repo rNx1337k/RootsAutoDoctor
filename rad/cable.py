@@ -6,9 +6,12 @@ Lista os dispositivos USB-série presentes — mesmo sem driver instalado — e 
   - o Latency Timer dos cabos FTDI (1 ms recomendado).
 """
 import json
+import logging
 import re
 import subprocess
 import sys
+
+log = logging.getLogger(__name__)
 
 KNOWN = {
     "0403": ("FTDI", {"6001": "FT232R", "6015": "FT231X", "6014": "FT232H", "6010": "FT2232"}),
@@ -42,6 +45,7 @@ def list_usb_devices():
     try:
         raw = _run_powershell(PS_QUERY).strip()
     except Exception:
+        log.warning("Não foi possível listar os dispositivos USB (PowerShell)", exc_info=True)
         return []
     if not raw:
         return []
@@ -82,7 +86,7 @@ def ftdi_latency():
             except OSError:
                 continue
     except Exception:
-        pass
+        log.warning("Não foi possível ler o Latency Timer FTDI", exc_info=True)
     return out
 
 
@@ -127,7 +131,8 @@ def classify(devices, latency=None):
                 "detail": (f"Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, "
                            "e só fala com o programa desse fabricante. Não funciona como cabo KKL e não pode "
                            "ser usada pelo Roots Auto Doctor, mesmo com drivers. "
-                           "É preciso um cabo KKL 'VAG-COM 409.1' (FTDI ou CH340)."),
+                           "É preciso um cabo KKL 'VAG-COM 409.1' (FTDI ou CH340); para módulos KWP2000 "
+                           "também serve uma interface J2534."),
             })
             continue
         if com and status_ok:

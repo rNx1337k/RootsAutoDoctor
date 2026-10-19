@@ -3,6 +3,17 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-10-19
+### Added
+- `erros.log`: errors the app recovers from (port, cable, J2534, end of session...) are now logged with their traceback instead of being silently ignored; included in the support package
+- Licence expiry uses the latest date the app has seen, so turning the PC clock back no longer extends a time-limited licence
+- `tests/run_all.py`: runs every test even when one fails and prints a summary; `run_tests.bat <name>` runs only matching tests
+### Changed
+- Diagnostic history is stored in SQLite (`historico.db`), so the history list and home statistics no longer open every session file; existing `.json` sessions are imported automatically and moved to `historico/importados`
+- Two sessions saved in the same second no longer overwrite each other
+- `rad/ui/pages.py` split into one module per page (`rad/ui/pages/`)
+- "Detect cable" mentions J2534 interfaces as an alternative for KWP2000 modules when an unsupported interface is found
+
 ## [0.9.3] — 2026-10-18
 ### Changed
 - Simplified README with a clearer, more professional structure: overview, features, getting started, compatibility and development

@@ -7,11 +7,14 @@ Formato do bloco:  [comprimento] [contador] [título] [dados...] [0x03]
   - quem recebe um bloco é quem envia o seguinte; se não houver nada a pedir,
     o tester envia ACK (0x09) para manter a ligação viva.
 """
+import logging
 import time
 
 from ..errors import ProtocolError, KLineTimeout, RequestRejected
 from ..kline import precise_sleep
 from .. import vag_data
+
+log = logging.getLogger(__name__)
 
 # Títulos de bloco
 READ_RAM = 0x01
@@ -168,8 +171,8 @@ class KW1281:
     def end(self):
         try:
             self.send_block(END)
-        except Exception:
-            pass
+        except Exception as e:
+            log.info("Fim de sessão sem resposta do controlador: %s", e)
 
     # ------------------------------------------------------------- funções
     def read_faults(self):

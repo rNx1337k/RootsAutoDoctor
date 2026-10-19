@@ -4,6 +4,7 @@ A UI envia comandos com submit(); os resultados voltam por sinais Qt.
 Quando não há comandos, a thread mantém a ligação viva (keep-alive) ou faz a
 leitura contínua dos grupos de medição.
 """
+import logging
 import queue
 import time
 import traceback
@@ -15,6 +16,8 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import ProtocolError, NoResponse, RequestRejected, NotSupported
 from . import vag_data
+
+log = logging.getLogger(__name__)
 
 
 class Worker(QThread):
@@ -87,6 +90,7 @@ class Worker(QThread):
                 self._lost(str(e))
             except Exception as e:
                 self._quiet = False
+                log.exception("Erro na leitura contínua / keep-alive")
                 self.log.emit(f"Erro: {e}")
             finally:
                 self._quiet = False
@@ -106,8 +110,8 @@ class Worker(QThread):
         try:
             if self.session:
                 self.session.disconnect()
-        except Exception:
-            pass
+        except Exception as e:
+            log.info("Erro ao desligar a sessão: %s", e)
         self.session = None
         if self.kl:
             self.kl.close()
@@ -145,6 +149,7 @@ class Worker(QThread):
                 self.session = None
                 self.state.emit("disconnected", str(e))
         except Exception as e:
+            log.exception("Erro interno no comando %s", cmd)
             self.log.emit(traceback.format_exc())
             self.error.emit(cmd, f"Erro interno: {e}")
 
@@ -184,8 +189,8 @@ class Worker(QThread):
         if self.session:
             try:
                 self.session.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                log.info("Erro ao desligar a sessão: %s", e)
         self.session = None
         self.state.emit("disconnected", None)
 
@@ -223,6 +228,7 @@ class Worker(QThread):
                 try:
                     ok = self.kl.echo_test()
                 except Exception:
+                    log.warning("Teste de eco falhou", exc_info=True)
                     ok = False
                 steps.append(("Eco da linha K", ok,
                               "O cabo vê a linha K do carro." if ok else

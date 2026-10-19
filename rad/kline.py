@@ -8,10 +8,13 @@ A inicialização a 5 baud (usada pelo VCDS em KW1281 e KWP2000 nos VAG antigos)
 é feita por "bit-banging" com o sinal BREAK da UART: BREAK ligado = linha em
 nível baixo (bit 0), BREAK desligado = nível alto (bit 1), 200 ms por bit.
 """
+import logging
 import sys
 import time
 
 from .errors import KLineError, KLineTimeout
+
+log = logging.getLogger(__name__)
 
 SIM_PORT = "SIMULADOR"
 
@@ -37,7 +40,7 @@ def _timer_resolution(enable):
         fn = ctypes.windll.winmm.timeBeginPeriod if enable else ctypes.windll.winmm.timeEndPeriod
         fn(1)
     except Exception:
-        pass
+        log.warning("timeBeginPeriod/timeEndPeriod falhou", exc_info=True)
 
 
 def list_serial_ports():
@@ -52,12 +55,12 @@ def list_serial_ports():
                 extra = f" [VID {p.vid:04X} PID {p.pid:04X}]"
             ports.append((p.device, f"{p.device} — {desc}{extra}"))
     except Exception:
-        pass
+        log.warning("Não foi possível listar as portas série", exc_info=True)
     try:
         from .j2534 import list_ports as j2534_ports
         ports.extend(j2534_ports())
     except Exception:
-        pass
+        log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
     ports.append((SIM_PORT, "Simulador (sem carro) — para testar o programa"))
     ports.append(("J2534:SIMULADOR-J2534", "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
     return ports
@@ -104,7 +107,7 @@ class KLine:
             try:
                 setattr(self.ser, attr, val)
             except Exception:
-                pass
+                log.warning("%s: não foi possível definir %s", self.port_name, attr.upper(), exc_info=True)
         self._timeout = None
         self._pushback.clear()
 
@@ -114,7 +117,7 @@ class KLine:
                 self.ser.break_condition = False
                 self.ser.close()
             except Exception:
-                pass
+                log.warning("%s: erro ao fechar a porta", self.port_name, exc_info=True)
             if not self.is_simulator:
                 _timer_resolution(False)
         self.ser = None
@@ -132,7 +135,7 @@ class KLine:
         try:
             self.ser.reset_input_buffer()
         except Exception:
-            pass
+            log.warning("%s: reset_input_buffer falhou", self.port_name, exc_info=True)
 
     # ------------------------------------------------------------- leitura/escrita
     def read_byte(self, timeout=0.5):
@@ -204,7 +207,7 @@ class KLine:
             try:
                 ser.reset_input_buffer()
             except Exception:
-                pass
+                log.warning("%s: reset_input_buffer falhou no init", self.port_name, exc_info=True)
             bits = [0] + [(addr_byte >> i) & 1 for i in range(8)]   # start + 7 dados + paridade
             t0 = time.perf_counter()
             for n, bit in enumerate(bits):
@@ -215,7 +218,7 @@ class KLine:
             try:
                 ser.reset_input_buffer()
             except Exception:
-                pass
+                log.warning("%s: reset_input_buffer falhou no init", self.port_name, exc_info=True)
 
         # W1: o 0x55 chega 20–300 ms depois do fim do stop bit (que dura 200 ms)
         sync = self.read_byte(0.8)

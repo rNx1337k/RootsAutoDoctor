@@ -4,11 +4,14 @@
 Trama: [fmt] [destino] [origem] [dados...] [checksum]
   fmt = 0x80 | comprimento (endereçamento físico); checksum = soma mod 256.
 """
+import logging
 import time
 
 from ..errors import ProtocolError, KLineTimeout, RequestRejected, NotSupported
 from ..kline import precise_sleep
 from .. import vag_data
+
+log = logging.getLogger(__name__)
 
 NRC = {
     0x10: "rejeição geral", 0x11: "serviço não suportado", 0x12: "sub-função não suportada",
@@ -146,8 +149,8 @@ class KWP2000:
     def end(self):
         try:
             self.request([0x82], timeout=0.3)
-        except Exception:
-            pass
+        except Exception as e:
+            log.info("Fim de sessão sem resposta do controlador: %s", e)
 
     # ------------------------------------------------------------- funções
     def read_faults(self):

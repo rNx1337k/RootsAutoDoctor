@@ -5,12 +5,15 @@ Suporta KWP2000 sobre linha K (ISO 14230) com init a 5 baud. O KW1281 não é po
 por J2534: exige confirmar cada byte em poucos milissegundos, o que a norma não permite.
 """
 import json
+import logging
 import os
 import struct
 import subprocess
 import sys
 
 from .errors import ConnectError, KLineError, KLineTimeout
+
+log = logging.getLogger(__name__)
 
 PREFIX = "J2534:"
 SIM_DLL = "SIMULADOR-J2534"
@@ -174,6 +177,7 @@ def list_ports():
         from .cable import j2534_devices
         devs = j2534_devices()
     except Exception:
+        log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
         devs = []
     out = []
     for d in devs:

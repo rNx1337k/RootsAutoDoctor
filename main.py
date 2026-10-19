@@ -55,6 +55,7 @@ def install_crash_handler():
 
 
 def main():
+    applog.setup_logging()
     install_crash_handler()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)

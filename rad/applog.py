@@ -1,6 +1,8 @@
 """Registos em disco: comunicação (um ficheiro por dia) e erros inesperados (crash.log).
 Ficam em %APPDATA%\\RootsAutoDoctor\\registos — é isto que se envia para corrigir bugs."""
 import datetime
+import logging
+import logging.handlers
 import os
 import platform
 import sys
@@ -14,6 +16,24 @@ def log_dir():
     path = os.path.join(base, "RootsAutoDoctor", "registos")
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def setup_logging():
+    """Erros apanhados pelo programa (que não chegam a ser crash) vão para erros.log, com o traceback.
+    Sem isto, uma falha engolida no carro aparece só como "não liga"."""
+    logger = logging.getLogger("rad")
+    if logger.handlers:
+        return logger
+    try:
+        h = logging.handlers.RotatingFileHandler(os.path.join(log_dir(), "erros.log"), maxBytes=1_000_000,
+                                                 backupCount=2, encoding="utf-8")
+    except OSError:
+        return logger
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(h)
+    logger.setLevel(logging.INFO)
+    logger.info("%s v%s a iniciar", APP_NAME, VERSION)
+    return logger
 
 
 class DiskLog:
@@ -70,7 +90,7 @@ def make_support_bundle(dest):
     logs = sorted(glob.glob(os.path.join(log_dir(), "comunicacao_*.log")))[-3:]
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("sistema.txt", "\n".join(info))
-        for p in logs + [os.path.join(log_dir(), "crash.log")]:
+        for p in logs + [os.path.join(log_dir(), n) for n in ("crash.log", "erros.log")]:
             if os.path.exists(p):
                 z.write(p, os.path.basename(p))
     return dest

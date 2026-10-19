@@ -1,4 +1,4 @@
-import os, sys, tempfile
+import json, os, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rad import history, report
 
@@ -19,6 +19,30 @@ def test_history_roundtrip():
     assert history.list_sessions(d) == []
 
 
+def test_same_second_ids_are_unique():
+    d = tempfile.mkdtemp()
+    a = history.save_session("modulo", {"plate": "AA"}, [], directory=d)
+    b = history.save_session("modulo", {"plate": "AA"}, [], directory=d)
+    assert a != b and len(history.list_sessions(d)) == 2
+
+
+def test_imports_old_json_files():
+    d = tempfile.mkdtemp()
+    old = {"id": "20260101_100000_OLD", "date": "2026-01-01T10:00:00", "kind": "autoscan",
+           "vehicle": {"plate": "OLD"}, "items": [{"status": "ok", "faults": [{}, {}]}], "notes": ""}
+    with open(os.path.join(d, old["id"] + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(old, fh)
+    with open(os.path.join(d, "estragado.json"), "w", encoding="utf-8") as fh:
+        fh.write("{nao e json")
+    lst = history.list_sessions(d)
+    assert [s["id"] for s in lst] == [old["id"]] and lst[0]["faults"] == 2
+    assert history.load_session(old["id"], d) == old
+    assert os.path.exists(os.path.join(d, "importados", old["id"] + ".json"))
+    assert os.path.exists(os.path.join(d, "importados", "com_erro", "estragado.json"))   # guardado, não se perde
+
+
 if __name__ == "__main__":
-    test_history_roundtrip()
-    print("OK test_history_roundtrip")
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("OK", name)

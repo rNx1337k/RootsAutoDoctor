@@ -90,17 +90,37 @@ def _license_file():
     return os.path.join(path, "licenca.key")
 
 
+def _effective_today(today=None, path=None):
+    """Data usada para a validade: a mais recente entre hoje e a última data em que o programa
+    correu, para que atrasar o relógio do PC não prolongue uma licença com prazo."""
+    today = today or datetime.date.today()
+    path = path or os.path.join(os.path.dirname(_license_file()), "licenca.estado")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            last = datetime.date.fromisoformat(fh.read().strip())
+    except (OSError, ValueError):
+        last = today
+    eff = max(today, last)
+    if eff != last or not os.path.exists(path):
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(eff.isoformat())
+        except OSError:
+            pass
+    return eff
+
+
 def load():
     try:
         with open(_license_file(), encoding="utf-8") as fh:
             key = fh.read().strip()
     except OSError:
         return {"status": "missing"}
-    return check_key(key)
+    return check_key(key, today=_effective_today())
 
 
 def activate(key):
-    r = check_key(key)
+    r = check_key(key, today=_effective_today())
     if r["status"] == "valid":
         with open(_license_file(), "w", encoding="utf-8") as fh:
             fh.write("".join(key.split()))

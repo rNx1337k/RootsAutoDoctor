@@ -3,6 +3,7 @@ import base64
 import datetime
 import os
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -37,6 +38,15 @@ def test_real_key_if_available():
     assert license.check_key(tampered, machine=m)["status"] == "invalid"
     assert license.check_key("lixo", machine=m)["status"] == "invalid"
     assert license.check_key(" \n".join([k[:40], k[40:]]), machine=m)["status"] == "valid"
+
+
+def test_clock_rollback_ignored():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "estado")
+        d1, d0 = datetime.date(2027, 5, 1), datetime.date(2026, 1, 1)
+        assert license._effective_today(d1, path) == d1
+        assert license._effective_today(d0, path) == d1       # relógio atrasado: conta a última data vista
+        assert license._effective_today(datetime.date(2027, 6, 1), path) == datetime.date(2027, 6, 1)
 
 
 if __name__ == "__main__":
