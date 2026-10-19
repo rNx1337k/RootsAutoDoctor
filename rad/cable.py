@@ -125,9 +125,9 @@ def _hex_usb_finding(d, vid, pid):
     serial = _usb_serial(d["id"])
     service = (d.get("service") or "").lower()
     name = d["name"] or "Ross-Tech HEX-USB"
-    caveat = ("Só funciona se o cabo ligar o chip FTDI directamente à linha K (cabo 'dumb'). Se tiver um "
-              "microcontrolador lá dentro, o Diagnóstico da ligação mostra 'sem eco' com a ignição ligada — "
-              "nesse caso use um cabo KKL 409.1 ou uma interface J2534.")
+    caveat = ("Estes clones (HEX-USB+CAN) têm um microcontrolador entre o chip FTDI e a ficha OBD: o "
+              "Diagnóstico da ligação fala com ele, confirma que responde e põe-no em modo KKL para chegar à "
+              "linha K. Faça-o com o cabo no carro e a ignição ligada.")
     base = {"com": None, "driver_url": None}
     if d["status"].upper() != "OK" or not service:
         return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",

@@ -3,6 +3,24 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-10-19
+### Fixed
+- The HEX-USB clone (FTDI 0403:FA24, S/N RT000001) never reached the K-line: it is a HEX-USB+CAN clone with an ATmega162 between the FTDI chip and the OBD plug, which in its default "intelligent" mode swallows plain K-line bytes, so the echo test could never pass. All earlier "successful" readings in the history came from the simulator, not from the car
+- The app asserted DTR on the HEX clone by default; on these boards DTR drives the microcontroller's RESET, so it was held in reset. HEX ports now run with DTR and RTS off and only try DTR-off combinations
+### Added
+- `rad/hexmcu.py`: talks to the clone's microcontroller directly (no VCDS): firmware version, boot mode, the cable's own K-line test and the boot-mode switch. The switch is only sent after the cable has answered a mode query with a valid, checksummed frame
+- Connection check now reports separate steps: cable seen on USB, interface opened, adapter (microcontroller) answers, K-line seen by the cable, cable mode, K-line echo, ECU connection, fault reading
+- Connect / Auto-Scan / Test interface on a HEX port without echo talk to the microcontroller and explain the real cause (adapter answers or not, K-line state seen by the cable, boot mode)
+- K-line test done by the cable itself (opcode 0x82, read-only) shown in the connection check
+- Options → "Cabo HEX": read the cable mode, restore the original intelligent mode (with confirmation)
+- `tools/hex_probe.py`: `--mcu`, `--kline-test` (read-only), `--set-mode kkl|inteligente --yes`, `--no-echo`, `--raw`, `--lines`
+- D2XX open failures say whether the cable is not on USB or is open in another program
+- Tests with a simulated FT232R + ATmega162 (`tests/test_hexmcu.py`)
+### Verified on the real cable (19/10/2026, cable in the car, ignition on)
+- The microcontroller answers at 115200 baud: firmware 1.96, type 'F'; version, boot mode, mode switch (ACK `4D 04 FE B7`, persists across power cycles) and K-line test all work with the 53/4D framing
+- KKL ("dumb") boot mode does NOT give a transparent K-line on this firmware: no echo and no ECU answer in either mode. The cable was put back in intelligent mode
+- Reading ECUs with this cable needs the microcontroller's own K-line protocol (5-baud init opcode 0x84 and the block exchange), which is not implemented yet; the init payload flags are unknown
+
 ## [1.0.2] — 2026-10-19
 ### Fixed
 - On another PC the HEX-USB clone (driver RT-USB, 32-bit DLL) asked to install a 32-bit Python. The app now ships the official Python "embeddable" runtime (python.org, 32 and 64 bits, stdlib only) in `runtime/py32` and `runtime/py64`, and the D2XX / J2534 bridges run on it: nothing to install

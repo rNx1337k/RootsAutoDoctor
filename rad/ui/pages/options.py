@@ -18,6 +18,7 @@ class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
     link_check_req = Signal()
+    hex_mode_req = Signal(str)
 
     def __init__(self, settings):
         super().__init__()
@@ -62,6 +63,12 @@ class OptionsPage(QWidget):
         crow.addWidget(btn("Diagnóstico da ligação", None, lambda: self.link_check_req.emit()))
         crow.addStretch(1)
         f.addRow(lbl("Cabo", "muted"), crow)
+        hrow = QHBoxLayout()
+        hrow.setSpacing(8)
+        hrow.addWidget(btn("Ler modo do cabo", None, lambda: self._hex("read")))
+        hrow.addWidget(btn("Repor modo inteligente", None, lambda: self._hex("smart")))
+        hrow.addStretch(1)
+        f.addRow(lbl("Cabo HEX", "muted"), hrow)
         v.addWidget(c)
 
         wc = card()
@@ -100,8 +107,9 @@ class OptionsPage(QWidget):
             "Cabos suportados: cabos KKL 'VAG-COM 409.1' e clones VCDS de linha K com chip FTDI ou CH340 "
             "(aparecem como porta COM normal). Para máxima velocidade em cabos FTDI: Gestor de dispositivos → "
             "Portas (COM) → Propriedades → Definições da porta → Avançadas → Latency Timer = 1 ms.\n\n"
-            "Clones HEX-USB com chip FTDI (VID 0403 PID FA24) aparecem como D2XX:… (driver RT-USB) ou "
-            "FTDI:… (driver WinUSB) — use Detectar cabo e depois Diagnóstico da ligação com a ignição ligada. "
+            "Clones HEX-USB+CAN (chip FTDI VID 0403 PID FA24 com microcontrolador) aparecem como D2XX:… "
+            "(driver RT-USB) ou FTDI:… (driver WinUSB). O Diagnóstico da ligação fala com o microcontrolador "
+            "do cabo e mostra o estado real; a leitura de centralinas através dele ainda não está disponível. "
             "Interfaces HEX-V2 / HEX-NET genuínas usam firmware fechado da Ross-Tech e não são suportadas.",
             "muted", wrap=True))
         v.addStretch(1)
@@ -263,6 +271,10 @@ class OptionsPage(QWidget):
         from PySide6.QtGui import QDesktopServices
         from ... import applog
         QDesktopServices.openUrl(QUrl.fromLocalFile(applog.log_dir()))
+
+    def _hex(self, mode):
+        self._save()
+        self.hex_mode_req.emit(mode)
 
     def _test(self):
         self._save()

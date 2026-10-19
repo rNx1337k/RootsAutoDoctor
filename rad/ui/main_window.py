@@ -150,6 +150,7 @@ class MainWindow(QMainWindow):
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
         self.options.link_check_req.connect(self.run_link_check)
+        self.options.hex_mode_req.connect(self.run_hex_mode)
 
         # ---------------- registo
         self.log = QPlainTextEdit()
@@ -348,6 +349,17 @@ class MainWindow(QMainWindow):
         self.toast.show_msg("A verificar a ligação…", "info")
         self.worker.submit("link_check", a)
 
+    def run_hex_mode(self, mode):
+        if self.worker.is_busy or self.scan.running:
+            self.toast.show_msg("Aguarde — ainda a comunicar com o carro", "warn")
+            return
+        if mode == "smart" and QMessageBox.question(
+                self, APP_NAME, "Vai repor o modo de arranque de origem (inteligente) do cabo. Continuar?"
+        ) != QMessageBox.Yes:
+            return
+        self.toast.show_msg("A falar com o cabo…", "info")
+        self.worker.submit("hex_mode", mode)
+
     def show_link_check(self, steps):
         ok_all = steps and all(s[1] for s in steps)
         rows = "".join(f"<p><b style='color:{OK if s[1] else '#E8343A'}'>{'✔' if s[1] else '✖'}  {s[0]}</b>"
@@ -522,7 +534,7 @@ class MainWindow(QMainWindow):
             self.show_link_check(data)
         elif cmd == "output_test":
             self.module.show_output(data)
-        elif cmd == "test_interface":
+        elif cmd in ("test_interface", "hex_mode"):
             (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME, data["message"])
         elif cmd == "autoscan":
             self.scan.done(data["aborted"])
@@ -547,7 +559,7 @@ class MainWindow(QMainWindow):
             self.scan.done(True, msg)
         if cmd == "clear_all":
             self.scan.clear_all_btn.setEnabled(True)
-        if cmd in ("connect", "test_interface", "recode", "login", "adaptation_save", "clear_faults",
+        if cmd in ("connect", "test_interface", "hex_mode", "recode", "login", "adaptation_save", "clear_faults",
                    "autoscan"):
             QMessageBox.warning(self, APP_NAME, msg)
         else:

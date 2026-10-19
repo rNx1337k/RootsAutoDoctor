@@ -248,7 +248,7 @@ def test_line_search_finds_dtr_rts():
         fake.set_dtr = fake.set_rts = lambda on: None          # nenhuma combinação dá eco
         kl = KLine(PORT)
         kl.open()
-        assert kl.find_lines() is None and kl.lines == (True, False)
+        assert kl.find_lines() is None and kl.lines == (False, False)     # clone HEX: DTR nunca activo
         kl.close()
     finally:
         ftdi_direct._open_ftdi = old

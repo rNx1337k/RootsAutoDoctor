@@ -6,6 +6,7 @@ leitura contínua dos grupos de medição.
 """
 import logging
 import queue
+import sys
 import time
 import traceback
 
@@ -15,7 +16,7 @@ from .kline import KLine
 from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import ProtocolError, NoResponse, RequestRejected, NotSupported
-from . import vag_data
+from . import hexmcu, vag_data
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ class Worker(QThread):
         self.abort_scan = False
         self._running = True
         self._busy = False
+        self.hex_info = None               # último probe do microcontrolador do clone HEX (por porta aberta)
 
     @property
     def is_busy(self):
@@ -149,12 +151,43 @@ class Worker(QThread):
         if saved and not getattr(self.kl, "is_j2534", False):
             self.kl.lines = saved
         self.kl.open()
+        self.hex_info = None
         self.log.emit(f"Interface {c['port']} aberta")
 
+    def _hex_check(self):
+        """Clone HEX-USB+CAN sem eco: pergunta ao microcontrolador do cabo a versão, o modo de arranque e o
+        estado da linha K. Devolve o resultado (também em self.hex_info)."""
+        mcu = hexmcu.HexMcu(self.kl.ser, log=self._log)
+        res = mcu.probe()
+        res["kline"] = None
+        self.log.emit("Cabo HEX: " + hexmcu.describe(res))
+        if res["found"]:
+            try:
+                res["kline"] = hexmcu.kline_test(mcu)
+            except Exception:
+                log.warning("Teste da linha K pelo cabo HEX falhou", exc_info=True)
+            if res["kline"] is not None:
+                self.log.emit("Cabo HEX: linha K vista pelo cabo — " + hexmcu.describe_kline(res["kline"]))
+        self.kl.set_baud(10400)
+        self.kl.set_lines(*hexmcu.HEX_LINES)
+        self.hex_info = res
+        return res
+
     def _echo(self):
-        """Teste de eco; se falhar, procura o DTR/RTS que liga o transceptor e guarda-o para esta porta."""
+        """Teste de eco; se falhar, procura o DTR/RTS que liga o transceptor e guarda-o para esta porta.
+        No clone HEX, se continuar sem eco, pergunta ao microcontrolador do cabo o que se passa."""
         if getattr(self.kl, "is_j2534", False):
             return self.kl.echo_test(), ""
+        ok, note = self._echo_lines()
+        if ok or not getattr(self.kl, "is_hex", False) or self.kl.is_simulator:
+            return ok, note
+        if self.hex_info is None:
+            res = self._hex_check()
+            if res.get("found") and res.get("mode") == hexmcu.MODE_DUMB:
+                ok, note = self._echo_lines()
+        return ok, note
+
+    def _echo_lines(self):
         before = self.kl.lines
         combo = self.kl.find_lines()
         if combo is None:
@@ -173,7 +206,7 @@ class Worker(QThread):
             return
         ok, note = self._echo()
         if not ok:
-            raise ProtocolError(no_echo_text(self.cfg.get("port", "")))
+            raise ProtocolError(no_echo_text(self.cfg.get("port", ""), self.hex_info))
         if note:
             self.log.emit("Eco da linha K OK" + note)
 
@@ -243,8 +276,34 @@ class Worker(QThread):
         self._ensure_port()
         ok, note = self._echo()
         msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD." + note
-               if ok else "A porta abriu. " + no_echo_text(self.cfg.get("port", "")))
+               if ok else "A porta abriu. " + no_echo_text(self.cfg.get("port", ""), self.hex_info))
         self.result.emit("test_interface", {"ok": ok, "message": msg})
+
+    def _cmd_hex_mode(self, mode):
+        """Lê ("read") ou repõe ("smart") o modo de arranque de origem do microcontrolador do clone HEX."""
+        self.live_mode = None
+        if self.session:
+            self._cmd_disconnect()
+        self._ensure_port()
+        if not getattr(self.kl, "is_hex", False):
+            raise ProtocolError("A porta escolhida não é um cabo HEX (D2XX:… ou FTDI:0403:FA2x:…)")
+        mcu = hexmcu.HexMcu(self.kl.ser, log=self._log)
+        try:
+            res = mcu.probe()
+            msg = hexmcu.describe(res)
+            if res["found"] and mode == "smart":
+                now = mcu.set_mode(hexmcu.MODE_SMART)
+                mcu.reset(boot=1.0)
+                msg += f"\n\nModo de arranque agora: {hexmcu.MODE_NAMES.get(now, now)}"
+                res["mode"] = now
+            ok = bool(res["found"])
+        except hexmcu.HexMcuError as e:
+            ok, msg = False, str(e)
+        finally:
+            self.kl.set_baud(10400)
+            self.kl.set_lines(*hexmcu.HEX_LINES)
+            self.hex_info = None
+        self.result.emit("hex_mode", {"ok": ok, "message": msg})
 
     def _cmd_link_check(self, address):
         """Verifica a ligação passo a passo e devolve [(passo, ok, detalhe)]."""
@@ -259,6 +318,13 @@ class Worker(QThread):
             if not port:
                 steps.append(("Porta do cabo", False, "Nenhuma porta escolhida. Use Detectar cabo."))
                 return
+            present = _usb_present(port)
+            if present is not None:
+                steps.append(("Cabo detectado no USB", present,
+                              "O Windows vê a interface" if present else
+                              "O Windows não vê a interface: ligue o cabo ao USB (ou troque de porta/cabo USB)"))
+                if not present:
+                    return
             try:
                 self._ensure_port()
                 steps.append(("Abrir a interface", True, port))
@@ -269,10 +335,26 @@ class Worker(QThread):
             if not getattr(self.kl, "is_j2534", False):
                 try:
                     ok, note = self._echo()
-                except Exception:
+                except Exception as e:
                     log.warning("Teste de eco falhou", exc_info=True)
                     ok, note = False, ""
-                why = ("O cabo vê a linha K do carro." + note) if ok else no_echo_text(port)
+                    if self.hex_info is None and getattr(self.kl, "is_hex", False):
+                        self.hex_info = {"found": False, "raw": [str(e)]}
+                h = self.hex_info
+                if h is not None:
+                    steps.append(("Adaptador (microcontrolador do cabo HEX)", bool(h.get("found")),
+                                  hexmcu.describe(h)))
+                    if h.get("found") and h.get("kline") is not None:
+                        steps.append(("Linha K vista pelo cabo", True, hexmcu.describe_kline(h["kline"])))
+                    if h.get("found"):
+                        if h.get("mode") == hexmcu.MODE_DUMB:
+                            steps.append(("Modo do cabo", True, "KKL (linha K directa)"))
+                        else:
+                            steps.append(("Modo do cabo", False,
+                                          "Modo inteligente: a linha K é controlada pelo microcontrolador do cabo "
+                                          "e o protocolo dele para falar com as centralinas ainda não está "
+                                          "implementado no Roots Auto Doctor"))
+                why = ("O cabo vê a linha K do carro." + note) if ok else no_echo_text(port, h)
                 steps.append(("Eco da linha K", ok, why))
                 if not ok:
                     return
@@ -368,8 +450,23 @@ class Worker(QThread):
         self.live.emit(out)
 
 
-def no_echo_text(port):
+def no_echo_text(port, hex_info=None):
     """Explicação para quando o byte enviado não volta da linha K."""
+    if hex_info and hex_info.get("found"):
+        kl = hex_info.get("kline")
+        if hex_info.get("mode") != hexmcu.MODE_DUMB:
+            return ("O cabo HEX responde pelo USB (" + hexmcu.describe(hex_info) + ")"
+                    + (f"; linha K: {hexmcu.describe_kline(kl)}" if kl is not None else "")
+                    + ". Em modo inteligente a linha K é controlada pelo microcontrolador do cabo, cujo protocolo "
+                    "de comunicação com as centralinas ainda não está implementado no Roots Auto Doctor: este "
+                    "cabo ainda não pode ler o carro.")
+        return ("Sem eco na linha K. O cabo responde pelo USB e está em modo KKL, mas a linha K não devolve os "
+                "bytes: confirme que o cabo está bem encaixado na ficha OBD e que a ignição está ligada "
+                "(sem 12 V no pino 16 o transceptor da linha K não funciona).")
+    if hex_info is not None and port.startswith(("FTDI:", "D2XX:")):
+        return ("Sem eco na linha K e o microcontrolador do cabo não respondeu. Desligue e volte a ligar o "
+                "cabo ao USB, feche outros programas que o possam estar a usar e repita com o cabo na ficha OBD "
+                "e a ignição ligada. Detalhe: " + hexmcu.describe(hex_info))
     if port.startswith(("FTDI:", "D2XX:")):
         return ("Sem eco na linha K. Confirme que o cabo está ligado à ficha OBD e que a ignição está ligada "
                 "(sem 12 V na ficha não há eco). Se já estiver, a interface abriu pelo USB mas os bytes não "
@@ -398,3 +495,19 @@ def _save_lines(port, combo):
         app_settings().setValue(f"lines/{port}", f"{int(combo[0])},{int(combo[1])}")
     except Exception:
         log.warning("Não foi possível guardar o DTR/RTS", exc_info=True)
+
+
+def _usb_present(port):
+    """True/False se o Windows vê a interface FTDI/D2XX desta porta; None quando não se aplica."""
+    if not port.startswith(("FTDI:", "D2XX:")) or port.endswith("SIM00001"):
+        return None
+    if sys.platform != "win32":
+        return None
+    try:
+        from .cable import list_usb_devices
+        serial = port.rsplit(":", 1)[-1].upper()
+        devs = list_usb_devices()
+    except Exception:
+        log.warning("Não foi possível verificar o USB", exc_info=True)
+        return None
+    return any(serial and d["id"].upper().endswith("\\" + serial) for d in devs)

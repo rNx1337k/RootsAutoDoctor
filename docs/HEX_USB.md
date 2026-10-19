@@ -15,8 +15,39 @@
 Apesar do nome "HEX-V2", o cabo identifica-se como **HEX-USB** (o produto antigo) e é um FT232R com o PID
 da Ross-Tech. Não é uma HEX-V2: não há CAN acessível por este caminho.
 
-**Ainda não se sabe:** se o FT232R está ligado directamente ao transceptor da linha K (cabo "dumb") ou se há
-um microcontrolador pelo meio. Só o teste de eco com o carro o diz (passo 3 em baixo).
+**O que está lá dentro:** o número de série `RT000001`, os LEDs e o PID FA24 são os dos clones **HEX-USB+CAN**:
+FT232R → microcontrolador ATmega162 → transceptores K/CAN. Em **modo inteligente** (o de origem) o
+microcontrolador engole os bytes da linha K, por isso o teste de eco KKL falha sempre — foi por isso que o
+cabo nunca comunicou com o carro (as leituras no histórico eram do simulador). O DTR do FTDI liga ao RESET do
+microcontrolador: o programa trabalha com DTR e RTS desligados.
+
+O firmware tem um **modo KKL ("dumb")** em que a linha K passa directamente. O Roots Auto Doctor fala com o
+microcontrolador sem VCDS (`rad/hexmcu.py`):
+
+| Pedido | Bytes (PC → cabo) | Resposta esperada |
+|---|---|---|
+| Versão | `53 04 02 55` | `4D 07 02 <maior> <menor> <tipo> xx` |
+| Modo de arranque | `53 04 0D 5A` | `4D 05 0D <modo> xx` (00 KKL, 02 inteligente) |
+| Mudar para KKL | `53 05 0E 00 58` | `4D 04 FE B7` |
+| Repor inteligente | `53 05 0E 02 5A` | `4D 04 FE B7` |
+
+Fonte: engenharia inversa pública do VCDS (github.com/guns96x/vcds-android, `docs/research/vcds_fa24_dumb_mode_protocol.md`).
+**Confirmado neste cabo a 19/10/2026** (respostas reais: `4D 07 02 01 60 46 6F` = firmware 1.96 'F';
+`4D 05 0D 02 47` = modo inteligente). Mas o modo KKL deste firmware **não** dá passagem directa para a linha K:
+para ler centralinas é preciso o protocolo de linha K do próprio microcontrolador (init 0x84 + troca de
+blocos), ainda não implementado. Para o descobrir sem adivinhar comandos é preciso uma captura USB de uma
+sessão real (ver "Próximo passo").
+
+### Próximo passo: captura USB (uma vez, só para estudo)
+
+1. Instalar o Wireshark com o componente **USBPcap**.
+2. Abrir o Wireshark, escolher a interface USBPcap onde está o cabo e começar a capturar.
+3. Com o cabo no carro e a ignição ligada, fazer no programa de referência: Opções → Testar; depois
+   01-Motor → Códigos de avaria; fechar.
+4. Parar e guardar como `captura_hex.pcapng`.
+
+O Roots Auto Doctor não passa a depender de nenhum outro programa: a captura serve só para conhecer os bytes que
+o cabo espera.
 
 ## Como o programa fala com ele
 
@@ -80,10 +111,12 @@ passos 3–5 estão na aplicação em Opções → **Diagnóstico da ligação**
 Experimentar pelo menos `01` (motor), `17` (painel) e `03` (ABS). Com a opção B, trocar a porta por
 `FTDI:0403:FA24:RT000001`.
 
-**Se o passo 3 falhar com a ignição ligada** (sem eco), a interface tem um microcontrolador entre o FTDI e a
-ficha OBD e **não pode ser usada como cabo KKL**. Isso não se contorna sem o protocolo proprietário do
-firmware, que não está documentado. Alternativas: cabo KKL 409.1 (FTDI/CH340) para carros com linha K, ou uma
-interface J2534 com ISO 15765 para carros CAN.
+**Passo 2b — microcontrolador (só USB, sem carro):** `... tools\hex_probe.py --port D2XX:RT000001 --mcu`
+→ deve mostrar "Microcontrolador do cabo encontrado a N baud, firmware X; modo de arranque: …". Guarde a saída:
+é a primeira confirmação real do protocolo.
+
+**Se o passo 3 falhar com a ignição ligada** (sem eco), o Diagnóstico da ligação fala com o microcontrolador e
+põe-no em modo KKL; se o microcontrolador não responder em nenhuma velocidade, envie a saída do `--mcu`.
 
 ## Estado da verificação
 
@@ -97,6 +130,9 @@ interface J2534 com ISO 15765 para carros CAN.
 | Init a 5 baud pela ponte D2XX (tempos dos bits medidos no cabo real, endereço 01) | **Verificado no hardware**: bits de 200,0 ms (±0,1 ms), linha em repouso 363 ms antes |
 | App com o cabo real e sem carro (1.0.1): Testar interface, Diagnóstico, Ligar, Auto-Scan | **Verificado no hardware**: falham em 1,4–1,6 s com a explicação do eco; fechar a meio de um init 0,1 s |
 | Abrir o chip por WinUSB | Não verificado — o driver actual é o RT-USB |
+| Microcontrolador do clone: versão (1.96 'F' a 115200 baud), modo, mudança de modo, teste da linha K | **Verificado no hardware** (19/10, 22:07–22:16) |
+| Modo KKL dá linha K directa | **Não** — no carro, ignição ligada, LEDs acesos: sem eco e sem resposta da centralina; cabo reposto em modo inteligente |
+| Init a 5 baud pelo microcontrolador (0x84) | Responde erro `FF 03` com flags 00 — formato do pedido por confirmar |
 | Eco da linha K, init 5 baud, KW1281/KWP2000 com centralina real | Não verificado — precisa do carro |
 | KLine + KW1281 sobre `FtdiSerial` (init 5 baud descodificado pelos tempos do BREAK) | Testado com chip simulado |
 | KLine + KW1281/KWP2000 sobre a ponte D2XX (processo à parte) | Testado com backend simulado |

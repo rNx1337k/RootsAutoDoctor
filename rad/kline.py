@@ -16,12 +16,15 @@ import sys
 import time
 
 from .errors import KLineError, KLineTimeout
+from .hexmcu import HEX_LINES, is_hex_port
 
 log = logging.getLogger(__name__)
 
 SIM_PORT = "SIMULADOR"
 DEFAULT_LINES = (True, False)                      # (DTR, RTS) — o normal nos cabos KKL
 LINE_COMBOS = (DEFAULT_LINES, (False, False), (True, True), (False, True))
+# Clones HEX-USB+CAN: o DTR activo segura o microcontrolador em reset — só combinações com DTR desligado
+HEX_COMBOS = (HEX_LINES, (False, True))
 
 
 def precise_sleep(seconds):
@@ -91,7 +94,8 @@ class KLine:
         self.ser = None
         self._timeout = None
         self._pushback = []
-        self.lines = DEFAULT_LINES
+        self.is_hex = is_hex_port(port)
+        self.lines = HEX_LINES if self.is_hex else DEFAULT_LINES
         self.cancelled = False                     # pôr a True (de outra thread) interrompe o init a 5 baud
 
     # ------------------------------------------------------------------ porta
@@ -126,6 +130,8 @@ class KLine:
         if not self.is_simulator:
             _timer_resolution(True)
         self.set_lines(*self.lines)
+        if self.is_hex and not self.is_simulator:
+            precise_sleep(0.4)                       # microcontrolador do clone HEX a sair do reset
         self._timeout = None
         self._pushback.clear()
         self.cancelled = False
@@ -293,10 +299,15 @@ class KLine:
         """Experimenta as combinações de DTR/RTS até haver eco na linha K.
         Fica com a que funcionou e devolve-a; sem eco em nenhuma, repõe a anterior e devolve None."""
         before = self.lines
-        for combo in (before,) + tuple(c for c in LINE_COMBOS if c != before):
+        combos = HEX_COMBOS if self.is_hex else LINE_COMBOS
+        if self.is_hex and before not in combos:
+            before = HEX_LINES
+        for combo in (before,) + tuple(c for c in combos if c != before):
+            changed = combo != self.lines
             self.set_lines(*combo)
             if not self.is_simulator:
-                precise_sleep(0.05)                  # deixar o transceptor estabilizar
+                # deixar o transceptor estabilizar (no clone HEX, o microcontrolador arrancar)
+                precise_sleep(0.4 if self.is_hex and changed else 0.05)
             if self.echo_test():
                 if combo != before:
                     self.log(f"Interface: eco com DTR={'on' if combo[0] else 'off'} "

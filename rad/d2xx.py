@@ -144,10 +144,32 @@ class D2xxSerial:
             self.info = self._call("open", dll=self.dll, serial=self.serial)["info"]
             if self._baud != 10400:
                 self._call("baud", value=self._baud)
+        except KLineError as e:
+            why = self._why_not_open()
+            self.close()
+            if why:
+                raise KLineError(f"{why} ({e})") from e
+            raise
         except Exception:
             self.close()
             raise
         log.info("D2XX %s aberta (%s bits): %s", self.serial, bits or "sim", self.info)
+
+    def _why_not_open(self):
+        """Depois de um FT_OpenEx falhado: o cabo não está no USB, ou está aberto por outro programa?"""
+        try:
+            devs = self._call("list", dll=self.dll)["devices"]
+        except Exception:
+            return None
+        mine = [d for d in devs if d.get("serial") == self.serial]
+        if not mine:
+            others = ", ".join(d.get("serial") or "?" for d in devs)
+            return ("O cabo não está ligado ao USB (o driver não vê a interface "
+                    f"{self.serial}{'; vê: ' + others if others else ''})")
+        if mine[0].get("busy"):
+            return ("O cabo está ligado mas aberto por outro programa (VCDS ou outra janela do Roots Auto "
+                    "Doctor): feche-o e tente outra vez")
+        return None
 
     def _kill(self):
         p, self.proc = self.proc, None
