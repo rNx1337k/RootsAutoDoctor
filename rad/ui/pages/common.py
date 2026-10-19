@@ -66,14 +66,14 @@ class StatCard(QFrame):
         super().__init__()
         self.setObjectName("stat")
         h = QHBoxLayout(self)
-        h.setContentsMargins(18, 14, 18, 14)
-        h.setSpacing(14)
-        h.addWidget(IconBadge(icon, color, 44), 0, Qt.AlignVCenter)
+        h.setContentsMargins(16, 14, 16, 14)
+        h.setSpacing(12)
+        h.addWidget(IconBadge(icon, color, 40), 0, Qt.AlignVCenter)
         v = QVBoxLayout()
         v.setSpacing(0)
         self.value = lbl("0", "bigValue")
         v.addWidget(self.value)
-        v.addWidget(lbl(name, "muted"))
+        v.addWidget(lbl(name, "muted", wrap=True))
         h.addLayout(v, 1)
 
     def set(self, n):

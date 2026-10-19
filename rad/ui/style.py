@@ -116,7 +116,7 @@ QSpinBox::up-button, QSpinBox::down-button {{ width: 18px; border: none; backgro
 
 QTabWidget::pane {{ border: 1px solid {LINE}; border-radius: 14px; top: -1px; background: rgba(11, 17, 34, 0.85); }}
 QTabBar::tab {{
-    background: transparent; color: {MUTED}; padding: 9px 16px; margin-right: 2px;
+    background: transparent; color: {MUTED}; padding: 9px 11px; margin-right: 1px;
     border-bottom: 2px solid transparent; font-weight: 600;
 }}
 QTabBar::tab:hover {{ color: {TEXT}; }}

@@ -40,6 +40,12 @@ class Worker(QThread):
         self._quiet = False
         self.abort_scan = False
         self._running = True
+        self._busy = False
+
+    @property
+    def is_busy(self):
+        """A thread está a executar um comando ou tem comandos à espera (não conta a leitura contínua)."""
+        return self._busy or not self.q.empty()
 
     # ------------------------------------------------------------ API da UI
     def submit(self, cmd, *args):
@@ -51,8 +57,14 @@ class Worker(QThread):
 
     def stop(self):
         self._running = False
+        self.abort_scan = True
+        self.live_mode = None
+        if self.kl is not None:
+            self.kl.cancelled = True                 # interrompe um init a 5 baud em curso
         self.submit("_quit")
-        self.wait(3000)
+        # um init a 5 baud sem resposta pode demorar ~8 s; não destruir a thread a meio
+        if not self.wait(12000):
+            log.warning("A thread de comunicação não terminou a tempo")
 
     # ---------------------------------------------------------------- loop
     def run(self):
@@ -65,10 +77,13 @@ class Worker(QThread):
             if cmd == "_quit":
                 break
             if cmd:
+                self._busy = True
                 self.busy.emit(True)
                 try:
-                    self._dispatch(cmd, args)
+                    if self._running:
+                        self._dispatch(cmd, args)
                 finally:
+                    self._busy = False
                     self.busy.emit(False)
                 last = time.monotonic()
                 continue
@@ -150,6 +165,18 @@ class Worker(QThread):
             note = f" (DTR {'on' if combo[0] else 'off'}, RTS {'on' if combo[1] else 'off'} — guardado)"
         return True, note
 
+    def _preflight(self):
+        """Antes de falar com o carro, confirma o eco da linha K (0,3 s; até 1,5 s se tiver de procurar o
+        DTR/RTS). Sem isto, sem carro ou sem ignição cada endereço demora 3 s a falhar e o Auto-Scan
+        ficava mais de um minuto parado a dizer só "não responde"."""
+        if getattr(self.kl, "is_j2534", False) or self.cfg.get("echo") == "off":
+            return
+        ok, note = self._echo()
+        if not ok:
+            raise ProtocolError(no_echo_text(self.cfg.get("port", "")))
+        if note:
+            self.log.emit("Eco da linha K OK" + note)
+
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):
         try:
@@ -195,6 +222,7 @@ class Worker(QThread):
             time.sleep(0.3)
         self._ensure_port()
         self.state.emit("connecting", address)
+        self._preflight()
         s = ECUSession(self.kl, self._log, self.cfg["baud"])
         info = s.connect(address, retry=True)
         self.session = s
@@ -215,10 +243,7 @@ class Worker(QThread):
         self._ensure_port()
         ok, note = self._echo()
         msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD." + note
-               if ok else
-               "A porta abriu, mas não houve eco na linha K.\n"
-               "Ligue o cabo ao carro com a ignição ligada e volte a testar "
-               "(sem 12 V na ficha o cabo KKL não ecoa).")
+               if ok else "A porta abriu. " + no_echo_text(self.cfg.get("port", "")))
         self.result.emit("test_interface", {"ok": ok, "message": msg})
 
     def _cmd_link_check(self, address):
@@ -247,16 +272,7 @@ class Worker(QThread):
                 except Exception:
                     log.warning("Teste de eco falhou", exc_info=True)
                     ok, note = False, ""
-                if ok:
-                    why = "O cabo vê a linha K do carro." + note
-                elif port.startswith(("FTDI:", "D2XX:")):
-                    why = ("Sem eco: a interface abriu pelo USB mas os bytes não voltam da linha K. Com o cabo "
-                           "no carro e a ignição ligada, isto quer dizer que há um microcontrolador entre o chip "
-                           "FTDI e a ficha OBD (clone 'inteligente') e a interface não pode ser usada como "
-                           "cabo KKL. Use um cabo KKL 409.1 ou uma interface J2534.")
-                else:
-                    why = ("Sem eco: o cabo não está ligado ao carro, a ignição está desligada, "
-                           "ou não é um cabo KKL.")
+                why = ("O cabo vê a linha K do carro." + note) if ok else no_echo_text(port)
                 steps.append(("Eco da linha K", ok, why))
                 if not ok:
                     return
@@ -289,6 +305,7 @@ class Worker(QThread):
         if self.session:
             self._cmd_disconnect()
         self._ensure_port()
+        self._preflight()
         total = len(addresses)
         for i, addr in enumerate(addresses):
             if self.abort_scan:
@@ -349,6 +366,17 @@ class Worker(QThread):
             except (RequestRejected, NotSupported) as e:
                 out["groups"][g] = str(e)
         self.live.emit(out)
+
+
+def no_echo_text(port):
+    """Explicação para quando o byte enviado não volta da linha K."""
+    if port.startswith(("FTDI:", "D2XX:")):
+        return ("Sem eco na linha K. Confirme que o cabo está ligado à ficha OBD e que a ignição está ligada "
+                "(sem 12 V na ficha não há eco). Se já estiver, a interface abriu pelo USB mas os bytes não "
+                "voltam da linha K: há um microcontrolador entre o chip FTDI e a ficha (clone 'inteligente') "
+                "e esta interface não pode ser usada como cabo KKL — use um cabo KKL 409.1 ou uma interface J2534.")
+    return ("Sem eco na linha K: o cabo não está ligado à ficha OBD, a ignição está desligada, ou não é um "
+            "cabo KKL. Se o seu cabo não tiver eco, escolha \"Sem eco\" em Opções → Eco da linha K.")
 
 
 def _saved_lines(port):

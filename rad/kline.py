@@ -92,6 +92,7 @@ class KLine:
         self._timeout = None
         self._pushback = []
         self.lines = DEFAULT_LINES
+        self.cancelled = False                     # pôr a True (de outra thread) interrompe o init a 5 baud
 
     # ------------------------------------------------------------------ porta
     @property
@@ -127,6 +128,7 @@ class KLine:
         self.set_lines(*self.lines)
         self._timeout = None
         self._pushback.clear()
+        self.cancelled = False
 
     def close(self):
         if self.ser is not None:
@@ -228,6 +230,9 @@ class KLine:
             bits = [0] + [(addr_byte >> i) & 1 for i in range(8)]   # start + 7 dados + paridade
             t0 = time.perf_counter()
             for n, bit in enumerate(bits):
+                if self.cancelled:
+                    ser.break_condition = False
+                    raise KLineError("Operação cancelada")
                 ser.break_condition = (bit == 0)
                 precise_sleep(t0 + (n + 1) * 0.2 - time.perf_counter())
             ser.break_condition = False              # stop bit (nível alto) — 200 ms

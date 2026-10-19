@@ -41,16 +41,18 @@ class ModulePage(QWidget):
         v.addLayout(head)
 
         self.tabs = QTabWidget()
+        self.tabs.setElideMode(Qt.ElideRight)        # janela estreita: encolher os nomes em vez de setas
+        self.tabs.setUsesScrollButtons(False)
         v.addWidget(self.tabs, 1)
         self.tabs.addTab(self._build_info(), "Informação")
         self.tabs.addTab(self._build_faults(), "Avarias")
-        self.tabs.addTab(self._build_mvb(), "Valores de medição")
-        self.tabs.addTab(self._build_basic(), "Ajustes básicos")
+        self.tabs.addTab(self._build_mvb(), "Medição")
+        self.tabs.addTab(self._scrolled(self._build_basic()), "Ajustes básicos")
         self.tabs.addTab(self._build_adapt(), "Adaptação")
         self.tabs.addTab(self._build_coding(), "Codificação")
         self.tabs.addTab(self._build_login(), "Login")
-        self.tabs.addTab(self._build_outputs(), "Testes de saídas")
-        self.tabs.addTab(self._build_guided(), "Testes guiados")
+        self.tabs.addTab(self._build_outputs(), "Saídas")
+        self.tabs.addTab(self._scrolled(self._build_guided()), "Testes TDI")
         self.GUIDED_TAB = self.tabs.count() - 1
         self.charts = []
         for g in self.groups + [self.basic_group]:
@@ -64,6 +66,15 @@ class ModulePage(QWidget):
         v.setContentsMargins(18, 18, 18, 18)
         v.setSpacing(12)
         return w, v
+
+    @staticmethod
+    def _scrolled(w):
+        s = QScrollArea()
+        s.setWidgetResizable(True)
+        s.setFrameShape(QFrame.NoFrame)
+        s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        s.setWidget(w)
+        return s
 
     def _build_info(self):
         w, v = self._pad()
@@ -170,6 +181,7 @@ class ModulePage(QWidget):
         self.fault_table.itemSelectionChanged.connect(self._fault_selected)
         v.addWidget(self.fault_table, 1)
         self.fault_advice = FaultAdviceCard()
+        self.fault_advice.hide()
         v.addWidget(self.fault_advice)
         self.faults = []
         return w
@@ -469,6 +481,8 @@ class ModulePage(QWidget):
         self.gd_title.setText(f"{t.title}  ·  grupo {t.group:03d}")
         self.gd_instr.setText(t.instructions)
         self.gd_card.spin.setValue(t.group)
+        for c in self.gd_card.cells:
+            c.set_fixed_range(t.gauge_range)
         self.gd_card.set_labels(vag_data.group_labels(self.info.get("part") if self.info else "", t.group))
         self.gd_btn.setEnabled(True)
         self.gd_result.hide()
@@ -527,6 +541,7 @@ class ModulePage(QWidget):
         t = self.fault_table
         t.setRowCount(0)
         self.fault_advice.clear()
+        self.fault_advice.setVisible(bool(faults))
         if not faults:
             self.fault_count.setText("✔  Nenhuma avaria")
             self.fault_count.setStyleSheet(f"color: {OK};")

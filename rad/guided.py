@@ -18,6 +18,7 @@ class GuidedTest:
     title = ""
     group = 0
     duration = None          # segundos (pára sozinho) ou None (pára o utilizador)
+    gauge_range = None       # escala fixa dos mostradores (mín, máx), ou None para a automática
     instructions = ""
 
     def analyze(self, samples):
@@ -30,6 +31,7 @@ class InjectorBalance(GuidedTest):
     group = 13
     duration = 20
     limit = 2.0
+    gauge_range = (-4.0, 4.0)
     instructions = ("Motor quente (líquido acima de 80 °C), ao ralenti e sem consumidores ligados "
                     "(A/C, luzes, ventilador). A leitura dura 20 segundos.")
 

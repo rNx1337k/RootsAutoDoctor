@@ -150,6 +150,7 @@ class AutoScanPage(QWidget):
         self.tiles = TileGrid()
         tiles_scroll.setWidget(self.tiles)
         self.tiles_scroll = tiles_scroll
+        tiles_scroll.hide()
         right.addWidget(tiles_scroll)
         self.empty = lbl("Ainda não há resultados. Ligue a ignição e carregue em Iniciar Auto-Scan.", "muted")
         right.addWidget(self.empty)
@@ -231,11 +232,15 @@ class AutoScanPage(QWidget):
             self.w.abort_scan = True
             self.start_btn.setText("A parar…")
             return
+        if self.w.is_busy:
+            self.current.setText("Aguarde — ainda a comunicar com o carro")
+            return
         self.items = []
         self.diff = None
         self.banner.hide()
         self.tree.clear()
         self.tiles.clear()
+        self.tiles_scroll.hide()
         self.map.clear()
         self.advice.hide()
         self.empty.hide()
@@ -264,6 +269,7 @@ class AutoScanPage(QWidget):
         tile = ModuleTile(item)
         tile.picked.connect(self.connect_req.emit)
         self.tiles.add(tile)
+        self.tiles_scroll.show()
         self._add_tree_item(item)
 
     def _fault_tag(self, address, f):
@@ -307,16 +313,21 @@ class AutoScanPage(QWidget):
         self.advice.set_fault(f, address)
         self.advice.show()
 
-    def done(self, aborted):
+    def done(self, aborted, error=None):
         self.running = False
         self.map.set_scanning(False)
         self.update_health()
-        self.current.setText("Concluído" if not aborted else "Interrompido")
+        self.current.setText("Concluído" if not aborted else ("Não foi possível ler" if error else "Interrompido"))
         if not self.items:
-            self.empty.setText("Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas Opções.")
+            self.empty.setText(error or "Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas Opções.")
+            self.empty.setWordWrap(True)
             self.empty.show()
         self.start_btn.setText("▶  Iniciar Auto-Scan")
-        self._summarise(aborted)
+        if error and not self.items:
+            self.summary.setText("Sem comunicação")
+            self.health_lbl.setText("Veja a explicação ao lado.")
+        else:
+            self._summarise(aborted)
 
     def show_compare(self, prev_date, diff):
         """Mostra o que mudou desde o último diagnóstico do mesmo veículo e marca as avarias novas."""

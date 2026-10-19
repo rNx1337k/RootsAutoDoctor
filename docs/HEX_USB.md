@@ -97,10 +97,24 @@ interface J2534 com ISO 15765 para carros CAN.
 | Abrir o chip pelo D2XX (FT232R, latência 1 ms, driver 2.10.00, biblioteca 3.02.07) | **Verificado no hardware** |
 | BREAK, mudança de velocidade, escrita e timeouts de leitura pelo D2XX | **Verificado no hardware** (tempos em baixo) |
 | Diagnóstico da ligação na app até ao passo do eco | **Verificado no hardware** (sem carro: "sem eco", como esperado) |
+| Init a 5 baud pela ponte D2XX (tempos dos bits medidos no cabo real, endereço 01) | **Verificado no hardware**: bits de 200,0 ms (±0,1 ms), linha em repouso 363 ms antes |
+| App com o cabo real e sem carro (1.0.1): Testar interface, Diagnóstico, Ligar, Auto-Scan | **Verificado no hardware**: falham em 1,4–1,6 s com a explicação do eco; fechar a meio de um init 0,1 s |
 | Abrir o chip por WinUSB | Não verificado — o driver actual é o RT-USB |
 | Eco da linha K, init 5 baud, KW1281/KWP2000 com centralina real | Não verificado — precisa do carro |
 | KLine + KW1281 sobre `FtdiSerial` (init 5 baud descodificado pelos tempos do BREAK) | Testado com chip simulado |
 | KLine + KW1281/KWP2000 sobre a ponte D2XX (processo à parte) | Testado com backend simulado |
+
+## Checklist para o primeiro teste no carro
+
+1. Opções → **Registo detalhado** ligado (o pacote de suporte fica com todos os bytes).
+2. Opções → porta `D2XX:RT000001` (ou **Detectar cabo**).
+3. Cabo na ficha OBD, **ignição ligada** (motor desligado).
+4. Opções → **Diagnóstico da ligação** com o endereço `01`:
+   - ✖ no passo "Eco da linha K" com a ignição ligada → o clone tem microcontrolador; parar aqui (não há
+     forma de o usar como KKL).
+   - ✔ eco e ✖ na ligação → experimentar `17` (painel) e Velocidade = 9600 / 10400 em Opções.
+5. Se o diagnóstico passar: Auto-Scan, abrir o 01, ler avarias e valores de medição (grupos 1 e 3).
+6. No fim: Opções → **Pacote de suporte** e guardar o zip, com o resultado de cada passo.
 
 ## Tempos medidos na ponte D2XX (cabo real, sem carro)
 

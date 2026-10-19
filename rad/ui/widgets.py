@@ -156,6 +156,7 @@ class GaugeCell(QWidget):
         self.lo, self.hi = 0.0, 100.0
         self.hist = deque(maxlen=90)
         self.peak = None
+        self.fixed_range = None
         self.target = 0.0
         self.shown = 0.0
         self.anim = QTimer(self)
@@ -173,6 +174,11 @@ class GaugeCell(QWidget):
     def reset_peak(self):
         self.peak = None
         self.update()
+
+    def set_fixed_range(self, rng):
+        """Escala fixa (mín, máx) — p.ex. desvios dos injectores à volta de 0. None volta à automática."""
+        self.fixed_range = tuple(rng) if rng else None
+        self.key = None
 
     def set_label(self, text):
         if text != self.label:
@@ -198,7 +204,7 @@ class GaugeCell(QWidget):
             self.key = key
             self.hist.clear()
             self.peak = None
-            self.lo, self.hi = UNIT_RANGES.get(field["unit"], (0.0, 0.0))
+            self.lo, self.hi = self.fixed_range or UNIT_RANGES.get(field["unit"], (0.0, 0.0))
         self.field = field
         v = field.get("numeric")
         if v is not None:
@@ -1009,7 +1015,7 @@ class VehicleMap(_Animated, QWidget):
         self.hover = None
         self._spare = {}
         self.setMouseTracking(True)
-        self.setMinimumSize(260, 380)
+        self.setMinimumSize(220, 250)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._setup_anim(33)
 

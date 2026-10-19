@@ -136,6 +136,41 @@ def test_full_flow_with_simulator():
     assert os.path.exists(os.environ["RAD_SETTINGS_INI"])
 
 
+def test_failed_connect_and_repeated_clicks():
+    app, w = _window()
+    from PySide6.QtWidgets import QMessageBox
+    shown = []
+    old = QMessageBox.warning
+    QMessageBox.warning = staticmethod(lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok)
+    try:
+        w.worker.submit("configure", w.options.config())
+        assert _wait(app, lambda: not w.worker.is_busy)
+        w.worker.submit("connect", 0x01)              # abre a porta; depois tira-se o eco
+        assert _wait(app, lambda: w.nav_btns["module"].isEnabled())
+        w.worker.submit("disconnect")
+        assert _wait(app, lambda: not w.nav_btns["module"].isEnabled() and not w.worker.is_busy)
+        w.worker.kl.ser.echo = False                  # agora o "cabo saiu do carro"
+        w.toast.last = ("", "")
+        w.connect_module(0x01)
+        w.connect_module(0x17)                         # segundo clique enquanto liga: ignorado
+        assert w.toast.last[0].startswith("Aguarde")
+        assert _wait(app, lambda: shown and not w.worker.is_busy)
+        app.processEvents()
+        assert "Sem eco" in shown[0] and len(shown) == 1
+        assert "perdida" not in w.toast.last[0]        # nunca esteve ligado: não se "perdeu"
+        assert not w.reconnect_btn.isVisible() and w.conn_lbl.text() == "Sem ligação"
+        # Auto-Scan sem eco: pára logo e explica na página
+        w._home_go("autoscan_start")
+        assert _wait(app, lambda: not w.scan.running and not w.worker.is_busy)
+        app.processEvents()
+        assert "Sem eco" in w.scan.empty.text() and not w.scan.empty.isHidden()
+        assert w.scan.tiles_scroll.isHidden()
+    finally:
+        QMessageBox.warning = old
+        w.close()
+        app.processEvents()
+
+
 def test_custom_widgets_paint():
     app = _app()
     from PySide6.QtWidgets import QWidget

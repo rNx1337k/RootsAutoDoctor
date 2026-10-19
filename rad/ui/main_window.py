@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         sv.addSpacing(4)
         sv.addWidget(ver)
         self.last_address = None
+        self.was_connected = False
         h.addWidget(side)
 
         # ---------------- páginas
@@ -319,10 +320,16 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo em Opções.")
             self.show_page("options")
             return
+        if self.worker.is_busy or self.scan.running:
+            self.toast.show_msg("Aguarde — ainda a comunicar com o carro", "warn")
+            return
         self.module.stop_live()
         self.worker.submit("connect", address)
 
     def run_link_check(self):
+        if self.worker.is_busy or self.scan.running:
+            self.toast.show_msg("Aguarde — ainda a comunicar com o carro", "warn")
+            return
         cfg = self.options.config()
         if not cfg["port"]:
             QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo (ou use Detectar cabo).")
@@ -453,9 +460,11 @@ class MainWindow(QMainWindow):
 
     def on_state(self, state, data):
         if state == "connecting":
+            self.was_connected = False
             self.set_conn_state("connecting", f"A ligar a {data:02X}…", vag_data.module_name(data))
             self.statusBar().showMessage(f"A ligar ao controlador {data:02X} — {vag_data.module_name(data)}…")
         elif state == "connected":
+            self.was_connected = True
             self.last_address = data["address"]
             self.reconnect_btn.hide()
             self.set_conn_state("connected", f"Ligado a {data['address']:02X}",
@@ -473,7 +482,9 @@ class MainWindow(QMainWindow):
             if self.stack.currentWidget() is self.module:
                 self.show_page("modules")
             self.statusBar().showMessage(f"Ligação terminada: {data}" if data else "Controlador fechado")
-            if data:
+            lost = bool(data) and self.was_connected     # uma ligação que falhou à primeira não se "perdeu"
+            self.was_connected = False
+            if lost:
                 self.toast.show_msg("Ligação ao controlador perdida", "bad")
                 if self.last_address is not None:
                     self.reconnect_btn.setText(f"Voltar a ligar a {self.last_address:02X}")
@@ -533,7 +544,7 @@ class MainWindow(QMainWindow):
         self.append_log(f"ERRO ({cmd}): {msg}")
         self.statusBar().showMessage(msg, 8000)
         if cmd == "autoscan":
-            self.scan.done(True)
+            self.scan.done(True, msg)
         if cmd == "clear_all":
             self.scan.clear_all_btn.setEnabled(True)
         if cmd in ("connect", "test_interface", "recode", "login", "adaptation_save", "clear_faults",

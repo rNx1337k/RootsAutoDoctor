@@ -53,6 +53,8 @@ class ECUSession:
         i = 0
         while i < len(bauds):
             baud = bauds[i]
+            if getattr(self.kl, "cancelled", False):
+                raise ConnectError("Operação cancelada")
             if i or retried:
                 time.sleep(0.4 if not self.kl.is_simulator else 0)
             self.log(f"Init 5 baud → endereço {address:02X} a {baud} baud…")

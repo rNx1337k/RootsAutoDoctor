@@ -28,6 +28,7 @@ class HomePage(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
         body = QWidget()
         scroll.setWidget(body)
@@ -71,10 +72,6 @@ class HomePage(QWidget):
         pick = btn("Escolher controlador", None, lambda: self.go.emit("modules"))
         pick.setMinimumHeight(44)
         cta.addWidget(pick)
-        cmd = btn("  Procurar…   Ctrl+K", "ghost", lambda: self.go.emit("palette"))
-        cmd.setIcon(nav_icon("search"))
-        cmd.setMinimumHeight(44)
-        cta.addWidget(cmd)
         cta.addStretch(1)
         tv.addSpacing(6)
         tv.addLayout(cta)
@@ -100,22 +97,22 @@ class HomePage(QWidget):
         grid.setSpacing(14)
         tiles = [
             ("modules", "modules", "Seleccionar controlador",
-             "Ligar a um módulo e ler informação, avarias, valores de medição, adaptações e codificação."),
+             "Informação, avarias, valores de medição, adaptação e codificação de um módulo."),
             ("autoscan", "autoscan", "Auto-Scan com mapa do veículo",
-             "Ler todos os controladores de uma vez e ver no carro onde estão as avarias."),
+             "Ler todos os controladores e ver no carro onde estão as avarias."),
             ("report", "report", "Relatório para o cliente",
-             "PDF com o logo da oficina, a saúde do veículo, as avarias e as causas prováveis."),
+             "PDF com o logo da oficina, as avarias e as causas prováveis."),
         ]
         for i, (key, icon, title, sub) in enumerate(tiles):
             b = btn("", "tile", lambda _=False, k=key: self.go.emit(k))
-            b.setMinimumHeight(128)
+            b.setMinimumHeight(150)
             lay = QHBoxLayout(b)
             lay.setContentsMargins(18, 16, 18, 16)
             lay.setSpacing(14)
             lay.addWidget(IconBadge(icon, CYAN, 46), 0, Qt.AlignTop)
             col = QVBoxLayout()
             col.setSpacing(4)
-            t = lbl(title, "h2")
+            t = lbl(title, "h2", wrap=True)
             t.setAttribute(Qt.WA_TransparentForMouseEvents)
             s = lbl(sub, "muted", wrap=True)
             s.setAttribute(Qt.WA_TransparentForMouseEvents)

@@ -3,6 +3,22 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-10-19
+### Fixed
+- Without K-line echo (cable not in the car, ignition off, or a HEX clone with a microcontroller) connecting took 7 s and an Auto-Scan over a minute before saying only "does not respond". Connect and Auto-Scan now check the echo first (0.3–1.5 s) and explain the cause, with the HEX/FTDI microcontroller case named explicitly. Skipped when "Eco da linha K" is set to "Sem eco" and on J2534
+- Closing the app during a 5-baud init froze it for ~7 s; the init is now cancellable (0.1 s) and the D2XX bridge process is always closed
+- Clicking a module (list, map, tile, palette) while the app was still talking to the car queued extra connections; now refused with a notice
+- A connection that failed on the first attempt showed "Ligação ao controlador perdida"
+- "Testar interface" on D2XX/FTDI ports gave the generic KKL message instead of the HEX explanation
+- `tools/hex_probe.py` crashed on consoles without UTF-8 (cp1252) or when the output was redirected
+- Layout at the minimum window size (1080×700): home page and Options overflowed horizontally, the vehicle map legend overlapped the health ring, the module tabs needed scroll arrows, guided tests and basic settings were squashed
+- Auto-Scan left an empty tile area above the error message when nothing answered
+- Injector balance gauges used the 0–60 mg/H scale, so a ±2 mg/H deviation barely moved the needle; they now use −4…+4
+### Changed
+- Options: "Detectar cabo", "Testar interface" and "Diagnóstico da ligação" moved into the interface card, under the port
+- Module tabs: "Medição", "Saídas", "Testes TDI"
+- Fault assistant card hidden when the module has no faults
+
 ## [1.0.0] — 2026-10-19
 ### Added
 - **Vehicle map** in Auto-Scan: top view of the car with every control module where it sits; a scan line sweeps the car while it reads, each module lights up green / amber / red and the module being probed pulses. Click a module to connect

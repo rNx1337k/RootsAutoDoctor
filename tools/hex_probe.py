@@ -26,6 +26,11 @@ def step(title):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):        # consolas cp1252 / saída redireccionada não rebentam com "→"
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="porta a testar (ex.: D2XX:RT000001, FTDI:0403:FA24:RT000001, COM5)")
     ap.add_argument("--echo", action="store_true", help="teste de eco da linha K (cabo no carro, ignição ON)")
