@@ -49,3 +49,25 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("OK", name)
+
+
+def test_powershell_output_is_read_as_utf8():
+    # nomes como "Porta série USB (COM5)" chegavam corrompidos (página de código OEM lida como ANSI)
+    calls = []
+
+    class Out:
+        stdout = '{"FriendlyName": "Porta série USB (COM5)", "InstanceId": "FTDIBUS\\\\VID_0403+PID_6001+A5\\\\0000"}'
+
+    def fake_run(args, **kw):
+        calls.append((args, kw))
+        return Out()
+
+    old = cable.subprocess.run
+    cable.subprocess.run = fake_run
+    try:
+        devs = cable.list_usb_devices()
+    finally:
+        cable.subprocess.run = old
+    args, kw = calls[0]
+    assert kw.get("encoding") == "utf-8" and "OutputEncoding" in args[-1] and "UTF8" in args[-1]
+    assert devs[0]["name"] == "Porta série USB (COM5)"

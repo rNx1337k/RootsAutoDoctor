@@ -3,7 +3,6 @@
 Confirma que um PC acabado de instalar tem tudo o que as interfaces precisam: o Python portátil das pontes
 (runtime/py32 e py64), a ponte J2534 e a ponte D2XX (com os simuladores) e, se o driver RT-USB da Ross-Tech
 estiver instalado, que a ponte de 32 bits carrega o RT-USB.DLL. Não abre a janela nem fala com o carro."""
-import json
 import os
 import platform
 import struct
@@ -60,20 +59,13 @@ def run():
         def rt_usb():
             proc, bits = d2xx._start_bridge(dll)
             try:
-                proc.stdin.write(json.dumps({"op": "list", "dll": dll}) + "\n")
-                proc.stdin.flush()
-                res = json.loads(proc.stdout.readline() or "{}")
+                res = proc.call({"op": "list", "dll": dll}, timeout=15)
                 if not res.get("ok"):
                     raise RuntimeError(res.get("error", "sem resposta da ponte"))
                 devs = ", ".join(f"{d['description']} S/N {d['serial']}" for d in res["devices"]) or "nenhum ligado"
                 return f"{dll} ({bits} bits) carregado em {proc.args[0]}; interfaces: {devs}"
             finally:
-                try:
-                    proc.stdin.write(json.dumps({"op": "close"}) + "\n")
-                    proc.stdin.flush()
-                    proc.wait(5)
-                except Exception:
-                    proc.kill()
+                proc.close()
         check("Driver RT-USB (HEX-USB)", rt_usb)
     else:
         lines.append("--    Driver RT-USB (HEX-USB): não instalado neste PC (só é preciso para esse cabo)")

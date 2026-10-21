@@ -36,10 +36,16 @@ PS_QUERY = (
 )
 
 
+# O PowerShell escreve para o tubo na página de código OEM (cp850 num Windows português) e o Python lia com a
+# ANSI (cp1252): nomes como "Porta série USB" chegavam corrompidos. Força-se UTF-8 dos dois lados.
+PS_UTF8 = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+
+
 def _run_powershell(cmd):
     flags = 0x08000000 if sys.platform == "win32" else 0          # CREATE_NO_WINDOW
-    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-                         capture_output=True, text=True, timeout=20, creationflags=flags)
+    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", PS_UTF8 + cmd],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20,
+                         creationflags=flags)
     return out.stdout
 
 

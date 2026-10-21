@@ -170,22 +170,29 @@ class SimKW1281:
                 v = self.adapt[ch]
                 self.pending = [(0xE6, [ch, v >> 8, v & 0xFF])]
             return True
+        limit = self.p.get("adapt_max", {})            # cenário: valores acima do limite são recusados
         if title == 0x22:
             ch, v = data[0], (data[1] << 8) | data[2]
+            if ch in limit and v > limit[ch]:
+                v = self.adapt.get(ch, 0)               # a centralina mantém o valor anterior
             self.adapt_tmp[ch] = v
             self.pending = [(0xE6, [ch, v >> 8, v & 0xFF])]
             return True
         if title == 0x2A:
             ch, v = data[0], (data[1] << 8) | data[2]
+            if ch in limit and v > limit[ch]:
+                v = self.adapt.get(ch, 0)
             self.adapt[ch] = v
-            self.pending = [(0xE6, [ch, v >> 8, v & 0xFF])]
+            # cenário: centralinas que só respondem ACK à gravação (resultado por confirmar)
+            self.pending = [] if self.p.get("adapt_save_ack_only") else [(0xE6, [ch, v >> 8, v & 0xFF])]
             return True
         if title == 0x2B:
             self.pending = []
             return True
         if title == 0x10:
-            self.coding = ((data[0] << 8) | data[1]) >> 1
-            self.wsc = ((data[1] & 1) << 16) | (data[2] << 8) | data[3]
+            if not self.p.get("coding_locked"):         # cenário: a centralina recusa codificações
+                self.coding = ((data[0] << 8) | data[1]) >> 1
+                self.wsc = ((data[1] & 1) << 16) | (data[2] << 8) | data[3]
             self.pending = self.ident_blocks()
             return True
         if title == 0x04:

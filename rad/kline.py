@@ -15,7 +15,7 @@ import logging
 import sys
 import time
 
-from .errors import KLineError, KLineTimeout
+from .errors import InterfaceError, KLineError, KLineTimeout
 from .hexmcu import HEX_LINES, is_hex_port
 
 log = logging.getLogger(__name__)
@@ -25,6 +25,16 @@ DEFAULT_LINES = (True, False)                      # (DTR, RTS) — o normal nos
 LINE_COMBOS = (DEFAULT_LINES, (False, False), (True, True), (False, True))
 # Clones HEX-USB+CAN: o DTR activo segura o microcontrolador em reset — só combinações com DTR desligado
 HEX_COMBOS = (HEX_LINES, (False, True))
+
+
+SIM_J2534_PORT = "J2534:SIMULADOR-J2534"
+SIM_D2XX_PORT = "D2XX:SIM00001"
+
+
+def is_simulated_port(port):
+    """True para todas as portas que falam com o simulador em vez de um carro (K-line, J2534 e D2XX).
+    Os dados lidos por estas portas nunca podem aparecer como dados de um veículo real."""
+    return port in (SIM_PORT, SIM_J2534_PORT, SIM_D2XX_PORT)
 
 
 def precise_sleep(seconds):
@@ -80,7 +90,7 @@ def list_serial_ports():
     except Exception:
         log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
     ports.append((SIM_PORT, "Simulador (sem carro) — para testar o programa"))
-    ports.append(("J2534:SIMULADOR-J2534", "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
+    ports.append((SIM_J2534_PORT, "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
     return ports
 
 
@@ -153,7 +163,12 @@ class KLine:
             self._timeout = t
 
     def set_baud(self, baud):
-        self.ser.baudrate = baud
+        try:
+            self.ser.baudrate = baud
+        except KLineError:
+            raise
+        except Exception as e:
+            raise InterfaceError(f"Não foi possível mudar a velocidade da porta: {e}") from e
 
     def flush(self):
         self._pushback.clear()
@@ -167,10 +182,12 @@ class KLine:
         if self._pushback:
             return self._pushback.pop(0)
         self._set_timeout(timeout)
+        if self.ser is None:
+            raise InterfaceError(f"{self.port_name}: a porta está fechada")
         try:
             d = self.ser.read(1)
-        except Exception as e:
-            raise KLineError(f"Erro de leitura na porta: {e}")
+        except Exception as e:                       # cabo arrancado, driver/ponte bloqueada…
+            raise InterfaceError(f"Erro de leitura na porta: {e}") from e
         if not d:
             return None
         if self.raw_log:
@@ -187,10 +204,12 @@ class KLine:
         data = bytes(b & 0xFF for b in data)
         if self.raw_log:
             self.log("    › " + " ".join(f"{b:02X}" for b in data))
+        if self.ser is None:
+            raise InterfaceError(f"{self.port_name}: a porta está fechada")
         try:
             self.ser.write(data)
         except Exception as e:
-            raise KLineError(f"Erro de escrita na porta: {e}")
+            raise InterfaceError(f"Erro de escrita na porta: {e}") from e
         if self.echo:
             for expected in data:
                 b = self.read_byte(0.25)
@@ -212,6 +231,14 @@ class KLine:
         return addr7 | (parity << 7)
 
     def five_baud_init(self, address, baud):
+        try:
+            return self._five_baud_init(address, baud)
+        except KLineError:
+            raise
+        except Exception as e:                       # BREAK/velocidade recusados: a porta deixou de funcionar
+            raise InterfaceError(f"Erro na porta durante o init a 5 baud: {e}") from e
+
+    def _five_baud_init(self, address, baud):
         """Faz o wake-up a 5 baud e lê sync + key bytes.
 
         Devolve dict:
@@ -319,9 +346,14 @@ class KLine:
     # ------------------------------------------------------------ teste do cabo
     def echo_test(self):
         """Envia um byte e verifica se volta (linha K com 12 V da ficha OBD)."""
-        self.ser.baudrate = 10400
-        self.flush()
-        self.ser.write(b"\x55")
-        self._set_timeout(0.3)
-        d = self.ser.read(1)
+        try:
+            self.ser.baudrate = 10400
+            self.flush()
+            self.ser.write(b"\x55")
+            self._set_timeout(0.3)
+            d = self.ser.read(1)
+        except KLineError:
+            raise
+        except Exception as e:
+            raise InterfaceError(f"Erro na porta durante o teste de eco: {e}") from e
         return bool(d) and d[0] == 0x55

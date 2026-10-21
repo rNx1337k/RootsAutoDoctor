@@ -12,16 +12,18 @@ import traceback
 
 from PySide6.QtCore import QThread, Signal
 
-from .kline import KLine
+from .kline import KLine, is_simulated_port
 from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
-from .errors import ProtocolError, NoResponse, RequestRejected, NotSupported
+from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
+                     RequestRejected)
 from . import hexmcu, vag_data
 
 log = logging.getLogger(__name__)
 
 
 class Worker(QThread):
+    STOP_WAIT_MS = 5000                     # tempo para a thread terminar sozinha ao fechar o programa
     log = Signal(str)
     state = Signal(str, object)            # "disconnected" | "connecting" | "connected"
     result = Signal(str, object)
@@ -64,9 +66,30 @@ class Worker(QThread):
         if self.kl is not None:
             self.kl.cancelled = True                 # interrompe um init a 5 baud em curso
         self.submit("_quit")
-        # um init a 5 baud sem resposta pode demorar ~8 s; não destruir a thread a meio
-        if not self.wait(12000):
-            log.warning("A thread de comunicação não terminou a tempo")
+        if self.wait(self.STOP_WAIT_MS):
+            return
+        # A thread está presa numa operação da interface (driver bloqueado, cabo arrancado a meio):
+        # fechar a interface à força faz a operação falhar e a thread terminar.
+        log.warning("A thread de comunicação não terminou em 5 s: a fechar a interface à força")
+        self._force_close()
+        if not self.wait(self.STOP_WAIT_MS):
+            log.error("A thread de comunicação continua bloqueada; o programa vai fechar mesmo assim")
+
+    def _force_close(self):
+        """Chamado de outra thread: termina as pontes D2XX/J2534 e cancela leituras série pendentes."""
+        kl = self.kl
+        if kl is None:
+            return
+        for obj in (kl, getattr(kl, "ser", None)):
+            if obj is None:
+                continue
+            for name in ("kill", "cancel_read", "cancel_write"):
+                fn = getattr(obj, name, None)
+                if callable(fn):
+                    try:
+                        fn()
+                    except Exception:
+                        log.warning("Fecho forçado: %s falhou", name, exc_info=True)
 
     # ---------------------------------------------------------------- loop
     def run(self):
@@ -105,10 +128,17 @@ class Worker(QThread):
             except ProtocolError as e:
                 self._quiet = False
                 self._lost(str(e))
+                if isinstance(e, InterfaceError):
+                    self._drop_port()
             except Exception as e:
                 self._quiet = False
-                log.exception("Erro na leitura contínua / keep-alive")
+                if isinstance(e, (RequestRejected, NotSupported)):
+                    log.warning("Leitura contínua / keep-alive recusado: %s", e)
+                else:
+                    log.exception("Erro na leitura contínua / keep-alive")
                 self.log.emit(f"Erro: {e}")
+                # sem isto, um keep-alive recusado (resposta negativa) repetia-se em ciclo apertado
+                last = time.monotonic()
             finally:
                 self._quiet = False
         self._close_all()
@@ -122,6 +152,19 @@ class Worker(QThread):
         self.log.emit(f"Ligação perdida: {reason}")
         self.session = None
         self.state.emit("disconnected", reason)
+
+    def _drop_port(self):
+        """A interface falhou: fecha-a para que o próximo comando a volte a abrir do zero
+        (ex.: depois de voltar a ligar o cabo ao USB)."""
+        self.session = None
+        if self.kl is not None:
+            try:
+                self.kl.close()
+            except Exception:
+                log.warning("Erro ao fechar a interface que falhou", exc_info=True)
+        self.kl = None
+        self.hex_info = None
+        self.log.emit("Interface fechada depois de um erro; será reaberta no próximo comando.")
 
     def _close_all(self):
         try:
@@ -220,11 +263,17 @@ class Worker(QThread):
                 self._session_cmd(cmd, args)
         except (RequestRejected, NotSupported) as e:
             self.error.emit(cmd, str(e))
-        except ProtocolError as e:
-            self.error.emit(cmd, str(e))
-            if cmd == "connect" or (self.session and not self.session.connected):
+            if self.session is not None and not self.session.connected:   # ex.: releitura falhou por perda de ligação
                 self.session = None
                 self.state.emit("disconnected", str(e))
+        except ProtocolError as e:
+            self.error.emit(cmd, str(e))
+            if cmd == "connect" or (self.session and not self.session.connected) or isinstance(e, InterfaceError):
+                if self.session is not None or cmd == "connect":
+                    self.state.emit("disconnected", str(e))
+                self.session = None
+            if isinstance(e, InterfaceError):
+                self._drop_port()
         except Exception as e:
             log.exception("Erro interno no comando %s", cmd)
             self.log.emit(traceback.format_exc())
@@ -389,9 +438,12 @@ class Worker(QThread):
         self._ensure_port()
         self._preflight()
         total = len(addresses)
+        scanned = 0
+        interface_error = None
         for i, addr in enumerate(addresses):
             if self.abort_scan:
                 break
+            scanned += 1
             item = {"address": addr, "module": vag_data.module_name(addr)}
             try:
                 s = ECUSession(self.kl, self._log, self.cfg["baud"])
@@ -401,16 +453,28 @@ class Worker(QThread):
                 s.disconnect()
             except NoResponse:
                 item["status"] = "absent"
+            except InterfaceError as e:
+                # a interface deixou de funcionar: não adianta tentar os endereços seguintes
+                item["status"] = "error"
+                item["error"] = str(e)
+                interface_error = str(e)
             except Exception as e:
                 item["status"] = "error"
                 item["error"] = str(e)
             self.scan_progress.emit(i + 1, total, item)
+            if interface_error:
+                break
             if self.kl.is_simulator:
                 time.sleep(0.02)
             else:
                 # depois de um erro a ECU pode ficar à espera; deixá-la expirar antes do próximo init
                 time.sleep(1.5 if item["status"] == "error" else 0.35)
-        self.result.emit("autoscan", {"aborted": self.abort_scan})
+        port = self.cfg.get("port", "")
+        if interface_error:
+            self._drop_port()
+        self.result.emit("autoscan", {"aborted": self.abort_scan or bool(interface_error), "scanned": scanned,
+                                      "total": total, "interface": port, "simulated": is_simulated_port(port),
+                                      "interface_error": interface_error})
 
     def _cmd_clear_all(self, addresses):
         """Apaga as avarias em cada endereço e volta a ler o que ficou."""
@@ -419,21 +483,38 @@ class Worker(QThread):
             self._cmd_disconnect()
         self._ensure_port()
         out = []
+        interface_error = None
         for addr in addresses:
             item = {"address": addr}
+            if interface_error:
+                item.update(status="error", error="Não tentado: a interface deixou de responder")
+                out.append(item)
+                continue
             try:
                 s = ECUSession(self.kl, self._log, self.cfg["baud"])
                 s.connect(addr, retry=True)
                 item["faults"] = s.clear_faults()
                 item["status"] = "ok"
                 s.disconnect()
+            except OperationUnconfirmed as e:
+                item["status"] = "unknown"           # o apagar foi enviado, mas não se sabe o que ficou
+                item["error"] = str(e)
+                if isinstance(e.__cause__, InterfaceError):
+                    interface_error = str(e.__cause__)
+            except InterfaceError as e:
+                item["status"] = "error"
+                item["error"] = str(e)
+                interface_error = str(e)
             except Exception as e:
                 item["status"] = "error"
                 item["error"] = str(e)
             out.append(item)
             self.log.emit(f"Apagar avarias {addr:02X}: "
                           f"{'ficaram ' + str(len(item['faults'])) if item['status'] == 'ok' else item['error']}")
-            time.sleep(0.02 if self.kl.is_simulator else (1.5 if item["status"] == "error" else 0.35))
+            if not interface_error:
+                time.sleep(0.02 if self.kl.is_simulator else (1.5 if item["status"] != "ok" else 0.35))
+        if interface_error:
+            self._drop_port()
         self.result.emit("clear_all", out)
 
     # ------------------------------------------------------------ leitura viva

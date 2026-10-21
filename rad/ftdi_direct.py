@@ -17,7 +17,7 @@ Dependências opcionais: pyftdi (+ pyusb) e libusb-package (traz o libusb-1.0.dl
 import logging
 import time
 
-from .errors import KLineError
+from .errors import InterfaceError, KLineError
 
 log = logging.getLogger(__name__)
 
@@ -157,13 +157,13 @@ class FtdiSerial:
     # ---------------------------------------------------------------- abrir/fechar
     def _guard(self, what, fn, *args):
         if self.dev is None:
-            raise KLineError(f"{self.port}: interface fechada")
+            raise InterfaceError(f"{self.port}: interface fechada")
         try:
             return fn(*args)
         except KLineError:
             raise
         except Exception as e:
-            raise KLineError(f"{what}: {e} — o cabo foi desligado?") from e
+            raise InterfaceError(f"{what}: {e} — o cabo foi desligado?") from e
 
     def open(self):
         try:

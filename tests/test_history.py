@@ -73,7 +73,8 @@ def test_previous_for_plate():
 def test_report_includes_advice():
     items = [_item(1, [1247])]
     html = report.build_html({"name": "Oficina"}, {"plate": "AA"}, items)
-    assert "Causas prováveis" in html and "N75" in html and "gravidade média" in html
+    # as causas aparecem como sugestão do programa, não como certeza
+    assert "Possíveis causas (sugestão do programa" in html and "N75" in html and "gravidade média" in html
 
 
 if __name__ == "__main__":

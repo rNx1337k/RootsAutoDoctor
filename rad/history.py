@@ -25,10 +25,21 @@ CREATE TABLE IF NOT EXISTS sessions (
     model   TEXT NOT NULL DEFAULT '',
     modules INTEGER NOT NULL DEFAULT 0,
     faults  INTEGER NOT NULL DEFAULT 0,
-    data    TEXT NOT NULL
+    data    TEXT NOT NULL,
+    simulated INTEGER
 );
 CREATE INDEX IF NOT EXISTS sessions_date ON sessions(date);
 """
+# simulated: 1 = dados do simulador, 0 = interface real, NULL = desconhecido (sessões gravadas antes da v1.3,
+# que não guardavam a interface — não se pode afirmar que vieram do carro).
+
+
+def _migrate(db):
+    """Migrações sem perda de dados: só acrescentam colunas."""
+    cols = {r[1] for r in db.execute("PRAGMA table_info(sessions)")}
+    if "simulated" not in cols:
+        with db:
+            db.execute("ALTER TABLE sessions ADD COLUMN simulated INTEGER")
 
 
 def history_dir():
@@ -40,6 +51,19 @@ def history_dir():
 
 def _slug(s):
     return re.sub(r"[^A-Za-z0-9]+", "", s or "")[:16] or "veiculo"
+
+
+def simulated_flag(data):
+    """1 se a sessão veio do simulador, 0 se veio de uma interface real, None se não se sabe."""
+    meta = data.get("meta") or {}
+    if "simulated" in meta:
+        return int(bool(meta["simulated"]))
+    flags = [(i.get("info") or {}).get("simulated") for i in data.get("items", []) if i.get("status") == "ok"]
+    if any(f is True for f in flags):
+        return 1
+    if flags and all(f is False for f in flags):
+        return 0
+    return None
 
 
 def summary(data):
@@ -54,15 +78,16 @@ def summary(data):
         "model": data.get("vehicle", {}).get("model", ""),
         "modules": len(ok),
         "faults": sum(len(i.get("faults", [])) for i in ok),
+        "simulated": simulated_flag(data),
     }
 
 
 def _insert(db, data):
     s = summary(data)
-    db.execute("INSERT INTO sessions (id, date, kind, plate, client, model, modules, faults, data) "
-               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    db.execute("INSERT INTO sessions (id, date, kind, plate, client, model, modules, faults, data, simulated) "
+               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                (s["id"], s["date"], s["kind"], s["plate"], s["client"], s["model"], s["modules"],
-                s["faults"], json.dumps(data, ensure_ascii=False)))
+                s["faults"], json.dumps(data, ensure_ascii=False), s["simulated"]))
 
 
 def _import_json(db, directory):
@@ -94,12 +119,14 @@ def _open(directory=None):
     db = sqlite3.connect(os.path.join(directory, "historico.db"))
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
+    _migrate(db)
     _import_json(db, directory)
     return db
 
 
-def save_session(kind, vehicle, items, notes="", directory=None):
-    """kind: "autoscan" | "modulo". Devolve o id da sessão."""
+def save_session(kind, vehicle, items, notes="", directory=None, meta=None):
+    """kind: "autoscan" | "modulo". meta: {"interface", "simulated", "aborted", "scanned", "total"}.
+    Devolve o id da sessão."""
     now = datetime.datetime.now()
     base = f"{now:%Y%m%d_%H%M%S}_{_slug(vehicle.get('plate'))}"
     db = _open(directory)
@@ -115,6 +142,7 @@ def save_session(kind, vehicle, items, notes="", directory=None):
             "vehicle": vehicle,
             "items": items,
             "notes": notes,
+            "meta": dict(meta or {}),
         }
         with db:
             _insert(db, data)
@@ -123,10 +151,32 @@ def save_session(kind, vehicle, items, notes="", directory=None):
     return sid
 
 
+def update_session(sid, vehicle=None, notes=None, directory=None):
+    """Actualiza os dados do veículo e/ou as observações de uma sessão já gravada (ex.: ao gerar o relatório
+    de um Auto-Scan que já ficou no histórico), em vez de criar uma sessão repetida."""
+    db = _open(directory)
+    try:
+        row = db.execute("SELECT data FROM sessions WHERE id = ?", (sid,)).fetchone()
+        if row is None:
+            raise KeyError(f"sessão {sid} não encontrada")
+        data = json.loads(row["data"])
+        if vehicle is not None:
+            data["vehicle"] = vehicle
+        if notes is not None:
+            data["notes"] = notes
+        s = summary(data)
+        with db:
+            db.execute("UPDATE sessions SET plate = ?, client = ?, model = ?, data = ? WHERE id = ?",
+                       (s["plate"], s["client"], s["model"], json.dumps(data, ensure_ascii=False), sid))
+    finally:
+        db.close()
+    return data
+
+
 def list_sessions(directory=None):
     db = _open(directory)
     try:
-        rows = db.execute("SELECT id, date, kind, plate, client, model, modules, faults "
+        rows = db.execute("SELECT id, date, kind, plate, client, model, modules, faults, simulated "
                           "FROM sessions ORDER BY date DESC, id DESC").fetchall()
     finally:
         db.close()

@@ -57,10 +57,19 @@ class DiskLog:
             pass
 
 
+def crash_log_path():
+    """Caminho do crash.log (para mostrar ao utilizador). Nunca falha, mesmo sem acesso à pasta."""
+    try:
+        return os.path.join(log_dir(), "crash.log")
+    except OSError:
+        base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".config")
+        return os.path.join(base, "RootsAutoDoctor", "registos", "crash.log")
+
+
 def write_crash(exc_type, exc, tb):
     text = "".join(traceback.format_exception(exc_type, exc, tb))
     try:
-        with open(os.path.join(log_dir(), "crash.log"), "a", encoding="utf-8") as fh:
+        with open(crash_log_path(), "a", encoding="utf-8") as fh:
             fh.write(f"\n===== {datetime.datetime.now():%Y-%m-%d %H:%M:%S}  {APP_NAME} v{VERSION}  "
                      f"Python {sys.version.split()[0]}  {platform.platform()} =====\n{text}")
     except Exception:

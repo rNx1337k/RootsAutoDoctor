@@ -1,0 +1,5 @@
+# Ferramentas para gerar o executável e o instalador (build_release.bat). Não são precisas para usar o programa.
+-r requirements.txt
+nuitka==4.3.1
+ordered-set>=4.1
+zstandard>=0.21

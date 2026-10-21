@@ -138,7 +138,9 @@ class FaultAdviceCard(QFrame):
         if a["notes"]:
             parts.append("".join(f"<p style='color:{MUTED}; margin:2px 0'>{html.escape(n)}</p>" for n in a["notes"]))
         if a["causes"]:
-            parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>Causas prováveis</b></p><ul style='margin:0'>"
+            parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>Possíveis causas</b> "
+                         f"<span style='color:{MUTED}'>— sugestão do programa, confirme com medições</span></p>"
+                         "<ul style='margin:0'>"
                          + "".join(f"<li>{html.escape(c)}</li>" for c in a["causes"]) + "</ul>")
         if a["checks"]:
             parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>O que verificar</b></p><ul style='margin:0'>"

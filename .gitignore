@@ -28,3 +28,11 @@ desktop.ini
 .vscode/
 .idea/
 keys/
+
+# Testes locais com o cabo e resultados (ficam só no PC)
+testar_*.bat
+teste_*.txt
+resultado_testes*.txt
+correr_testes.bat
+preparar_venv.txt
+autoteste*.txt

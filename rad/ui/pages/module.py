@@ -151,10 +151,9 @@ class ModulePage(QWidget):
 
     def _reset_service(self):
         if ask(self, APP_NAME, "Repor o indicador de revisão (canal 02 = 0)?\n"
-                               "Use só em painéis compatíveis."):
-            wsc = self.info.get("wsc") or 0 if self.info else 0
-            self.w.submit("adaptation_test", 2, 0)
-            self.w.submit("adaptation_save", 2, 0, wsc)
+                               "Use só em painéis compatíveis. O valor só é gravado se o painel aceitar o teste."):
+            wsc = (self.info.get("wsc") or 0) if self.info else 0
+            self.w.submit("service_reset", wsc)          # teste → confirmação → gravação (rad/session.py)
 
     def _build_faults(self):
         w, v = self._pad()
@@ -328,7 +327,8 @@ class ModulePage(QWidget):
         v.addWidget(lbl("Activa os actuadores um a um (relés, electroválvulas…). Com o motor DESLIGADO "
                         "e ignição ligada. Carregue em 'Seguinte' para avançar.", "muted", wrap=True))
         row = QHBoxLayout()
-        self.out_btn = btn("▶  Iniciar / Seguinte", "primary", lambda: self.w.submit("output_test"))
+        self.out_btn = btn("▶  Iniciar / Seguinte", "primary", self._output_step)
+        self._out_running = False
         row.addWidget(self.out_btn)
         row.addStretch(1)
         v.addLayout(row)
@@ -372,6 +372,7 @@ class ModulePage(QWidget):
         self.fault_table.setRowCount(0)
         self.fault_count.setText("")
         self.out_list.clear()
+        self._out_running = False
         self.out_current.setText("—")
         self.out_desc.setText("")
         self.ad_current.setText("—")
@@ -615,7 +616,13 @@ class ModulePage(QWidget):
         if self.w.live_mode == "basic":
             self.stop_live()
             return
-        self.w.set_live("basic", [self.basic_group.spin.value()])
+        g = self.basic_group.spin.value()
+        name = f"{self.info['address']:02X} {self.info['module']}" if self.info else "controlador"
+        if not ask(self, APP_NAME, f"Ligar o ajuste básico do grupo {g:03d} em {name}?\n\n"
+                                   "O controlador executa a rotina de adaptação deste grupo enquanto estiver ON "
+                                   "(pode mexer em actuadores). Siga o procedimento de oficina do motor."):
+            return
+        self.w.set_live("basic", [g])
         self.basic_group.spin.setEnabled(False)
         self.basic_btn.setText("Ajuste básico  OFF")
 
@@ -690,20 +697,28 @@ class ModulePage(QWidget):
 
     # -------------------------------------------------- adaptação/codificação
     def show_adaptation(self, cmd, r):
+        """Mostra só o que o controlador devolveu; um resultado por confirmar aparece como tal."""
         if r is None:
             return
+        value = r.get("value")
+        shown = str(value) if value is not None else "por confirmar"
         if cmd == "adaptation_read":
-            self.ad_current.setText(str(r["value"]))
-            self.ad_new.setValue(r["value"])
+            self.ad_current.setText(shown)
+            if value is not None:
+                self.ad_new.setValue(value)
         elif cmd == "adaptation_test":
-            self.ad_test_lbl.setText(str(r["value"]))
-        elif cmd == "adaptation_save":
-            self.ad_current.setText(str(r["value"]))
-            QMessageBox.information(self, APP_NAME, f"Canal {r['channel']:02d} gravado com o valor {r['value']}.")
+            self.ad_test_lbl.setText(shown)
+        elif cmd in ("adaptation_save", "service_reset"):
+            self.ad_current.setText(shown)
 
     def _adapt_save(self):
         ch, val = self.ad_channel.value(), self.ad_new.value()
-        if ask(self, APP_NAME, f"Gravar o valor {val} no canal {ch:02d}?"):
+        name = f"{self.info['address']:02X} {self.info['module']}" if self.info else "controlador"
+        text = f"Gravar o valor {val} no canal {ch:02d} de {name}?"
+        if ch == 0:
+            text = (f"ATENÇÃO: o canal 00 repõe TODAS as adaptações de {name} nos valores de fábrica.\n\n"
+                    "Depois pode ser preciso refazer ajustes básicos (ex.: borboleta, caixa). Continuar?")
+        if ask(self, APP_NAME, text):
             self.w.submit("adaptation_save", ch, val, self.ad_wsc.value())
 
     def _recode(self):
@@ -722,8 +737,20 @@ class ModulePage(QWidget):
             return
         self.w.submit("login", int(t), self.login_wsc.value())
 
+    def _output_step(self):
+        if not self._out_running:
+            name = f"{self.info['address']:02X} {self.info['module']}" if self.info else "controlador"
+            if not ask(self, APP_NAME, f"Iniciar o teste de saídas em {name}?\n\n"
+                                       "Os actuadores vão ser activados um a um (relés, electroválvulas…). "
+                                       "Motor DESLIGADO, ignição ligada e ninguém a mexer no compartimento do "
+                                       "motor."):
+                return
+            self._out_running = True
+        self.w.submit("output_test")
+
     def show_output(self, r):
         if r is None:
+            self._out_running = False
             self.out_current.setText("Fim do teste")
             self.out_desc.setText("Carregue em 'Iniciar' para recomeçar.")
             self.out_list.addItem("— fim —")

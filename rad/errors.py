@@ -9,6 +9,11 @@ class KLineError(ProtocolError):
     """Erro na camada física (porta série / linha K)."""
 
 
+class InterfaceError(KLineError):
+    """A própria interface falhou (porta fechada, cabo arrancado, ponte/driver bloqueado). Ao contrário de um
+    controlador que não responde, não vale a pena continuar a tentar outros endereços."""
+
+
 class KLineTimeout(KLineError):
     """O controlador não respondeu dentro do tempo."""
 
@@ -27,3 +32,8 @@ class RequestRejected(Exception):
 
 class NotSupported(Exception):
     """Função não disponível para este protocolo/controlador. Não é fatal."""
+
+
+class OperationUnconfirmed(RequestRejected):
+    """O comando foi enviado ao controlador, mas não foi possível confirmar o resultado
+    (ex.: apagar avarias e a releitura falhou). O estado real do controlador é desconhecido."""

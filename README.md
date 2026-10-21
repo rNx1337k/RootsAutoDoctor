@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.2-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.3.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
-  <img src="https://img.shields.io/badge/python-3.10%2B-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/python-3.13-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
   <img src="https://img.shields.io/badge/license-proprietary-0E1526?style=flat-square" alt="License">
 </p>
@@ -38,23 +38,25 @@ It is designed for workshops: scan the car, review the results and hand the cust
 - **Cable detection and connection check** to identify drivers, latency and wiring problems
 - **Built-in simulator** to use every feature without a car
 
+## Installation
+
+**Workshop PCs:** run `Setup_RootsAutoDoctor_<version>.exe`. The installer contains everything the app needs
+(Python, Qt and the 32/64-bit bridges), so the PC needs **no Python and no internet connection**.
+
+- Supported: **Windows 10 (21H2 or later) and Windows 11, 64-bit**
+- Cable drivers are not included: FTDI/CH340 cables need the chip maker's driver (the app's
+  **Detect cable** links to the official page)
+- Self-test of an installation (no car needed):
+  `"C:\Program Files\Roots Auto Doctor\RootsAutoDoctor.exe" --selftest "%USERPROFILE%\Desktop\autoteste.txt"`
+- History, logs and the workshop logo are kept in `%APPDATA%\RootsAutoDoctor` (uninstalling keeps them)
+
+To try the app without a car, click **Open simulator** on the home screen.
+
 ## Getting started
-
-```bat
-git clone https://github.com/rNx1337k/RootsAutoDoctor.git
-cd RootsAutoDoctor
-run.bat
-```
-
-`run.bat` creates a virtual environment, installs the dependencies, prepares the portable 32/64-bit Python
-used by the HEX-USB / J2534 bridges (`runtime/`) and starts the app. The installer (`build_release.bat`)
-ships everything, so nothing else needs to be installed on the workshop PC.
 
 1. Connect the cable to the OBD port and turn the ignition on.
 2. In **Options**, click **Detect cable**, then **Connection check**.
 3. Select a module or run an **Auto-Scan**.
-
-To try the app without a car, click **Open simulator** on the home screen.
 
 ## Compatibility
 
@@ -77,18 +79,34 @@ For FTDI cables, setting the latency timer to 1 ms in Device Manager makes live 
 | Function | KW1281 | KWP2000 |
 |---|:---:|:---:|
 | Identification | ✓ | ✓ |
-| Read and clear faults | ✓ | ✓ |
+| Read and clear faults (clearing is confirmed by reading the memory again) | ✓ | ✓ |
 | Measuring blocks | ✓ | ✓ |
-| Basic settings, adaptation, coding | ✓ | Planned |
-| Login and output tests | ✓ | Planned |
+| Basic settings, adaptation, coding (the value the ECU returns is checked) | ✓ | Planned |
+| Login (sent; KW1281 does not report whether the code is correct) and output tests | ✓ | Planned |
+
+All functions are tested against the built-in simulator. Results from the simulator are always labelled as
+simulated — in the sidebar, the history and the reports. See [docs/AUDITORIA.md](docs/AUDITORIA.md) for what has
+and has not been verified on a vehicle.
 
 ## Development
 
+Requires **Python 3.13, 64-bit** ([python.org](https://www.python.org/downloads/windows/)) and internet on the
+first run.
+
+```bat
+git clone https://github.com/rNx1337k/RootsAutoDoctor.git
+cd RootsAutoDoctor
+run.bat
+```
+
+`run.bat` creates a virtual environment, installs the pinned dependencies (`requirements.txt`), prepares the
+portable 32/64-bit Python used by the HEX-USB / J2534 bridges (`runtime/`) and starts the app.
+
 | Command | Description |
 |---|---|
-| `run.bat` | Run the app |
+| `run.bat` | Run the app from source |
 | `run_tests.bat` | Run the test suite (simulator-based, no car needed) |
-| `build_release.bat` | Build the compiled app and the Windows installer |
+| `build_release.bat` | Build the compiled app, self-test it and create the Windows installer ([Inno Setup 6](https://jrsoftware.org/isdl.php)) |
 
 Logs and crash reports are stored in `%APPDATA%\RootsAutoDoctor\registos`.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

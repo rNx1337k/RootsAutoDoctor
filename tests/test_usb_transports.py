@@ -7,7 +7,6 @@
 
 Nada disto prova que o cabo real funciona — ver docs/HEX_USB.md para os testes com hardware.
 """
-import collections
 import os
 import sys
 import time

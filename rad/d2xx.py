@@ -9,13 +9,10 @@ directamente ao transceptor da linha K. Com um microcontrolador pelo meio, o tes
 
 Portas aparecem na lista como "D2XX:<n.º de série>", por exemplo "D2XX:RT000001".
 """
-import json
 import logging
 import os
-import subprocess
-import sys
 
-from .errors import KLineError
+from .errors import InterfaceError, KLineError
 
 log = logging.getLogger(__name__)
 
@@ -87,15 +84,19 @@ def list_ports():
 
 
 def _start_bridge(dll):
+    from .bridge import BridgeProcess
     from .j2534 import dll_bitness, find_python       # mesma lógica da ponte J2534 (32/64 bits)
     bits = None if dll == SIM_DLL else dll_bitness(dll)
     try:
         exe = find_python(bits)
     except Exception as e:
         raise KLineError(f"{e} (o {os.path.basename(dll)} da interface é de {bits} bits)")
-    flags = 0x08000000 if sys.platform == "win32" else 0
-    return subprocess.Popen([exe, "-u", BRIDGE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True, creationflags=flags), bits
+    return BridgeProcess([exe, "-u", BRIDGE], "D2XX"), bits
+
+
+# Tempo máximo de resposta da ponte por pedido (s). O primeiro FT_OpenEx chegou a demorar 4,5 s no cabo real.
+_OP_TIMEOUT = {"open": 20.0, "list": 15.0}
+_DEFAULT_TIMEOUT = 5.0
 
 
 class D2xxSerial:
@@ -117,23 +118,15 @@ class D2xxSerial:
 
     def _call(self, op, **kw):
         if self.proc is None:
-            raise KLineError(f"{self.port}: interface fechada")
+            raise InterfaceError(f"{self.port}: interface fechada")
+        limit = _OP_TIMEOUT.get(op, _DEFAULT_TIMEOUT)
+        if op == "read":
+            limit = kw.get("timeout_ms", 500) / 1000 + 3.0
         try:
-            self.proc.stdin.write(json.dumps(dict(op=op, **kw)) + "\n")
-            self.proc.stdin.flush()
-            line = self.proc.stdout.readline()
-        except (OSError, ValueError) as e:
-            self._kill()
-            raise KLineError(f"A ponte D2XX parou: {e}")
-        if not line:
-            err = ""
-            try:
-                err = self.proc.stderr.read()[-300:]
-            except Exception:
-                pass
-            self._kill()
-            raise KLineError("A ponte D2XX terminou inesperadamente" + (f": {err}" if err else ""))
-        res = json.loads(line)
+            res = self.proc.call(dict(op=op, **kw), limit)
+        except InterfaceError:
+            self.proc = None                       # a ponte já foi terminada
+            raise
         if not res.get("ok"):
             raise KLineError(_explain(res.get("error", "erro D2XX"), res.get("code")))
         return res
@@ -171,27 +164,16 @@ class D2xxSerial:
                     "Doctor): feche-o e tente outra vez")
         return None
 
-    def _kill(self):
+    def kill(self):
+        """Termina a ponte já (usado ao fechar o programa se a thread de comunicação estiver bloqueada)."""
         p, self.proc = self.proc, None
         if p is not None:
-            try:
-                p.kill()
-            except Exception:
-                pass
+            p.kill()
 
     def close(self):
         p, self.proc = self.proc, None
-        if p is None:
-            return
-        try:
-            p.stdin.write(json.dumps({"op": "close"}) + "\n")
-            p.stdin.flush()
-            p.wait(timeout=2)
-        except Exception:
-            try:
-                p.kill()
-            except Exception:
-                pass
+        if p is not None:
+            p.close()
 
     @property
     def is_open(self):

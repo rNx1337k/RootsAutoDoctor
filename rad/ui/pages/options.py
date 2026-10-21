@@ -1,6 +1,8 @@
 """Opções: interface, oficina e ferramentas de suporte."""
 import datetime
+import logging
 import os
+import threading
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -13,12 +15,15 @@ from ...kline import list_serial_ports
 from ..style import BAD, OK, WARN
 from .common import lbl, btn, card, page_header
 
+log = logging.getLogger(__name__)
+
 
 class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
     link_check_req = Signal()
     hex_mode_req = Signal(str)
+    detect_done = Signal(object)          # resultado da procura do cabo (vem de uma thread à parte)
 
     def __init__(self, settings):
         super().__init__()
@@ -58,7 +63,8 @@ class OptionsPage(QWidget):
         f.addRow(lbl("Debug", "muted"), self.raw)
         crow = QHBoxLayout()
         crow.setSpacing(8)
-        crow.addWidget(btn("Detectar cabo", "primary", self._detect_cable))
+        self.detect_btn = btn("Detectar cabo", "primary", self._detect_cable)
+        crow.addWidget(self.detect_btn)
         crow.addWidget(btn("Testar interface", None, self._test))
         crow.addWidget(btn("Diagnóstico da ligação", None, lambda: self.link_check_req.emit()))
         crow.addStretch(1)
@@ -113,6 +119,8 @@ class OptionsPage(QWidget):
             "Interfaces HEX-V2 / HEX-NET genuínas usam firmware fechado da Ross-Tech e não são suportadas.",
             "muted", wrap=True))
         v.addStretch(1)
+        self._detecting = False
+        self.detect_done.connect(self._detect_finished)
         self.refresh_ports()
         self._load()
 
@@ -197,14 +205,35 @@ class OptionsPage(QWidget):
         self.saved.emit(c)
 
     def _detect_cable(self):
-        from PySide6.QtGui import QCursor
-        from PySide6.QtWidgets import QApplication
+        """Procura o cabo numa thread à parte: o PowerShell pode demorar vários segundos e a janela não
+        deve ficar congelada entretanto."""
+        if self._detecting:
+            return
+        self._detecting = True
+        self.detect_btn.setEnabled(False)
+        self.detect_btn.setText("A procurar…")
+        threading.Thread(target=self._detect_worker, name="detectar-cabo", daemon=True).start()
+
+    def _detect_worker(self):
         from ... import cable
-        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         try:
-            findings = cable.detect()
-        finally:
-            QApplication.restoreOverrideCursor()
+            res = (cable.detect(), cable.j2534_devices())
+        except Exception as e:
+            log.warning("Detectar cabo falhou", exc_info=True)
+            res = e
+        try:
+            self.detect_done.emit(res)
+        except RuntimeError:              # a janela já foi fechada
+            pass
+
+    def _detect_finished(self, res):
+        self._detecting = False
+        self.detect_btn.setEnabled(True)
+        self.detect_btn.setText("Detectar cabo")
+        if isinstance(res, Exception):
+            QMessageBox.warning(self, APP_NAME, f"Não foi possível procurar o cabo:\n{res}")
+            return
+        findings, j2534 = res
         self.refresh_ports()
         colors = {"ok": OK, "warn": WARN, "bad": BAD}
         if not findings:
@@ -220,7 +249,6 @@ class OptionsPage(QWidget):
                         if f.get("driver_url") else "")
                 parts.append(f"<p><b style='color:{colors[f['level']]}'>{f['title']}</b><br>{f['detail']}{link}</p>")
             html = "".join(parts)
-        j2534 = cable.j2534_devices()
         if j2534:
             html += "<p><b>Interfaces J2534 (PassThru) instaladas:</b></p><ul>"
             for d in j2534:

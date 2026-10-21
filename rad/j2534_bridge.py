@@ -112,9 +112,13 @@ class PassThruBackend:
         while True:
             n = ctypes.c_uint32(1)
             ret = self.dll.PassThruReadMsgs(self.channel, ctypes.byref(msg), ctypes.byref(n), timeout_ms)
-            if ret in (ERR_BUFFER_EMPTY, ERR_TIMEOUT) or n.value == 0:
+            if ret in (ERR_BUFFER_EMPTY, ERR_TIMEOUT):
                 return None
+            # outros erros (interface desligada, driver...) têm de chegar ao programa como erro e não como
+            # "o controlador não respondeu"
             self._check(ret, "PassThruReadMsgs")
+            if n.value == 0:
+                return None
             if msg.RxStatus & (TX_MSG_TYPE | START_OF_MESSAGE) or msg.DataSize == 0:
                 continue                       # eco das nossas mensagens / indicações
             return [msg.Data[i] for i in range(msg.DataSize)]

@@ -14,7 +14,8 @@ from .common import lbl, btn, page_header, ask
 class HistoryPage(QWidget):
     report_req = Signal(object)
 
-    COLS = ["Data", "Matrícula", "Cliente", "Veículo", "Tipo", "Módulos", "Avarias"]
+    COLS = ["Data", "Matrícula", "Cliente", "Veículo", "Tipo", "Módulos", "Avarias", "Origem"]
+    ORIGIN = {1: "Simulação", 0: "Interface real", None: "—"}     # None: gravado antes da v1.3 (desconhecido)
 
     def __init__(self):
         super().__init__()
@@ -82,14 +83,20 @@ class HistoryPage(QWidget):
             self.table.insertRow(r)
             date = s["date"].replace("T", "  ")[:17]
             kind = "Auto-Scan" if s["kind"] == "autoscan" else "Módulo"
+            origin = s.get("simulated")
             vals = [date, s["plate"] or "—", s["client"] or "—", s["model"] or "—", kind,
-                    str(s["modules"]), str(s["faults"])]
+                    str(s["modules"]), str(s["faults"]), self.ORIGIN.get(origin, "—")]
             for c, t in enumerate(vals):
                 it = QTableWidgetItem(t)
                 if c == 0:
                     it.setData(Qt.UserRole, s["id"])
                 if c == 6:
                     it.setForeground(QBrush(QColor(OK if s["faults"] == 0 else WARN)))
+                if c == 7:
+                    it.setForeground(QBrush(QColor(WARN if origin == 1 else MUTED)))
+                    if origin is None:
+                        it.setToolTip("Sessão gravada por uma versão anterior, que não registava a interface: "
+                                      "não se sabe se veio do simulador ou do carro.")
                 self.table.setItem(r, c, it)
 
     def _selected_id(self):
@@ -141,14 +148,17 @@ class HistoryPage(QWidget):
             return None
         diff = self.history.compare(prev.get("items", []), data.get("items", []))
 
+        from html import escape
+
         def block(title, color, faults):
             if not faults:
                 return f"<p><b style='color:{color}'>{title}: 0</b></p>"
-            rows = "".join(f"<li><b>{f['address']:02X}</b> {f.get('vag', '')} — {f.get('desc', '')}</li>" for f in faults)
+            rows = "".join(f"<li><b>{f['address']:02X}</b> {escape(str(f.get('vag', '')))} — "
+                           f"{escape(str(f.get('desc', '')))}</li>" for f in faults)
             return f"<p><b style='color:{color}'>{title}: {len(faults)}</b></p><ul>{rows}</ul>"
 
         d0, d1 = prev["date"], data["date"]
-        head = (f"<p><b>{plate}</b>: visita de {d1[8:10]}/{d1[5:7]}/{d1[:4]} comparada com "
+        head = (f"<p><b>{escape(plate)}</b>: visita de {d1[8:10]}/{d1[5:7]}/{d1[:4]} comparada com "
                 f"{d0[8:10]}/{d0[5:7]}/{d0[:4]}.<br><span style='color:{MUTED}'>Só entram os controladores lidos "
                 "nas duas visitas.</span></p>")
         return (head + block("Novas", CYAN, diff["new"]) + block("Resolvidas", OK, diff["resolved"])

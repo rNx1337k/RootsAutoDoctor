@@ -46,13 +46,14 @@ def test_engine_kw1281():
 
     a = s.adaptation_read(1)
     assert a["value"] == 128
-    s.adaptation_test(1, 140)
-    s.adaptation_save(1, 140, 12345)
+    assert s.adaptation_test(1, 140)["status"] == "ok"
+    assert s.adaptation_save(1, 140, 12345)["status"] == "ok"
     assert s.adaptation_read(1)["value"] == 140
 
-    s.login(12233, 12345)
-    info = s.recode(10002, 54321)
-    assert info["coding"] == 10002 and info["wsc"] == 54321
+    assert s.login(12233, 12345)["status"] == "sent"      # o KW1281 não confirma se o código está certo
+    r = s.recode(10002, 54321)
+    assert r["status"] == "ok"
+    assert r["info"]["coding"] == 10002 and r["info"]["wsc"] == 54321
 
     steps = []
     while True:

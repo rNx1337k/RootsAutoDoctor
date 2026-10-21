@@ -213,7 +213,12 @@ class HomePage(QWidget):
             seen.add(key)
             when = s["date"][8:10] + "/" + s["date"][5:7] + "  " + s["date"][11:16]
             who = " · ".join(x for x in (s["plate"], s["model"], s["client"]) if x) or "Veículo sem matrícula"
-            state = "sem avarias" if s["faults"] == 0 else f"{s['faults']} avaria(s)"
+            if not s["modules"]:
+                state = "nenhum controlador lido"
+            else:
+                state = "sem avarias nos lidos" if s["faults"] == 0 else f"{s['faults']} avaria(s)"
+            if s.get("simulated") == 1:
+                state += "   ·   simulação"
             it = QListWidgetItem(f"{who}\n{when}   ·   {state}")
             it.setForeground(QBrush(QColor("#EAF0FF")))
             self.recent.addItem(it)

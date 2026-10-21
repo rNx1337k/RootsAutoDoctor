@@ -1,12 +1,26 @@
-"""Sessão com um controlador: faz o init, detecta o protocolo e expõe uma API única."""
+"""Sessão com um controlador: faz o init, detecta o protocolo e expõe uma API única.
+
+As operações que escrevem no controlador (codificação, adaptação, apagar avarias, login) devolvem sempre
+um resultado com "status":
+  "ok"       — o controlador confirmou o valor pedido (lido de volta na resposta);
+  "unknown"  — o comando foi enviado mas a resposta não permite confirmar o resultado;
+  "sent"     — (login) o controlador recebeu o pedido; o protocolo não diz se foi aceite.
+Uma recusa explícita, ou um valor devolvido diferente do pedido, levanta RequestRejected.
+Nunca se apresenta o envio de um comando como prova de que a centralina o executou."""
 import time
 
-from .errors import ProtocolError, ConnectError, NoResponse, KLineError
+from .errors import ProtocolError, ConnectError, NoResponse, KLineError, OperationUnconfirmed, RequestRejected
+from .kline import is_simulated_port
 from .protocols.kw1281 import KW1281
 from .protocols.kwp2000 import KWP2000, KWP2000J2534
 from . import vag_data
 
 AUTO_BAUDS = (10400, 9600, 4800)
+
+
+def _interface_info(kl):
+    port = getattr(kl, "port_name", "") or ""
+    return {"interface": port, "simulated": is_simulated_port(port)}
 
 
 class ECUSession:
@@ -40,7 +54,7 @@ class ECUSession:
         ident = self.proto.start()
         self.connected = True
         self.info = {"address": address, "module": vag_data.module_name(address), "protocol": "KWP2000 (J2534)",
-                     "baud": 10400, "echo": None, **ident}
+                     "baud": 10400, "echo": None, **ident, **_interface_info(link)}
         return self.info
 
     def connect(self, address, retry=False):
@@ -94,6 +108,7 @@ class ECUSession:
             "baud": used_baud,
             "echo": self.kl.echo,
             **ident,
+            **_interface_info(self.kl),
         }
         return self.info
 
@@ -120,8 +135,14 @@ class ECUSession:
         return self._call("read_faults")
 
     def clear_faults(self):
+        """Apaga e volta a ler: devolve as avarias que ficaram (lista). Se o pedido de apagar foi aceite
+        mas a releitura falhar, o resultado é desconhecido (OperationUnconfirmed)."""
         self._call("clear_faults")
-        return self._call("read_faults")
+        try:
+            return self._call("read_faults")
+        except (ProtocolError, RequestRejected) as e:
+            raise OperationUnconfirmed("O pedido de apagar avarias foi aceite, mas não foi possível voltar a "
+                                       f"ler a memória para confirmar ({e}). Volte a ligar e leia as avarias.") from e
 
     def read_group(self, g):
         return self._call("read_group", g)
@@ -132,20 +153,54 @@ class ECUSession:
     def adaptation_read(self, ch):
         return self._call("adaptation_read", ch)
 
+    def _check_adapt(self, r, ch, val, what):
+        if r is None:
+            return {"channel": ch, "value": None, "requested": val, "status": "unknown",
+                    "message": f"O controlador não devolveu o valor {what}: o resultado é desconhecido. "
+                               "Leia o canal para confirmar."}
+        if r.get("channel") != ch or r.get("value") != val:
+            raise RequestRejected(f"O controlador não aceitou o valor {val} no canal {ch:02d} "
+                                  f"(respondeu canal {r.get('channel')}, valor {r.get('value')}).")
+        return dict(r, requested=val, status="ok")
+
     def adaptation_test(self, ch, val):
-        return self._call("adaptation_test", ch, val)
+        return self._check_adapt(self._call("adaptation_test", ch, val), ch, val, "em teste")
 
     def adaptation_save(self, ch, val, wsc):
-        return self._call("adaptation_save", ch, val, wsc)
+        return self._check_adapt(self._call("adaptation_save", ch, val, wsc), ch, val, "gravado")
+
+    def service_reset(self, wsc):
+        """Repõe o indicador de revisão nos painéis Golf IV / Bora / Passat B5 / Octavia I (canal 02 = 0).
+        Só grava se o teste do valor 0 for confirmado pelo painel."""
+        try:
+            t = self.adaptation_test(2, 0)
+        except RequestRejected as e:
+            raise RequestRejected(f"O painel não aceitou o valor 0 no canal 02 — nada foi gravado. ({e})") from e
+        if t["status"] != "ok":
+            raise OperationUnconfirmed("O painel não confirmou o valor de teste no canal 02 — nada foi gravado.")
+        return self.adaptation_save(2, 0, wsc)
 
     def login(self, code, wsc):
-        return self._call("login", code, wsc)
+        self._call("login", code, wsc)
+        return {"status": "sent",
+                "message": "Login enviado e recebido pelo controlador. O protocolo KW1281 não indica se o código "
+                           "está correcto: confirme na função que precisa do login."}
 
     def recode(self, coding, wsc):
+        """Devolve {"info", "status", "message"}. A codificação só é dada como aceite quando a
+        identificação que o controlador devolve já tem o valor pedido."""
+        before = self.info.get("coding") if self.info else None
         r = self._call("recode", coding, wsc)
-        if r:
-            self.info.update(r)
-        return self.info
+        if not r or r.get("coding") is None:
+            return {"info": self.info, "status": "unknown",
+                    "message": "O controlador não devolveu a codificação: o resultado é desconhecido. "
+                               "Feche e volte a abrir o controlador para confirmar."}
+        self.info.update(r)
+        if r["coding"] != coding:
+            raise RequestRejected(f"O controlador recusou a codificação {coding:05d}: continua com "
+                                  f"{r['coding']:05d}" + (f" (antes: {before:05d})" if before is not None else "") + ".")
+        return {"info": self.info, "status": "ok",
+                "message": f"Codificação {coding:05d} confirmada pelo controlador."}
 
     def output_test(self):
         code = self._call("output_test")

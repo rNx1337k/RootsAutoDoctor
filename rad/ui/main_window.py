@@ -12,13 +12,13 @@ from PySide6.QtWidgets import (
 
 from .. import APP_NAME, VERSION, applog, history, report, vag_data
 from ..settings import app_settings
-from ..kline import SIM_PORT
+from ..kline import SIM_PORT, is_simulated_port
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
                     OptionsPage, btn, lbl)
 from .pages.common import FaultInfoDialog
 from .palette import Command, CommandPalette
-from .style import MUTED, OK, QSS, WARN
+from .style import MUTED, OK, QSS, WARN, pill_style
 from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
 
 
@@ -111,6 +111,13 @@ class MainWindow(QMainWindow):
         self.conn_sub = lbl("", "muted")
         self.conn_sub.setWordWrap(True)
         self.pulse = PulseIndicator()
+        # aviso permanente quando a porta escolhida é um simulador: os dados não vêm de nenhum carro
+        self.sim_badge = lbl("MODO DE SIMULAÇÃO", "pill")
+        self.sim_badge.setAlignment(Qt.AlignCenter)
+        self.sim_badge.setStyleSheet(pill_style(WARN))
+        self.sim_badge.setToolTip("A porta escolhida é um simulador: os valores e avarias são fictícios.")
+        self.sim_badge.hide()
+        cv.addWidget(self.sim_badge)
         cv.addWidget(self.conn_lbl)
         cv.addWidget(self.pulse)
         cv.addWidget(self.conn_sub)
@@ -306,13 +313,18 @@ class MainWindow(QMainWindow):
         self.worker.submit("configure", cfg)
         self.update_workshop_brand()
         port = cfg["port"]
+        sim = is_simulated_port(port)
+        self.sim_badge.setVisible(sim)
         if not port:
             self.home.set_port("Escolha a porta do cabo em Opções")
             self.conn_sub.setText("Interface por configurar")
+        elif sim:
+            self.home.set_port("Modo de simulação — os dados não vêm de um carro", ok=False)
+            self.conn_sub.setText(f"Interface: {'Simulador' if port == SIM_PORT else port} (simulação)")
         else:
-            txt = "Simulador" if port == SIM_PORT else port
-            self.home.set_port(f"Interface pronta: {txt}", ok=True)
-            self.conn_sub.setText(f"Interface: {txt}")
+            # a porta está escolhida; só o Testar interface / Diagnóstico da ligação provam que comunica
+            self.home.set_port(f"Interface escolhida: {port}", ok=True)
+            self.conn_sub.setText(f"Interface: {port}")
         if not quiet:
             self.toast.show_msg("Opções guardadas")
 
@@ -399,17 +411,28 @@ class MainWindow(QMainWindow):
         notes, ok = QInputDialog.getMultiLineText(self, APP_NAME, "Observações para o cliente (opcional):")
         if not ok:
             return
-        if self._write_report(items, vehicle, notes):
-            kind = "autoscan" if items is self.scan.items else "modulo"
-            try:
-                history.save_session(kind, vehicle, items, notes)
-            except Exception as e:
-                self.append_log(f"Histórico: não foi possível guardar ({e})")
+        from_scan = items is self.scan.items
+        if from_scan:
+            meta = dict(self.scan.meta)
+        else:
+            info = self.module.info or {}
+            meta = {"interface": info.get("interface", ""), "simulated": bool(info.get("simulated"))}
+        if not self._write_report(items, vehicle, notes, meta):
+            return
+        try:
+            if from_scan and self.scan.session_id:
+                # o Auto-Scan já ficou no histórico quando terminou: actualiza-o em vez de criar outro
+                history.update_session(self.scan.session_id, vehicle, notes)
+            else:
+                history.save_session("autoscan" if from_scan else "modulo", vehicle, items, notes, meta=meta)
+        except Exception as e:
+            self.append_log(f"Histórico: não foi possível guardar ({e})")
 
     def export_session(self, data):
-        self._write_report(data.get("items", []), data.get("vehicle", {}), data.get("notes", ""))
+        self._write_report(data.get("items", []), data.get("vehicle", {}), data.get("notes", ""),
+                           data.get("meta") or {}, data.get("date"))
 
-    def _write_report(self, items, vehicle, notes):
+    def _write_report(self, items, vehicle, notes, meta=None, date=None):
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         name = f"Diagnostico_{vehicle.get('plate') or 'veiculo'}_{stamp}.pdf".replace(" ", "")
         path, _flt = QFileDialog.getSaveFileName(
@@ -428,14 +451,14 @@ class MainWindow(QMainWindow):
         try:
             if path.lower().endswith(".html"):
                 html = report.build_html(workshop, vehicle, items,
-                                         report.logo_data_uri(logo_path), notes, logo_size)
+                                         report.logo_data_uri(logo_path), notes, logo_size, meta, date)
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(html)
             else:
                 if not path.lower().endswith(".pdf"):
                     path += ".pdf"
                 from PySide6.QtPrintSupport import QPrinter
-                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size)
+                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size, meta, date)
                 doc = QTextDocument()
                 doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), logo_img)
                 doc.setHtml(html)
@@ -479,7 +502,8 @@ class MainWindow(QMainWindow):
             self.was_connected = True
             self.last_address = data["address"]
             self.reconnect_btn.hide()
-            self.set_conn_state("connected", f"Ligado a {data['address']:02X}",
+            sim = " (simulação)" if data.get("simulated") else ""
+            self.set_conn_state("connected", f"Ligado a {data['address']:02X}{sim}",
                                 f"{data['module']}\n{data['protocol']} · {data['baud']} baud")
             self.module.set_info(data)
             self.nav_btns["module"].setEnabled(True)
@@ -514,22 +538,34 @@ class MainWindow(QMainWindow):
             else:
                 self.toast.show_msg("Sem avarias" if not data else f"{len(data)} avaria(s) encontrada(s)",
                                     "ok" if not data else "warn")
-        elif cmd in ("adaptation_read", "adaptation_test", "adaptation_save"):
+        elif cmd in ("adaptation_read", "adaptation_test", "adaptation_save", "service_reset"):
             self.module.show_adaptation(cmd, data)
-            if cmd == "adaptation_save":
-                self.toast.show_msg("Adaptação gravada")
+            if cmd in ("adaptation_save", "service_reset"):
+                if data.get("status") == "ok":
+                    self.toast.show_msg("Revisão reposta — confirmado pelo painel" if cmd == "service_reset"
+                                        else "Adaptação gravada — confirmada pelo controlador")
+                else:
+                    QMessageBox.warning(self, APP_NAME, data.get("message", "Resultado desconhecido."))
         elif cmd == "recode":
-            self.module.set_info(data)
+            self.module.set_info(data["info"])
             self.module.tabs.setCurrentIndex(5)
-            self.toast.show_msg("Codificação aceite pelo controlador")
+            if data["status"] == "ok":
+                self.toast.show_msg(data["message"])
+            else:
+                QMessageBox.warning(self, APP_NAME, data["message"])
         elif cmd == "login":
-            self.toast.show_msg("Login aceite")
+            QMessageBox.information(self, APP_NAME, data["message"])
         elif cmd == "clear_all":
-            left, errs = self.scan.apply_clear_results(data)
+            left, errs, unknown = self.scan.apply_clear_results(data)
             self.select.mark_scan(self.scan.items)
-            self.toast.show_msg("Avarias apagadas em todos os controladores" if not left and not errs
-                                else f"Feito — {left} avaria(s) voltaram a aparecer",
-                                "ok" if not left and not errs else "warn")
+            if unknown:
+                QMessageBox.warning(self, APP_NAME, f"Em {unknown} controlador(es) o pedido de apagar foi enviado mas "
+                                                    "não foi possível confirmar o resultado. Volte a fazer o "
+                                                    "Auto-Scan para ver o estado real.")
+            self.toast.show_msg("Avarias apagadas em todos os controladores" if not (left or errs or unknown)
+                                else f"Feito — {left} avaria(s) voltaram a aparecer"
+                                + (f", {errs + unknown} controlador(es) por confirmar" if errs or unknown else ""),
+                                "ok" if not (left or errs or unknown) else "warn")
         elif cmd == "link_check":
             self.show_link_check(data)
         elif cmd == "output_test":
@@ -537,17 +573,24 @@ class MainWindow(QMainWindow):
         elif cmd in ("test_interface", "hex_mode"):
             (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME, data["message"])
         elif cmd == "autoscan":
+            self.scan.meta = {k: data.get(k) for k in ("aborted", "scanned", "total", "interface", "simulated")}
             self.scan.done(data["aborted"])
             self.select.mark_scan(self.scan.items)
             if self.scan.items:
                 try:
                     vehicle = self.home.vehicle()
-                    sid = history.save_session("autoscan", vehicle, self.scan.items)
+                    sid = history.save_session("autoscan", vehicle, self.scan.items, meta=self.scan.meta)
+                    self.scan.session_id = sid
                     prev = history.previous_for_plate(vehicle.get("plate"), before=sid)
                     if prev is not None:
                         self.scan.show_compare(prev["date"], history.compare(prev.get("items", []), self.scan.items))
                 except Exception as e:
                     self.append_log(f"Histórico: não foi possível guardar ({e})")
+            if data.get("interface_error"):
+                QMessageBox.warning(self, APP_NAME, "O Auto-Scan parou porque a interface deixou de responder "
+                                                    "(cabo desligado do USB ou driver bloqueado). Os controladores já "
+                                                    "lidos ficaram guardados.\n\nVolte a ligar o cabo e repita.\n\n"
+                                                    f"Detalhe: {data['interface_error']}")
             self.statusBar().showMessage("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido")
             self.toast.show_msg("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido",
                                 "ok" if not data["aborted"] else "warn")
@@ -559,8 +602,10 @@ class MainWindow(QMainWindow):
             self.scan.done(True, msg)
         if cmd == "clear_all":
             self.scan.clear_all_btn.setEnabled(True)
+        if cmd == "output_test":
+            self.module._out_running = False          # o próximo início volta a pedir confirmação
         if cmd in ("connect", "test_interface", "hex_mode", "recode", "login", "adaptation_save", "clear_faults",
-                   "autoscan"):
+                   "autoscan", "service_reset", "adaptation_test"):
             QMessageBox.warning(self, APP_NAME, msg)
         else:
             self.toast.show_msg(msg, "bad")

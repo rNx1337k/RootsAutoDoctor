@@ -8,7 +8,6 @@ Formato do bloco:  [comprimento] [contador] [título] [dados...] [0x03]
     o tester envia ACK (0x09) para manter a ligação viva.
 """
 import logging
-import time
 
 from ..errors import ProtocolError, KLineTimeout, RequestRejected
 from ..kline import precise_sleep
@@ -225,11 +224,14 @@ class KW1281:
         return self._adapt(ADAPT_TEST, [channel & 0xFF, (value >> 8) & 0xFF, value & 0xFF])
 
     def adaptation_save(self, channel, value, wsc):
-        r = self._adapt(ADAPT_SAVE, [channel & 0xFF, (value >> 8) & 0xFF, value & 0xFF,
-                                     (wsc >> 16) & 0xFF, (wsc >> 8) & 0xFF, wsc & 0xFF])
-        return r or {"channel": channel, "value": value, "raw": []}
+        """Devolve o canal/valor que o controlador diz ter gravado, ou None se só respondeu com ACK
+        (nesse caso o resultado é desconhecido — quem chama decide como o apresentar)."""
+        return self._adapt(ADAPT_SAVE, [channel & 0xFF, (value >> 8) & 0xFF, value & 0xFF,
+                                        (wsc >> 16) & 0xFF, (wsc >> 8) & 0xFF, wsc & 0xFF])
 
     def login(self, code, wsc):
+        """Envia o login. O KW1281 só confirma a receção (ACK) ou recusa (NAK): um ACK não prova que o
+        código está certo — isso só se vê na função que precisa do login."""
         self.request(LOGIN, [(code >> 8) & 0xFF, code & 0xFF,
                              (wsc >> 16) & 0xFF, (wsc >> 8) & 0xFF, wsc & 0xFF], multi=())
         return True
@@ -247,8 +249,10 @@ class KW1281:
     def output_test(self):
         """Avança um passo no teste de saídas. Devolve o código do componente ou None no fim."""
         blocks = self.request(ACTUATOR_TEST, multi=())
-        if not blocks or blocks[0].title != ACTUATOR_RESPONSE or len(blocks[0].data) < 2:
-            return None
+        if not blocks:
+            return None                                  # só ACK: fim da sequência
+        if blocks[0].title != ACTUATOR_RESPONSE or len(blocks[0].data) < 2:
+            raise RequestRejected(f"Resposta inesperada ao teste de saídas: {blocks[0]}")
         code = (blocks[0].data[0] << 8) | blocks[0].data[1]
         if code in (0, 0xFFFF):
             return None

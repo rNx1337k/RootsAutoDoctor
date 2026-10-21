@@ -10,7 +10,7 @@ PANEL_2 = "#18233F"    # cartões elevados / hover
 LINE = "#22305A"       # contornos
 LINE_SOFT = "#1A2648"
 BLUE = "#4F8DFF"       # iluminação da escala
-CYAN = "#2BD4FF"       # brilho
+CYAN = "#22D3C9"       # cor de destaque da marca (brilho, foco, selecção)
 VIOLET = "#8B6CFF"
 BLUE_SOFT = "#24407E"
 RED = "#FF3B4E"        # ponteiro
@@ -26,8 +26,8 @@ ACCENT = BLUE          # compatibilidade
 DISPLAY_FONT = '"Bahnschrift", "DIN Alternate", "Roboto Condensed", "Segoe UI"'
 BODY_FONT = '"Segoe UI", "Inter", "Helvetica Neue", Arial'
 
-GRAD_PRIMARY = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #3B74FF, stop:1 #22C6FF)"
-GRAD_PRIMARY_HOVER = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #5A8BFF, stop:1 #52D9FF)"
+GRAD_PRIMARY = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #3B74FF, stop:1 #22D3C9)"
+GRAD_PRIMARY_HOVER = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #5A8BFF, stop:1 #4FE0D6)"
 GRAD_CARD = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(24, 35, 66, 0.92), stop:1 rgba(14, 21, 40, 0.92))"
 
 QSS = f"""
@@ -51,7 +51,7 @@ QPushButton#nav {{
 QPushButton#nav:hover {{ background: rgba(79, 141, 255, 0.08); color: {TEXT}; }}
 QPushButton#nav:checked {{
     color: white; border-left: 3px solid {CYAN};
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(43, 212, 255, 0.22), stop:1 rgba(79, 141, 255, 0.02));
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(34, 211, 201, 0.22), stop:1 rgba(79, 141, 255, 0.02));
 }}
 QPushButton#nav:disabled {{ color: #34406A; }}
 QPushButton#search {{
@@ -61,12 +61,12 @@ QPushButton#search {{
 QPushButton#search:hover {{ border-color: {BLUE}; color: {TEXT}; }}
 
 QFrame#card {{ background: {GRAD_CARD}; border: 1px solid {LINE}; border-radius: 14px; }}
-QFrame#cardGlow {{ background: {GRAD_CARD}; border: 1px solid rgba(43, 212, 255, 0.35); border-radius: 14px; }}
+QFrame#cardGlow {{ background: {GRAD_CARD}; border: 1px solid rgba(34, 211, 201, 0.35); border-radius: 14px; }}
 QFrame#stat {{ background: {GRAD_CARD}; border: 1px solid {LINE}; border-radius: 14px; }}
 QFrame#stat:hover {{ border-color: {BLUE}; }}
 QFrame#banner {{
-    border-radius: 12px; border: 1px solid rgba(43, 212, 255, 0.35);
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(43, 212, 255, 0.14), stop:1 rgba(139, 108, 255, 0.08));
+    border-radius: 12px; border: 1px solid rgba(34, 211, 201, 0.35);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(34, 211, 201, 0.14), stop:1 rgba(139, 108, 255, 0.08));
 }}
 
 QPushButton {{
@@ -76,7 +76,7 @@ QPushButton {{
 QPushButton:hover {{ border-color: {BLUE}; color: white; background: #1D2A4C; }}
 QPushButton:pressed {{ background: {BLUE_SOFT}; }}
 QPushButton:focus {{ border-color: {BLUE}; }}
-QPushButton:checked {{ border-color: {CYAN}; background: rgba(43, 212, 255, 0.16); color: white; }}
+QPushButton:checked {{ border-color: {CYAN}; background: rgba(34, 211, 201, 0.16); color: white; }}
 QPushButton:disabled {{ color: #44507A; border-color: #1A2444; background: #121A31; }}
 QPushButton#primary {{ background: {GRAD_PRIMARY}; border: none; color: #031024; }}
 QPushButton#primary:hover {{ background: {GRAD_PRIMARY_HOVER}; }}
@@ -130,13 +130,13 @@ QTableWidget, QTreeWidget, QListWidget {{
 QHeaderView::section {{ background: {PANEL}; color: {MUTED}; padding: 8px; border: none; font-weight: 600; }}
 QTableWidget::item, QTreeWidget::item {{ padding: 5px; }}
 QTableWidget::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {{
-    background: rgba(43, 212, 255, 0.18); color: white;
+    background: rgba(34, 211, 201, 0.18); color: white;
 }}
 QTableWidget::item:hover, QTreeWidget::item:hover {{ background: rgba(79, 141, 255, 0.08); }}
 QListWidget#palette {{ border: none; background: transparent; }}
 QListWidget#palette::item {{ padding: 9px 12px; border-radius: 9px; margin: 1px 0; }}
 QListWidget#palette::item:selected {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(43, 212, 255, 0.28), stop:1 rgba(79, 141, 255, 0.06));
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(34, 211, 201, 0.28), stop:1 rgba(79, 141, 255, 0.06));
 }}
 
 QPlainTextEdit#log {{ font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; color: #8FB5FF; background: #050913; border: none; }}

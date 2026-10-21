@@ -4,14 +4,13 @@ Portas J2534 aparecem na lista de portas como "J2534:<caminho da DLL>".
 Suporta KWP2000 sobre linha K (ISO 14230) com init a 5 baud. O KW1281 não é possível
 por J2534: exige confirmar cada byte em poucos milissegundos, o que a norma não permite.
 """
-import json
 import logging
 import os
 import struct
 import subprocess
 import sys
 
-from .errors import ConnectError, KLineError, KLineTimeout
+from .errors import ConnectError, InterfaceError, KLineError, KLineTimeout
 
 log = logging.getLogger(__name__)
 
@@ -115,26 +114,21 @@ class J2534Link:
         return self.proc is not None
 
     # ------------------------------------------------------------- ponte
+    # tempo máximo de resposta da ponte por pedido (s); o init a 5 baud demora ~2-3 s no driver
+    OP_TIMEOUT = {"open": 20.0, "connect": 20.0, "five_baud_init": 15.0}
+
     def _call(self, op, **kw):
         if self.proc is None:
-            raise KLineError("Interface J2534 não está aberta")
-        req = dict(op=op, **kw)
+            raise InterfaceError("Interface J2534 não está aberta")
+        limit = self.OP_TIMEOUT.get(op, 10.0)
+        if op == "read":
+            limit = kw.get("timeout_ms", 1000) / 1000 + 5.0
         try:
-            self.proc.stdin.write(json.dumps(req) + "\n")
-            self.proc.stdin.flush()
-            line = self.proc.stdout.readline()
-        except (OSError, ValueError) as e:
-            self.close()
-            raise KLineError(f"A ponte J2534 parou: {e}")
-        if not line:
-            err = ""
-            try:
-                err = self.proc.stderr.read()[-300:]
-            except Exception:
-                pass
-            self.close()
-            raise KLineError("A ponte J2534 terminou inesperadamente" + (f": {err}" if err else ""))
-        res = json.loads(line)
+            res = self.proc.call(dict(op=op, **kw), limit)
+        except InterfaceError:
+            self.proc = None                       # a ponte já foi terminada
+            self.connected = False
+            raise
         if not res.get("ok"):
             raise KLineError(res.get("error", "erro J2534"))
         return res
@@ -146,9 +140,8 @@ class J2534Link:
             raise KLineError(f"Driver J2534 não encontrado: {self.dll}")
         bits = None if self.is_simulator else dll_bitness(self.dll)
         exe = find_python(bits)
-        flags = 0x08000000 if sys.platform == "win32" else 0
-        self.proc = subprocess.Popen([exe, "-u", BRIDGE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, text=True, creationflags=flags)
+        from .bridge import BridgeProcess
+        self.proc = BridgeProcess([exe, "-u", BRIDGE], "J2534")
         self.log(f"J2534: ponte iniciada ({bits or 'simulada'} bits) — {self.dll}")
         try:
             self._call("open", dll=self.dll)
@@ -158,20 +151,18 @@ class J2534Link:
             self.close()
             raise
 
+    def kill(self):
+        """Termina a ponte já (usado ao fechar o programa se a thread de comunicação estiver bloqueada)."""
+        p, self.proc = self.proc, None
+        self.connected = False
+        if p is not None:
+            p.kill()
+
     def close(self):
         p, self.proc = self.proc, None
         self.connected = False
-        if p is None:
-            return
-        try:
-            p.stdin.write(json.dumps({"op": "close"}) + "\n")
-            p.stdin.flush()
-            p.wait(timeout=2)
-        except Exception:
-            try:
-                p.kill()
-            except Exception:
-                pass
+        if p is not None:
+            p.close()
 
     # --------------------------------------------------------- operações
     def five_baud_init(self, address):

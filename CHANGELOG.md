@@ -3,6 +3,57 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-10-21
+Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
+### Fixed
+- Startup: Qt and the main window were imported before error logging was active, so on a PC where Qt fails
+  to load the app closed without any message or crash.log. Startup errors are now logged and shown in a
+  Windows error box
+- "Detect cable" ran PowerShell (up to 20 s) on the UI thread and froze the window; it now runs in the
+  background and the button shows "A procurar…"
+- Device names from PowerShell with accents (e.g. "Porta série USB") were decoded with the wrong code page
+- Adaptation: "saved" was shown even when the ECU only answered ACK (the app made up the result). The value
+  the ECU returns is now compared with the one requested: a different value is a rejection, no value is
+  "unknown — read the channel to confirm"
+- Coding: "accepted by the controller" was shown without checking. The coding in the identification the ECU
+  returns must now match the requested one; otherwise the app says it was rejected and shows the real value
+- Service reminder reset: the save was queued together with the test and ran even if the test was refused. It is
+  now one command that only saves after the cluster confirms the test value
+- Login is reported as "sent" (KW1281 only acknowledges receipt; it does not say whether the code is right)
+- Clearing faults when the re-read fails is now "not confirmed" instead of a failure
+- Customer report: no longer says "no faults" when no controller was read; states controllers that did not
+  answer and interrupted (partial) Auto-Scans; no health score without data; uses the session date when
+  re-generated from the history; probable causes are labelled as the app's suggestions
+- A refused keep-alive was retried in a tight loop (30 requests/s instead of one per interval)
+- Exporting the report of an Auto-Scan saved a second copy of the session in the history
+- J2534: driver errors (e.g. interface unplugged) were reported as "the controller does not answer"
+- D2XX / J2534 bridges: an invalid line from the bridge gave "internal error"; it is now an interface error and
+  the bridge is closed
+- Output test: an unexpected answer was treated as the end of the test
+### Added
+- Simulation is always labelled: "MODO DE SIMULAÇÃO" in the sidebar, "(simulação)" on the connection, "Origem"
+  column in the history (Simulação / Interface real / — for sessions saved before this version), and a
+  "DADOS SIMULADOS" banner on reports
+- Sessions store the interface used, whether it was simulated and the Auto-Scan coverage (history migration
+  only adds a column; existing sessions are kept)
+- Confirmation before output tests, basic settings and adaptation channel 00 (reset all adaptations)
+- Simulator scenarios for refused coding/adaptation and ACK-only saves
+- Tests: write safety, report honesty, history migration, worker loop, J2534/D2XX bridge errors, startup
+  without Qt, background cable detection, PowerShell encoding
+### Changed
+- Dependencies are pinned to the tested versions (`requirements.txt`) and use `PySide6-Essentials` instead of
+  the full `PySide6` (about 175 MB less: WebEngine and Add-ons were never used); build tools are pinned in
+  `requirements-build.txt`
+- `run.bat` prefers Python 3.13 64-bit, refuses a 32-bit Python, and updates the dependencies when
+  `requirements.txt` changes (without internet it keeps the installed ones)
+- `build_release.bat` deletes the previous build first, runs `RootsAutoDoctor.exe --selftest` on the compiled
+  app and does not create the installer if it fails
+- `build_exe.bat` (PyInstaller) is obsolete and now calls `build_release.bat`
+- Supported systems documented: Windows 10 (21H2+) / 11, 64-bit; workshops install with the installer
+  (no Python or internet needed)
+- Accent colour #22D3C9
+- Home page says "Interface escolhida" (chosen) instead of "pronta" (ready) until the interface is tested
+
 ## [1.2.0] — 2026-10-19
 ### Added
 - `tools/hex_capture.py`: reads a Wireshark/USBPcap capture (.pcapng or .pcap) of an FTDI interface and prints, in order and with timestamps, the FTDI control requests (baud rate, DTR/RTS, BREAK, latency, purge) and the bytes exchanged with the cable, grouped into the HEX microcontroller's 53/4D frames with the command name; ends with the list of opcodes seen, marking those not implemented yet. Standard library only, read-only

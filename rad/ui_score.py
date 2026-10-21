@@ -3,8 +3,9 @@
 
 def health_score(items):
     """0–100 a partir do Auto-Scan: avarias permanentes descontam 9, intermitentes 4,
-    módulos sem comunicação 10."""
-    if not items:
+    módulos sem comunicação 10. Sem nenhum controlador lido não há pontuação (None): não se pode dizer
+    que o veículo está bem só porque nada respondeu."""
+    if not items or not any(it.get("status") == "ok" for it in items):
         return None
     score = 100
     for it in items:

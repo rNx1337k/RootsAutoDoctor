@@ -68,6 +68,8 @@ class AutoScanPage(QWidget):
         self.w = worker
         self.items = []
         self.diff = None
+        self.meta = {}                     # interface, simulação e cobertura do último Auto-Scan
+        self.session_id = None             # sessão do histórico onde ficou gravado
         self.addresses = list(vag_data.AUTOSCAN_ADDRESSES)
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 20)
@@ -207,10 +209,12 @@ class AutoScanPage(QWidget):
                 it["faults"] = r["faults"]
         self.rebuild()
         left = sum(len(r.get("faults", [])) for r in results if r["status"] == "ok")
-        errs = sum(1 for r in results if r["status"] != "ok")
+        errs = sum(1 for r in results if r["status"] == "error")
+        unknown = sum(1 for r in results if r["status"] == "unknown")
         self.current.setText("Avarias apagadas" + (f" — {left} voltaram" if left else "")
-                             + (f" — {errs} sem comunicação" if errs else ""))
-        return left, errs
+                             + (f" — {errs} sem comunicação" if errs else "")
+                             + (f" — {unknown} por confirmar" if unknown else ""))
+        return left, errs, unknown
 
     def rebuild(self):
         items, self.items = self.items, []
@@ -225,7 +229,9 @@ class AutoScanPage(QWidget):
 
     def _summarise(self, aborted=False):
         nf = sum(len(i.get("faults", [])) for i in self.items)
-        self.summary.setText(f"{len(self.items)} módulo(s) · {nf} avaria(s)" + ("  (interrompido)" if aborted else ""))
+        sim = any((i.get("info") or {}).get("simulated") for i in self.items)
+        self.summary.setText(f"{len(self.items)} módulo(s) · {nf} avaria(s)" + ("  (interrompido)" if aborted else "")
+                             + ("  · SIMULAÇÃO" if sim else ""))
 
     def _toggle(self):
         if self.running:
@@ -237,6 +243,8 @@ class AutoScanPage(QWidget):
             return
         self.items = []
         self.diff = None
+        self.meta = {}
+        self.session_id = None
         self.banner.hide()
         self.tree.clear()
         self.tiles.clear()
@@ -354,7 +362,15 @@ class AutoScanPage(QWidget):
 
     # ------------------------------------------------------------ relatório
     def report(self):
-        lines = [f"{APP_NAME} v{VERSION} — Auto-Scan {datetime.datetime.now():%d/%m/%Y %H:%M}", "-" * 60]
+        lines = [f"{APP_NAME} v{VERSION} — Auto-Scan {datetime.datetime.now():%d/%m/%Y %H:%M}"]
+        if self.meta.get("interface"):
+            lines.append(f"Interface: {self.meta['interface']}")
+        if self.meta.get("simulated") or any((i.get("info") or {}).get("simulated") for i in self.items):
+            lines.append("*** DADOS SIMULADOS — não correspondem a nenhum veículo real ***")
+        if self.meta.get("aborted"):
+            lines.append(f"Auto-Scan interrompido: {self.meta.get('scanned')} de {self.meta.get('total')} "
+                         "endereços verificados (resultado parcial)")
+        lines.append("-" * 60)
         for it in self.items:
             lines.append(f"Endereço {it['address']:02X}: {it['module']}")
             if it["status"] == "ok":
