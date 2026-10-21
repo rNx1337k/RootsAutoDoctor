@@ -33,10 +33,7 @@ microcontrolador sem VCDS (`rad/hexmcu.py`):
 
 Fonte: engenharia inversa pública do VCDS (github.com/guns96x/vcds-android, `docs/research/vcds_fa24_dumb_mode_protocol.md`).
 **Confirmado neste cabo a 19/10/2026** (respostas reais: `4D 07 02 01 60 46 6F` = firmware 1.96 'F';
-`4D 05 0D 02 47` = modo inteligente). Mas o modo KKL deste firmware **não** dá passagem directa para a linha K:
-para ler centralinas é preciso o protocolo de linha K do próprio microcontrolador (init 0x84 + troca de
-blocos), ainda não implementado. Para o descobrir sem adivinhar comandos é preciso uma captura USB de uma
-sessão real (ver "Próximo passo").
+`4D 05 0D 02 47` = modo inteligente). Mas o modo KKL deste firmware **não** dá passagem directa para a linha K. **A leitura de centralinas através deste cabo não é suportada pelo Roots Auto Doctor:** o programa só lê o estado do próprio cabo (firmware, modo, teste da linha K). Para diagnóstico use um cabo KKL 409.1 com FTDI — ver [KKL.md](KKL.md).
 
 ### Próximo passo: captura USB (uma vez, só para estudo)
 

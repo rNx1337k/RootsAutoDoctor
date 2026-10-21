@@ -17,7 +17,7 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import hexmcu, vag_data
+from . import connstate, hexmcu, vag_data
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,8 @@ log = logging.getLogger(__name__)
 class Worker(QThread):
     STOP_WAIT_MS = 5000                     # tempo para a thread terminar sozinha ao fechar o programa
     log = Signal(str)
-    state = Signal(str, object)            # "disconnected" | "connecting" | "connected"
+    state = Signal(str, object)            # antigo (UI): "disconnected" | "connecting" | "connected"
+    link_state = Signal(object)            # detalhado (connstate.LinkStatus): ver rad/connstate.py
     result = Signal(str, object)
     error = Signal(str, str)
     live = Signal(object)
@@ -147,11 +148,32 @@ class Worker(QThread):
         if not self._quiet:
             self.log.emit(msg)
 
+    def _emit_link(self, status):
+        """Emite o estado detalhado (connstate.LinkStatus). O sinal antigo `state` continua a ser emitido
+        à parte, com os valores que a interface actual espera; este é informação adicional e mais precisa."""
+        self.link_state.emit(status)
+        log.info("Estado da ligação: %s — %s", status.state, status.message)
+
+    def _port_present(self):
+        """True/False se a porta escolhida aparece na lista de interfaces do computador; None se não se
+        conseguir saber. Serve para distinguir "interface não detectada" de "detectada mas inacessível"."""
+        port = self.cfg.get("port") or ""
+        if not port or is_simulated_port(port):
+            return None
+        try:
+            from .kline import list_serial_ports
+            return any(dev == port for dev, _desc in list_serial_ports())
+        except Exception:
+            log.warning("Não foi possível verificar a presença da interface", exc_info=True)
+            return None
+
     def _lost(self, reason):
         self.live_mode = None
         self.log.emit(f"Ligação perdida: {reason}")
         self.session = None
         self.state.emit("disconnected", reason)
+        self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU,
+                                             f"Ligação à centralina perdida: {reason}"))
 
     def _drop_port(self):
         """A interface falhou: fecha-a para que o próximo comando a volte a abrir do zero
@@ -165,6 +187,9 @@ class Worker(QThread):
         self.kl = None
         self.hex_info = None
         self.log.emit("Interface fechada depois de um erro; será reaberta no próximo comando.")
+        present = self._port_present()
+        state = connstate.NO_DEVICE if present is False else connstate.UNREACHABLE
+        self._emit_link(connstate.LinkStatus(state, connstate.LABELS[state], fatal=True))
 
     def _close_all(self):
         try:
@@ -196,6 +221,7 @@ class Worker(QThread):
         self.kl.open()
         self.hex_info = None
         self.log.emit(f"Interface {c['port']} aberta")
+        self._emit_link(connstate.opened(c["port"]))
 
     def _hex_check(self):
         """Clone HEX-USB+CAN sem eco: pergunta ao microcontrolador do cabo a versão, o modo de arranque e o
@@ -266,13 +292,17 @@ class Worker(QThread):
             if self.session is not None and not self.session.connected:   # ex.: releitura falhou por perda de ligação
                 self.session = None
                 self.state.emit("disconnected", str(e))
+                self._emit_link(connstate.classify_error(e))
         except ProtocolError as e:
             self.error.emit(cmd, str(e))
-            if cmd == "connect" or (self.session and not self.session.connected) or isinstance(e, InterfaceError):
+            drop = isinstance(e, InterfaceError)
+            if cmd == "connect" or (self.session and not self.session.connected) or drop:
                 if self.session is not None or cmd == "connect":
                     self.state.emit("disconnected", str(e))
+                    if not drop:            # _drop_port() emite o seu próprio estado detalhado
+                        self._emit_link(connstate.classify_error(e, self._port_present()))
                 self.session = None
-            if isinstance(e, InterfaceError):
+            if drop:
                 self._drop_port()
         except Exception as e:
             log.exception("Erro interno no comando %s", cmd)
@@ -304,12 +334,14 @@ class Worker(QThread):
             time.sleep(0.3)
         self._ensure_port()
         self.state.emit("connecting", address)
+        self._emit_link(connstate.connecting(address))
         self._preflight()
         s = ECUSession(self.kl, self._log, self.cfg["baud"])
         info = s.connect(address, retry=True)
         self.session = s
         self.log.emit(f"Ligado a {address:02X} — {info['part']} {info['component']}")
         self.state.emit("connected", info)
+        self._emit_link(connstate.connected(info))
 
     def _cmd_disconnect(self):
         self.live_mode = None
@@ -320,6 +352,11 @@ class Worker(QThread):
                 log.info("Erro ao desligar a sessão: %s", e)
         self.session = None
         self.state.emit("disconnected", None)
+        if self.kl is not None and self.kl.is_open:
+            self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU,
+                            "Controlador fechado. A interface continua aberta."))
+        else:
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Sem ligação."))
 
     def _cmd_test_interface(self):
         self._ensure_port()

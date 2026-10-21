@@ -3,6 +3,21 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-10-21
+### Added
+- Explicit connection states shared by every interface (`rad/connstate.py`): no interface, interface
+  unreachable, interface open without an ECU, connecting, ECU connected, communication error. "ECU connected"
+  is only reported after the ECU has answered with its identification — detecting or opening the cable never
+  counts as connected
+- The communication thread emits the detailed state (`link_state`) and logs every transition with its cause;
+  the existing UI state signal is unchanged
+- KW1281 fault reading validated against a real ECU response (Audi A3 8L 1.9 TDI, captured with USBPcap): the
+  five codes and their intermittent/static status match VCDS (`tests/test_capture_replay.py`)
+- `docs/KKL.md`: audit of the KKL path and the on-car validation procedure
+### Changed
+- README: HEX-USB/HEX-V2 clones are listed as not supported for ECU access; KKL 409.1 (FTDI) is the
+  recommended cable
+
 ## [1.3.0] — 2026-10-21
 Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
 ### Fixed

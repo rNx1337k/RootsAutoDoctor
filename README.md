@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.3.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.4.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.13-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -69,8 +69,10 @@ Passat B5, Audi A3 8L / A4 B5–B6, Seat Leon 1M and Škoda Octavia I.
 |---|---|
 | KKL 409.1 / K-line cables (FTDI, CH340) | KW1281 and KWP2000 |
 | J2534 PassThru (04.04) | KWP2000 only |
-| HEX-USB clone (FTDI FT232R, VID 0403 PID FA24) | K-line only, if the cable has no microcontroller — see [docs/HEX_USB.md](docs/HEX_USB.md) |
+| HEX-USB / HEX-V2 clones (FTDI, VID 0403 PID FA2x) | Not supported for ECU access: the app only reads the cable's own status (firmware, mode, K-line voltage) — see [docs/HEX_USB.md](docs/HEX_USB.md) |
 | Genuine HEX-V2 / HEX-NET, other firmware-based interfaces | Not supported |
+
+Recommended cable: **KKL 409.1 with an FTDI chip** — see [docs/KKL.md](docs/KKL.md) for the on-car validation procedure.
 
 For FTDI cables, setting the latency timer to 1 ms in Device Manager makes live data much faster.
 
