@@ -45,7 +45,10 @@ if errorlevel 1 (
   pause & exit /b 1
 )
 type build\autoteste_build.txt
+REM Inno Setup 6: instalacao para todos os utilizadores ou so para o utilizador actual
 set ISCC="%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if not exist %ISCC% set ISCC="%ProgramFiles%\Inno Setup 6\ISCC.exe"
+if not exist %ISCC% set ISCC="%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 if not exist %ISCC% (
   echo Programa compilado e verificado em build\main.dist\RootsAutoDoctor.exe
   echo Para criar o instalador instale o Inno Setup 6 e volte a correr este ficheiro.
