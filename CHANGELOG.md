@@ -3,6 +3,42 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-10-22
+### Added
+- **OBD-II / EOBD for any make** through an ELM327 adapter (`rad/obd/`): ECUs and supported PIDs, VIN, calibration
+  IDs and ECU names, MIL and readiness monitors, stored / pending / permanent faults, clearing (mode 04) with
+  explicit confirmation and re-read, freeze frame, and live data limited to the PIDs each ECU declares
+- Read-only **UDS** (ISO 14229) on CAN: standard identification DIDs and fault status (0x19 02) with failure type
+  byte; "response pending" (NRC 0x78) handled. No security access, writing, routines or programming
+- **ISO-TP** (ISO 15765-2) codec and a diagnostic link over a raw CAN bus, ready for raw CAN adapters
+- Adapter-independent "link" contract: the OBD-II and UDS services, the session and the UI work with any interface
+  that implements `request()`
+- OBD-II page: connection steps (port → adapter → protocol → ECUs) showing exactly where it stops, summary (VIN,
+  protocol, MIL, ECUs, voltage measured by the adapter), faults with the source of each description, live data
+  table and chart, readiness, ECU list and UDS identification; reports and history for OBD sessions
+- Options: interface type (KKL/J2534 for VAG or ELM327 for OBD-II) and OBD protocol; "Test interface" with an
+  ELM327 checks the adapter only
+- Home: connection centre driven by the real link state (`link_state`), OBD-II tile
+- Compatibility matrix (`rad/coverage.py`, Options → Compatibility, `docs/COBERTURA.md`) with the evidence level of
+  every interface/protocol stage; a test keeps the document in sync and forbids claiming ECU communication on
+  hardware without evidence
+- Simulated ELM327 (`ELM327:SIMULADOR`) and simulated raw CAN bus, always labelled as simulation
+- Self-test (`--selftest`) also checks the OBD-II stack with the simulated ELM327
+- Generic DTC descriptions (common SAE J2012 / ISO 15031-6 codes, summarised in Portuguese) with declared source;
+  manufacturer codes show only their structural category. More databases can be added as `rad/obd/data/dtc_*.json`
+  with a `_source` field
+- Tests: `test_obd`, `test_obd_worker`, `test_ui_obd`, `test_coverage`
+### Fixed
+- D2XX / J2534 bridges: error messages from the bridge process were garbled when the environment set
+  `PYTHONIOENCODING` (e.g. "DLL nÃ£o carregou"); both pipes now use UTF-8
+- The detailed connection state (`link_state`) was emitted but never shown in the interface
+### Changed
+- VAG functions (modules, Auto-Scan) explain that a KKL cable or J2534 interface is needed when an ELM327 is selected,
+  instead of failing to open the port
+- Fault cards and reports no longer repeat the code when the VAG and OBD codes are the same
+### Not verified
+- No ELM327 or vehicle was available: the OBD-II/UDS stack is tested against the simulators only
+
 ## [1.4.0] — 2026-10-21
 ### Added
 - Explicit connection states shared by every interface (`rad/connstate.py`): no interface, interface

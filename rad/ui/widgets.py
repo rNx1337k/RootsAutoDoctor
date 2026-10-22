@@ -812,6 +812,21 @@ def icon_pixmap(kind, color="#8191B6", size=20):
         p.drawRoundedRect(QRectF(3, 5, 18, 14), 2.5, 2.5)
         p.drawLine(QPointF(7, 10), QPointF(10, 12.5)); p.drawLine(QPointF(10, 12.5), QPointF(7, 15))
         p.drawLine(QPointF(12, 15), QPointF(17, 15))
+    elif kind == "obd":                           # conta-rotações (OBD-II multimarca)
+        path = QPainterPath()
+        path.arcMoveTo(QRectF(3.5, 5, 17, 17), 200)
+        path.arcTo(QRectF(3.5, 5, 17, 17), 200, -220)
+        p.drawPath(path)
+        p.drawLine(QPointF(12, 13.5), QPointF(16.5, 9))
+        p.drawEllipse(QPointF(12, 13.5), 1.2, 1.2)
+        p.drawLine(QPointF(8, 20), QPointF(16, 20))
+    elif kind == "link":                          # elos (ligação / interfaces)
+        p.drawRoundedRect(QRectF(3, 9, 10, 6), 3, 3)
+        p.drawRoundedRect(QRectF(11, 9, 10, 6), 3, 3)
+    elif kind == "grid":                          # matriz (compatibilidade)
+        for x in (4, 10.5, 17):
+            for y in (4, 10.5, 17):
+                p.drawRoundedRect(QRectF(x, y, 3.5, 3.5), 1, 1)
     p.end()
     pm.setDevicePixelRatio(2)
     return pm

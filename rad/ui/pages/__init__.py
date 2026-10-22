@@ -5,7 +5,8 @@ from .history import HistoryPage
 from .home import HomePage
 from .module import ModulePage
 from .module_select import ModuleSelectPage
+from .obd import ObdPage
 from .options import OptionsPage
 
 __all__ = ["AutoScanPage", "FieldCell", "GroupCard", "HistoryPage", "HomePage", "ModulePage",
-           "ModuleSelectPage", "OptionsPage", "ask", "btn", "card", "lbl", "page_header"]
+           "ModuleSelectPage", "ObdPage", "OptionsPage", "ask", "btn", "card", "lbl", "page_header"]

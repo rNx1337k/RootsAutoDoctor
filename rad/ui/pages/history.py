@@ -82,7 +82,7 @@ class HistoryPage(QWidget):
             r = self.table.rowCount()
             self.table.insertRow(r)
             date = s["date"].replace("T", "  ")[:17]
-            kind = "Auto-Scan" if s["kind"] == "autoscan" else "Módulo"
+            kind = {"autoscan": "Auto-Scan", "obd": "OBD-II"}.get(s["kind"], "Módulo")
             origin = s.get("simulated")
             vals = [date, s["plate"] or "—", s["client"] or "—", s["model"] or "—", kind,
                     str(s["modules"]), str(s["faults"]), self.ORIGIN.get(origin, "—")]

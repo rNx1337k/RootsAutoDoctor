@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
 )
 
 from ... import VERSION
-from ..style import BLUE, CYAN, MUTED, OK, WARN
+from ... import connstate
+from ..style import BAD, BLUE, CYAN, MUTED, OK, WARN, pill_style
 from ..widgets import HeroBanner, IconBadge, LogoLabel, glow, nav_icon
 from .common import StatCard, lbl, btn, card
 
@@ -45,10 +46,10 @@ class HomePage(QWidget):
         tv = QVBoxLayout()
         tv.setSpacing(4)
         tv.addStretch(1)
-        tv.addWidget(lbl(f"VERSÃO {VERSION}  ·  DIAGNÓSTICO VAG", "eyebrow"))
+        tv.addWidget(lbl(f"VERSÃO {VERSION}  ·  VAG + OBD-II MULTIMARCA", "eyebrow"))
         tv.addWidget(lbl("Roots Auto Doctor", "display"))
-        sub = lbl("Centralinas VW, Audi, Seat e Škoda pela linha K — KW1281 e KWP2000, com mapa do "
-                  "veículo, assistente de avarias e comparação entre visitas.", "muted", wrap=True)
+        sub = lbl("Grupo VAG pela linha K (KW1281 e KWP2000) com mapa do veículo e assistente de avarias, e "
+                  "qualquer marca com OBD-II/EOBD e UDS por adaptador ELM327 — numa só aplicação.", "muted", wrap=True)
         sub.setMaximumWidth(620)
         tv.addWidget(sub)
         tv.addSpacing(8)
@@ -79,6 +80,30 @@ class HomePage(QWidget):
         hh.addLayout(tv, 1)
         v.addWidget(hero)
 
+        # --- centro de ligação: estado REAL da interface e do veículo (vem da thread de comunicação)
+        cc = card()
+        cl = QHBoxLayout(cc)
+        cl.setContentsMargins(20, 14, 20, 14)
+        cl.setSpacing(16)
+        cl.addWidget(IconBadge("link", CYAN, 40), 0, Qt.AlignTop)
+        ccol = QVBoxLayout()
+        ccol.setSpacing(2)
+        ccol.addWidget(lbl("CENTRO DE LIGAÇÃO", "eyebrow"))
+        self.link_iface = lbl("Interface por configurar", "h2", wrap=True)
+        ccol.addWidget(self.link_iface)
+        self.link_detail = lbl("Nenhuma comunicação feita nesta sessão.", "muted", wrap=True)
+        ccol.addWidget(self.link_detail)
+        cl.addLayout(ccol, 1)
+        self.link_pill = lbl(connstate.LABELS[connstate.NO_DEVICE], "pill")
+        self.link_pill.setStyleSheet(pill_style(MUTED))
+        cl.addWidget(self.link_pill, 0, Qt.AlignTop)
+        cbtns = QVBoxLayout()
+        cbtns.setSpacing(6)
+        cbtns.addWidget(btn("Testar interface", None, lambda: self.go.emit("test_interface")))
+        cbtns.addWidget(btn("Compatibilidade", None, lambda: self.go.emit("coverage")))
+        cl.addLayout(cbtns)
+        v.addWidget(cc)
+
         # --- números da oficina (a partir do histórico)
         stats = QHBoxLayout()
         stats.setSpacing(14)
@@ -96,10 +121,12 @@ class HomePage(QWidget):
         grid = QGridLayout()
         grid.setSpacing(14)
         tiles = [
-            ("modules", "modules", "Seleccionar controlador",
-             "Informação, avarias, valores de medição, adaptação e codificação de um módulo."),
+            ("modules", "modules", "Controladores VAG",
+             "Informação, avarias, valores de medição, adaptação e codificação de um módulo (cabo KKL)."),
             ("autoscan", "autoscan", "Auto-Scan com mapa do veículo",
-             "Ler todos os controladores e ver no carro onde estão as avarias."),
+             "Ler todos os controladores VAG e ver no carro onde estão as avarias."),
+            ("obd", "obd", "OBD-II / EOBD multimarca",
+             "Avarias, prontidão, dados em tempo real e identificação UDS de qualquer marca (ELM327)."),
             ("report", "report", "Relatório para o cliente",
              "PDF com o logo da oficina, as avarias e as causas prováveis."),
         ]
@@ -120,7 +147,7 @@ class HomePage(QWidget):
             col.addWidget(s)
             col.addStretch(1)
             lay.addLayout(col, 1)
-            grid.addWidget(b, 0, i)
+            grid.addWidget(b, i // 2, i % 2)
         v.addLayout(grid)
 
         # --- veículo em diagnóstico
@@ -226,6 +253,17 @@ class HomePage(QWidget):
                 break
         self.recent.setVisible(bool(seen))
         self.recent_empty.setVisible(not seen)
+
+    def set_interface(self, text):
+        self.link_iface.setText(text)
+
+    def set_link(self, status):
+        """status: connstate.LinkStatus emitido pela thread de comunicação."""
+        tone = {connstate.ECU_CONNECTED: OK, connstate.CONNECTING: WARN, connstate.OPEN_NO_ECU: BLUE,
+                connstate.UNREACHABLE: BAD, connstate.ERROR: BAD}.get(status.state, MUTED)
+        self.link_pill.setText(status.label)
+        self.link_pill.setStyleSheet(pill_style(tone))
+        self.link_detail.setText(status.message)
 
     def set_port(self, text, ok=False):
         self.status_lbl.setText(text)

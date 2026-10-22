@@ -29,12 +29,17 @@ HEX_COMBOS = (HEX_LINES, (False, True))
 
 SIM_J2534_PORT = "J2534:SIMULADOR-J2534"
 SIM_D2XX_PORT = "D2XX:SIM00001"
+SIM_ELM_PORT = "ELM327:SIMULADOR"          # igual a rad.obd.elm327.ELM_SIM_PORT
 
 
 def is_simulated_port(port):
-    """True para todas as portas que falam com o simulador em vez de um carro (K-line, J2534 e D2XX).
+    """True para todas as portas que falam com o simulador em vez de um carro (K-line, J2534, D2XX e ELM327).
     Os dados lidos por estas portas nunca podem aparecer como dados de um veículo real."""
-    return port in (SIM_PORT, SIM_J2534_PORT, SIM_D2XX_PORT)
+    return port in (SIM_PORT, SIM_J2534_PORT, SIM_D2XX_PORT, SIM_ELM_PORT)
+
+
+def is_elm_sim_port(port):
+    return port == SIM_ELM_PORT
 
 
 def precise_sleep(seconds):
@@ -91,6 +96,7 @@ def list_serial_ports():
         log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
     ports.append((SIM_PORT, "Simulador (sem carro) — para testar o programa"))
     ports.append((SIM_J2534_PORT, "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
+    ports.append((SIM_ELM_PORT, "Simulador ELM327 / OBD-II (sem carro) — testa o diagnóstico multimarca"))
     return ports
 
 

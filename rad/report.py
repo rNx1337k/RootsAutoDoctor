@@ -97,7 +97,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                 f"{_e(info.get('component'))}{coding}</span>")
         for f in faults:
             kind = "intermitente" if f.get("intermittent") else "permanente"
-            pc = f" ({_e(f['pcode'])})" if f.get("pcode") else ""
+            pc = f" ({_e(f['pcode'])})" if f.get("pcode") and f.get("pcode") != f.get("vag") else ""
             adv = fault_advice.advice(f, it.get("address"))
             sev_color = {"alta": RED, "media": WARN}.get(adv["severity"], BLUE)
             causes = ""

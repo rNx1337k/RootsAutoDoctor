@@ -12,7 +12,7 @@ import traceback
 
 from PySide6.QtCore import QThread, Signal
 
-from .kline import KLine, is_simulated_port
+from .kline import KLine, is_elm_sim_port, is_simulated_port
 from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
@@ -36,16 +36,20 @@ class Worker(QThread):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.q = queue.Queue()
-        self.cfg = {"port": "", "baud": "auto", "echo": "auto", "raw_log": False}
+        self.cfg = {"port": "", "baud": "auto", "echo": "auto", "raw_log": False, "adapter": "kline",
+                    "elm_protocol": "0"}
         self.kl = None
         self.session = None
-        self.live_mode = None              # None | "read" | "basic"
+        self.obd = None                    # rad.obd.session.ObdSession (ELM327 / OBD-II multimarca)
+        self.live_mode = None              # None | "read" | "basic" | "obd"
         self.live_groups = []
         self._quiet = False
         self.abort_scan = False
         self._running = True
         self._busy = False
         self.hex_info = None               # último probe do microcontrolador do clone HEX (por porta aberta)
+        self._obd_pending_steps = []
+        self._obd_silent = 0
 
     @property
     def is_busy(self):
@@ -78,10 +82,11 @@ class Worker(QThread):
 
     def _force_close(self):
         """Chamado de outra thread: termina as pontes D2XX/J2534 e cancela leituras série pendentes."""
-        kl = self.kl
-        if kl is None:
-            return
-        for obj in (kl, getattr(kl, "ser", None)):
+        objs = []
+        for link in (self.kl, getattr(self.obd, "link", None)):
+            if link is not None:
+                objs += [link, getattr(link, "ser", None)]
+        for obj in objs:
             if obj is None:
                 continue
             for name in ("kill", "cancel_read", "cancel_write"):
@@ -112,6 +117,22 @@ class Worker(QThread):
                     self._busy = False
                     self.busy.emit(False)
                 last = time.monotonic()
+                continue
+            o = self.obd
+            if o is not None and o.connected:
+                if self.live_mode == "obd" and self.live_groups:
+                    self._quiet = not self.cfg.get("raw_log")
+                    try:
+                        self._poll_obd_live()
+                    except ProtocolError as e:
+                        self._quiet = False
+                        self._obd_lost(str(e), isinstance(e, InterfaceError))
+                    except Exception as e:
+                        self._quiet = False
+                        log.warning("Leitura contínua OBD: %s", e, exc_info=True)
+                        self.log.emit(f"Erro: {e}")
+                    finally:
+                        self._quiet = False
                 continue
             s = self.session
             if not (s and s.connected):
@@ -198,12 +219,24 @@ class Worker(QThread):
         except Exception as e:
             log.info("Erro ao desligar a sessão: %s", e)
         self.session = None
+        self._close_obd()
         if self.kl:
             self.kl.close()
         self.kl = None
 
+    def _adapter(self):
+        """Família da interface escolhida: "kline" (KKL / J2534 / D2XX — VAG) ou "elm327" (OBD-II)."""
+        if is_elm_sim_port(self.cfg.get("port") or ""):
+            return "elm327"
+        return self.cfg.get("adapter") or "kline"
+
     def _ensure_port(self):
         c = self.cfg
+        if self._adapter() == "elm327":
+            raise ProtocolError("A interface escolhida é um adaptador ELM327 (OBD-II/EOBD multimarca). As funções "
+                                "VAG por KW1281/KWP2000 precisam de um cabo KKL 409.1 ou de uma interface J2534: "
+                                "use a página OBD-II, ou escolha outra interface em Opções.")
+        self._close_obd()
         if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"] and self.kl.is_open:
             self.kl.raw_log = c["raw_log"]
             return
@@ -289,12 +322,18 @@ class Worker(QThread):
                 self._session_cmd(cmd, args)
         except (RequestRejected, NotSupported) as e:
             self.error.emit(cmd, str(e))
+            if cmd == "obd_connect":
+                self._obd_failed(cmd, e)
+                return
             if self.session is not None and not self.session.connected:   # ex.: releitura falhou por perda de ligação
                 self.session = None
                 self.state.emit("disconnected", str(e))
                 self._emit_link(connstate.classify_error(e))
         except ProtocolError as e:
             self.error.emit(cmd, str(e))
+            if cmd.startswith("obd_"):
+                self._obd_failed(cmd, e)
+                return
             drop = isinstance(e, InterfaceError)
             if cmd == "connect" or (self.session and not self.session.connected) or drop:
                 if self.session is not None or cmd == "connect":
@@ -316,8 +355,14 @@ class Worker(QThread):
         self.result.emit(cmd, res)
 
     def _cmd_configure(self, cfg):
-        changed = (cfg.get("port") != self.cfg.get("port") or cfg.get("echo") != self.cfg.get("echo"))
+        changed = (cfg.get("port") != self.cfg.get("port") or cfg.get("echo") != self.cfg.get("echo")
+                   or cfg.get("adapter", self.cfg.get("adapter")) != self.cfg.get("adapter")
+                   or cfg.get("elm_protocol", self.cfg.get("elm_protocol")) != self.cfg.get("elm_protocol"))
         self.cfg.update(cfg)
+        if changed and self.obd is not None:
+            self._close_obd()
+            self.state.emit("disconnected", None)
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Interface alterada nas Opções."))
         if changed and self.kl:
             if self.session:
                 self._cmd_disconnect()
@@ -359,6 +404,8 @@ class Worker(QThread):
             self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Sem ligação."))
 
     def _cmd_test_interface(self):
+        if self._adapter() == "elm327":
+            return self._test_elm_adapter()
         self._ensure_port()
         ok, note = self._echo()
         msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD." + note
@@ -553,6 +600,144 @@ class Worker(QThread):
         if interface_error:
             self._drop_port()
         self.result.emit("clear_all", out)
+
+    # ------------------------------------------------------------ OBD-II / UDS (ELM327)
+    def _close_obd(self):
+        o = self.obd
+        self.obd = None
+        if self.live_mode == "obd":
+            self.live_mode = None
+        if o is not None:
+            try:
+                o.disconnect()
+            except Exception:
+                log.warning("Erro ao fechar a ligação OBD", exc_info=True)
+
+    def _obd_lost(self, reason, interface_failed):
+        self.live_mode = None
+        self.log.emit(f"Ligação OBD perdida: {reason}")
+        self._close_obd()
+        self.result.emit("obd_lost", reason)
+        if interface_failed:
+            present = self._port_present()
+            state = connstate.NO_DEVICE if present is False else connstate.UNREACHABLE
+            self._emit_link(connstate.LinkStatus(state, reason, fatal=True))
+        else:
+            self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU, f"Ligação ao veículo perdida: {reason}"))
+
+    def _obd_failed(self, cmd, exc):
+        """Erro num comando OBD: se a interface falhou, fecha-a; o estado detalhado diz porquê."""
+        if cmd == "obd_connect":
+            steps = list(getattr(self.obd, "steps", []) or self._obd_pending_steps)
+            self.result.emit("obd_steps", steps)
+            self._close_obd()
+            self._emit_link(connstate.classify_error(exc, self._port_present()))
+            return
+        if isinstance(exc, InterfaceError) or (self.obd is not None and not self.obd.connected):
+            self._obd_lost(str(exc), isinstance(exc, InterfaceError))
+
+    def _require_obd(self):
+        if self.obd is None or not self.obd.connected:
+            raise ProtocolError("Não há ligação OBD-II ao veículo: carregue em Ligar na página OBD-II")
+        return self.obd
+
+    def _cmd_obd_connect(self):
+        from .obd.elm327 import Elm327Link
+        from .obd.session import ObdSession
+        self.live_mode = None
+        self._close_obd()
+        if self.session:
+            self._cmd_disconnect()
+        if self.kl is not None:                    # a mesma porta não pode estar aberta duas vezes
+            self.kl.close()
+            self.kl = None
+        port = self.cfg.get("port") or ""
+        self._obd_pending_steps = []
+        if not port:
+            self._obd_pending_steps = [("Porta da interface", False, "Nenhuma porta escolhida em Opções")]
+            raise ProtocolError("Escolha a porta do adaptador ELM327 nas Opções")
+        if self._adapter() != "elm327":
+            self._obd_pending_steps = [("Tipo de interface", False, "Em Opções está escolhido um cabo KKL/J2534")]
+            raise ProtocolError("Em Opções, escolha \"ELM327 — OBD-II/EOBD multimarca\" como tipo de interface "
+                                "(ou o Simulador ELM327) para usar o diagnóstico OBD-II.")
+        present = self._port_present()
+        if present is False:
+            self._obd_pending_steps = [("Interface detectada", False, f"A porta {port} não existe neste momento")]
+            raise ProtocolError(f"A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o "
+                                "Bluetooth) e carregue em Actualizar nas Opções.")
+        link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"),
+                          protocol=self.cfg.get("elm_protocol") or "0")
+        self.obd = ObdSession(link, self._log)
+        self._emit_link(connstate.LinkStatus(connstate.CONNECTING, f"A ligar ao veículo por OBD-II ({port})…"))
+        info = self.obd.connect()
+        self.log.emit(f"OBD-II: ligado — {info['protocol']}, {len(info['ecus'])} centralina(s)"
+                      + (f", VIN {info['vin']}" if info.get("vin") else ""))
+        self._emit_link(connstate.obd_connected(info))
+        self.result.emit("obd_connect", info)
+
+    def _test_elm_adapter(self):
+        """Testar interface com um ELM327: abre a porta e identifica o adaptador, sem falar com o carro."""
+        from .obd.elm327 import Elm327Link
+        if self.obd is not None:
+            d = self.obd.link.describe()
+            self.result.emit("test_interface", {"ok": True, "message": f"Adaptador {d.get('version')} já ligado ao "
+                                                                       f"veículo ({d.get('protocol')})."})
+            return
+        if self.kl is not None:
+            self.kl.close()
+            self.kl = None
+        port = self.cfg.get("port") or ""
+        if not port:
+            raise ProtocolError("Escolha a porta do adaptador ELM327 nas Opções")
+        link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"))
+        try:
+            d = link.open()
+        finally:
+            link.close()
+        volt = d.get("voltage")
+        msg = (f"Adaptador {d.get('version')} a responder na porta {port} ({d.get('baud')} baud)."
+               + (f" Tensão na ficha OBD: {volt:.1f} V." if volt is not None else "")
+               + ("" if not d.get("warnings") else " Avisos: " + "; ".join(d["warnings"]) + ".")
+               + "\n\nIsto prova que o adaptador funciona; a ligação ao veículo testa-se na página OBD-II.")
+        self.result.emit("test_interface", {"ok": True, "message": msg})
+
+    def _cmd_obd_disconnect(self):
+        was = self.obd is not None
+        self._close_obd()
+        if was:
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Ligação OBD-II fechada."))
+        self.result.emit("obd_disconnect", None)
+
+    def _cmd_obd_dtcs(self):
+        self.result.emit("obd_dtcs", self._require_obd().read_dtcs())
+
+    def _cmd_obd_clear(self):
+        """Só chega aqui depois da confirmação explícita do utilizador na interface."""
+        o = self._require_obd()
+        self.live_mode = None
+        self.log.emit("OBD-II: pedido de apagar avarias (modo 04) enviado por acção do utilizador")
+        self.result.emit("obd_clear", o.clear_dtcs())
+
+    def _cmd_obd_freeze(self):
+        self.result.emit("obd_freeze", self._require_obd().freeze_frame())
+
+    def _cmd_obd_uds(self, target):
+        self.result.emit("obd_uds", self._require_obd().uds_info(target))
+
+    OBD_LIVE_MAX_SILENT = 5                # leituras seguidas sem nenhuma resposta → ligação perdida
+
+    def _poll_obd_live(self):
+        o = self.obd
+        values = o.read_live(list(self.live_groups))
+        if values and all(v.get("error") == "sem resposta da centralina" for v in values.values()):
+            self._obd_silent += 1
+            if self._obd_silent >= self.OBD_LIVE_MAX_SILENT:
+                self._obd_silent = 0
+                raise NoResponse(f"A centralina deixou de responder ({self.OBD_LIVE_MAX_SILENT} leituras seguidas "
+                                 "sem resposta): ignição desligada ou cabo solto?")
+        else:
+            self._obd_silent = 0
+        self.live.emit({"mode": "obd", "values": values, "t": time.time()})
 
     # ------------------------------------------------------------ leitura viva
     def _poll_live(self):

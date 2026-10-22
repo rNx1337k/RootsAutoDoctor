@@ -54,6 +54,18 @@ def run():
             kl.close()
     check("Ponte D2XX (simulador)", d2xx_sim)
 
+    def obd_sim():
+        from .obd.elm327 import ELM_SIM_PORT, Elm327Link
+        from .obd.session import ObdSession
+        s = ObdSession(Elm327Link(ELM_SIM_PORT))
+        try:
+            info = s.connect()
+            n = len(s.read_dtcs()["stored"])
+            return f"{info['adapter'].get('version')}, {info['protocol']}, {len(info['ecus'])} centralina(s), {n} avaria(s)"
+        finally:
+            s.disconnect()
+    check("OBD-II / ELM327 (simulador)", obd_sim)
+
     dll = d2xx.find_dll()
     if dll:
         def rt_usb():

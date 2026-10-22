@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.4.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.5.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.13-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  Diagnostic software for VAG vehicles over the K-line.<br>
+  Workshop diagnostic software: VAG over the K-line, and any make with OBD-II / EOBD.<br>
   Fault codes, live data, adaptations and coding — straight from the ECU.
 </p>
 
@@ -21,6 +21,8 @@
 
 Roots Auto Doctor communicates with VW, Audi, Seat and Škoda control modules using the
 **KW1281** and **KWP2000** protocols, through an inexpensive KKL cable or a J2534 interface.
+It also reads **any make with OBD-II / EOBD** (petrol from 2001, diesel from 2004 in the EU) through an
+**ELM327** adapter, including read-only **UDS** identification on CAN.
 It is designed for workshops: scan the car, review the results and hand the customer a report.
 
 ## Features
@@ -36,7 +38,13 @@ It is designed for workshops: scan the car, review the results and hand the cust
 - **Customer reports** in PDF or web format, branded with your workshop logo, with probable causes
 - **Diagnostic history** searchable by plate or customer
 - **Cable detection and connection check** to identify drivers, latency and wiring problems
-- **Built-in simulator** to use every feature without a car
+- **OBD-II / EOBD for any make** (ELM327): ECUs, VIN, MIL and readiness monitors, stored / pending /
+  permanent faults, clearing with confirmation and re-read, freeze frame, live data limited to the PIDs each ECU
+  declares, and read-only UDS identification and fault status on CAN
+- **Connection centre** on the home screen showing the real link state: cable seen ≠ interface open ≠ ECU answering
+- **Compatibility matrix** (Options → Compatibility, [docs/COBERTURA.md](docs/COBERTURA.md)) with the level of
+  evidence for every interface and protocol
+- **Built-in simulators** (K-line, J2534, ELM327) to use every feature without a car
 
 ## Installation
 
@@ -69,6 +77,7 @@ Passat B5, Audi A3 8L / A4 B5–B6, Seat Leon 1M and Škoda Octavia I.
 |---|---|
 | KKL 409.1 / K-line cables (FTDI, CH340) | KW1281 and KWP2000 |
 | J2534 PassThru (04.04) | KWP2000 only |
+| ELM327 and compatibles (USB / Bluetooth) | OBD-II / EOBD (CAN, ISO 9141-2, ISO 14230-4, SAE J1850) and read-only UDS on CAN — see [docs/OBD.md](docs/OBD.md) |
 | HEX-USB / HEX-V2 clones (FTDI, VID 0403 PID FA2x) | Not supported for ECU access: the app only reads the cable's own status (firmware, mode, K-line voltage) — see [docs/HEX_USB.md](docs/HEX_USB.md) |
 | Genuine HEX-V2 / HEX-NET, other firmware-based interfaces | Not supported |
 
@@ -85,6 +94,11 @@ For FTDI cables, setting the latency timer to 1 ms in Device Manager makes live 
 | Measuring blocks | ✓ | ✓ |
 | Basic settings, adaptation, coding (the value the ECU returns is checked) | ✓ | Planned |
 | Login (sent; KW1281 does not report whether the code is correct) and output tests | ✓ | Planned |
+
+OBD-II / EOBD and UDS (ELM327): see [docs/OBD.md](docs/OBD.md). The full matrix, with the evidence for each
+stage (detection, initialisation, ECU communication, interpretation), is in [docs/COBERTURA.md](docs/COBERTURA.md).
+**No interface has yet been confirmed on a vehicle with this app**: K-line fault decoding is validated against a
+real ECU response captured over USB; everything else is tested against the simulators.
 
 All functions are tested against the built-in simulator. Results from the simulator are always labelled as
 simulated — in the sidebar, the history and the reports. See [docs/AUDITORIA.md](docs/AUDITORIA.md) for what has

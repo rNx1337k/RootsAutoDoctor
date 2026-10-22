@@ -8,7 +8,8 @@ import unicodedata
 
 from . import vag_data
 
-SEVERITY_TEXT = {"alta": "Gravidade alta", "media": "Gravidade média", "baixa": "Gravidade baixa"}
+SEVERITY_TEXT = {"alta": "Gravidade alta", "media": "Gravidade média", "baixa": "Gravidade baixa",
+                 "na": "Gravidade não avaliada"}
 
 # --------------------------------------------------------------- por código
 _ABS_SENSOR = {
@@ -284,12 +285,32 @@ MODULE_SYSTEM = {0x01: "Motor", 0x02: "Caixa de velocidades", 0x03: "Travões / 
                  0x19: "Rede de bordo", 0x22: "Tracção integral", 0x25: "Imobilizador", 0x35: "Fecho centralizado",
                  0x44: "Direcção assistida", 0x46: "Conforto", 0x55: "Iluminação", 0x56: "Rádio"}
 
-_RANK = {"baixa": 0, "media": 1, "alta": 2}
+_RANK = {"na": -1, "baixa": 0, "media": 1, "alta": 2}
 
 
 def advice(fault, address=None):
     """fault: dicionário de vag_data.decode_fault (ou o guardado no histórico).
-    Devolve {"severity", "severity_text", "system", "causes", "checks", "notes", "known"}."""
+    Devolve {"severity", "severity_text", "system", "causes", "checks", "notes", "known"}.
+
+    Avarias OBD-II multimarca (com "obd_kind"): as fichas deste módulo foram escritas para motores VAG (grupos de
+    medição, componentes N18/N75…) e não se aplicam a outras marcas — não são usadas. Só se mostra o que o código
+    diz por si (sistema e categoria), sem gravidade inventada."""
+    if fault.get("obd_kind"):
+        from .obd import dtc as obd_dtc
+        code_txt = fault.get("vag") or ""
+        try:
+            cat = obd_dtc.category(code_txt)
+        except (IndexError, KeyError):
+            cat = "Código OBD"
+        notes = [f"Categoria do código: {cat}."]
+        if fault.get("obd_kind") == "pending":
+            notes.append("Pendente: a centralina detectou a falha num ciclo de condução, mas ainda não a confirmou.")
+        elif fault.get("obd_kind") == "permanent":
+            notes.append("Permanente: só desaparece quando a própria centralina confirmar a reparação "
+                         "(não se apaga pelo programa).")
+        notes.append("As causas dependem do fabricante e do motor: consulte a documentação técnica do veículo.")
+        return {"severity": "na", "severity_text": SEVERITY_TEXT["na"],
+                "system": cat.split(" · ")[0], "causes": [], "checks": [], "notes": notes, "known": False}
     code = fault.get("code")
     if code is None:
         try:

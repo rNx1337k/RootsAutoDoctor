@@ -127,7 +127,7 @@ class FaultAdviceCard(QFrame):
             self.clear()
             return
         a = fault_advice.advice(fault, address)
-        pc = f"  ·  {fault['pcode']}" if fault.get("pcode") else ""
+        pc = f"  ·  {fault['pcode']}" if fault.get("pcode") and fault.get("pcode") != fault.get("vag") else ""
         self.title.setText(f"{fault['vag']}{pc}  —  {fault['desc']}")
         self.sev.setText(a["severity_text"])
         self.sev.setStyleSheet(pill_style(severity_color(a["severity"])))
@@ -145,7 +145,7 @@ class FaultAdviceCard(QFrame):
         if a["checks"]:
             parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>O que verificar</b></p><ul style='margin:0'>"
                          + "".join(f"<li>{html.escape(c)}</li>" for c in a["checks"]) + "</ul>")
-        if not a["known"]:
+        if not a["known"] and not fault.get("obd_kind"):
             parts.append(f"<p style='color:{MUTED}; margin-top:6px'>Sem ficha específica para este código: "
                          "use o tipo de avaria acima como ponto de partida e consulte a documentação do motor.</p>")
         self.body.setText("".join(parts))

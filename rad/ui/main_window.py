@@ -10,13 +10,14 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, applog, history, report, vag_data
+from .. import APP_NAME, VERSION, applog, connstate, history, report, vag_data
 from ..settings import app_settings
-from ..kline import SIM_PORT, is_simulated_port
+from ..kline import SIM_PORT, is_elm_sim_port, is_simulated_port
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
-                    OptionsPage, btn, lbl)
+                    ObdPage, OptionsPage, btn, lbl)
 from .pages.common import FaultInfoDialog
+from .pages.coverage import CoverageDialog
 from .palette import Command, CommandPalette
 from .style import MUTED, OK, QSS, WARN, pill_style
 from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
@@ -41,6 +42,8 @@ class MainWindow(QMainWindow):
         self.worker.error.connect(self.on_error)
         self.worker.live.connect(self.on_live)
         self.worker.scan_progress.connect(self.on_scan_progress)
+        self.worker.link_state.connect(self.on_link_state)
+        self._obd_conn = False
 
         root = QWidget()
         root.setObjectName("root")
@@ -85,7 +88,7 @@ class MainWindow(QMainWindow):
         self.nav_btns = {}
         for key, text in [("home", "Início"), ("modules", "Controladores"),
                           ("module", "Controlador ligado"), ("autoscan", "Auto-Scan"),
-                          ("history", "Histórico"), ("options", "Opções")]:
+                          ("obd", "OBD-II multimarca"), ("history", "Histórico"), ("options", "Opções")]:
             b = btn(text, "nav", lambda _=False, k=key: self.show_page(k))
             b.setIcon(nav_icon(key))
             b.setIconSize(QSize(20, 20))
@@ -143,8 +146,9 @@ class MainWindow(QMainWindow):
         self.scan = AutoScanPage(self.worker)
         self.options = OptionsPage(self.settings)
         self.hist = HistoryPage()
+        self.obd = ObdPage(self.worker)
         self.pages = {"home": self.home, "modules": self.select, "module": self.module,
-                      "autoscan": self.scan, "history": self.hist, "options": self.options}
+                      "autoscan": self.scan, "obd": self.obd, "history": self.hist, "options": self.options}
         for p in self.pages.values():
             self.stack.addWidget(p)
 
@@ -158,6 +162,9 @@ class MainWindow(QMainWindow):
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
         self.options.link_check_req.connect(self.run_link_check)
         self.options.hex_mode_req.connect(self.run_hex_mode)
+        self.options.coverage_req.connect(self.show_coverage)
+        self.obd.report_req.connect(lambda: self.export_report("obd"))
+        self.obd.vin_found.connect(self._vin_from_vehicle)
 
         # ---------------- registo
         self.log = QPlainTextEdit()
@@ -192,6 +199,8 @@ class MainWindow(QMainWindow):
     def show_page(self, key):
         if key != "module":
             self.module.stop_live()
+        if key != "obd":
+            self.obd.stop_live()
         if key == "history":
             self.hist.refresh()
         if key == "home":
@@ -213,6 +222,7 @@ class MainWindow(QMainWindow):
             ("Ctrl+2", lambda: self.show_page("modules")),
             ("Ctrl+3", lambda: self.show_page("autoscan")),
             ("Ctrl+4", lambda: self.show_page("history")),
+            ("Ctrl+5", lambda: self.show_page("obd")),
             ("Ctrl+L", lambda: self.log_dock.setVisible(not self.log_dock.isVisible())),
             ("Ctrl+K", self.open_palette),
             ("Ctrl+P", self.open_palette),
@@ -244,6 +254,14 @@ class MainWindow(QMainWindow):
                     "autoscan", "scan mapa"),
             Command("Iniciar Auto-Scan", "Ler todos os controladores agora", lambda: self._home_go("autoscan_start"),
                     "bolt", "scan comecar"),
+            Command("OBD-II multimarca", "Avarias, prontidão e dados de qualquer marca (ELM327)",
+                    lambda: self.show_page("obd"), "obd", "obd eobd elm327 multimarca uds can"),
+            Command("Ligar por OBD-II", "Ligar ao veículo com o adaptador ELM327", self._obd_connect, "obd",
+                    "obd ligar elm"),
+            Command("Abrir simulador OBD-II", "Experimentar o diagnóstico multimarca sem carro",
+                    lambda: self._home_go("sim_obd"), "sim", "demo obd elm simulador"),
+            Command("Compatibilidade", "Interfaces e protocolos suportados, com o nível de prova",
+                    self.show_coverage, "grid", "cobertura protocolos interfaces suporte"),
             Command("Histórico", "Diagnósticos guardados", lambda: self.show_page("history"), "history",
                     "historico matricula"),
             Command("Opções", "Porta do cabo, oficina e suporte", lambda: self.show_page("options"), "options",
@@ -278,10 +296,24 @@ class MainWindow(QMainWindow):
             self.show_page("modules")
             self.toast.show_msg("Simulador activo: experimente 01 Motor, 03 ABS ou 17 Painel", "info")
             return
+        if key == "sim_obd":
+            self.options.select_simulator("elm327")
+            self.show_page("obd")
+            self.toast.show_msg("Simulador ELM327 activo — os dados são fictícios", "info")
+            return
+        if key == "coverage":
+            self.show_coverage()
+            return
+        if key == "test_interface":
+            self.options._test()
+            return
         if key == "report":
             self.export_report("auto")
             return
         if key == "autoscan_start":
+            if self._elm_selected():
+                self._explain_elm()
+                return
             self.show_page("autoscan")
             if not self.options.config()["port"]:
                 QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo em Opções.")
@@ -309,11 +341,39 @@ class MainWindow(QMainWindow):
         self.ws_brand.setPixmap(QPixmap())
         self.ws_brand.setText(name)
 
+    def _elm_selected(self):
+        c = self.options.config()
+        return c.get("adapter") == "elm327" or is_elm_sim_port(c.get("port") or "")
+
+    def _explain_elm(self):
+        QMessageBox.information(self, APP_NAME, "A interface escolhida é um adaptador ELM327 (OBD-II multimarca).\n\n"
+                                "As funções VAG (controladores, Auto-Scan por KW1281/KWP2000) precisam de um cabo KKL "
+                                "409.1 ou de uma interface J2534. Com o ELM327, use a página OBD-II.")
+        self.show_page("obd")
+
+    def _obd_connect(self):
+        self.show_page("obd")
+        self.obd._connect()
+
+    def _vin_from_vehicle(self, vin):
+        e = self.home.vehicle_edits["vin"]
+        if not e.text().strip():
+            e.setText(vin)
+            self.toast.show_msg(f"VIN lido do veículo: {vin}", "info")
+
+    def show_coverage(self):
+        CoverageDialog(self).exec()
+
     def apply_config(self, cfg, quiet=False):
         self.worker.submit("configure", cfg)
         self.update_workshop_brand()
         port = cfg["port"]
         sim = is_simulated_port(port)
+        kind = "Adaptador ELM327 (OBD-II)" if (cfg.get("adapter") == "elm327" or is_elm_sim_port(port)) \
+            else "Cabo KKL / J2534 (VAG)"
+        self.home.set_interface(f"{kind} · {port or 'porta por escolher'}" + (" · simulação" if sim else ""))
+        self.obd.set_adapter_text(f"Interface: {kind} · {port or 'porta por escolher'}"
+                                  + (" (simulação)" if sim else ""))
         self.sim_badge.setVisible(sim)
         if not port:
             self.home.set_port("Escolha a porta do cabo em Opções")
@@ -329,6 +389,9 @@ class MainWindow(QMainWindow):
             self.toast.show_msg("Opções guardadas")
 
     def connect_module(self, address):
+        if self._elm_selected():
+            self._explain_elm()
+            return
         if not self.options.config()["port"]:
             QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo em Opções.")
             self.show_page("options")
@@ -346,6 +409,11 @@ class MainWindow(QMainWindow):
         cfg = self.options.config()
         if not cfg["port"]:
             QMessageBox.information(self, APP_NAME, "Escolha primeiro a porta do cabo (ou use Detectar cabo).")
+            return
+        if self._elm_selected():
+            # com um ELM327, o diagnóstico da ligação é a própria ligação OBD-II, passo a passo
+            self.options._save()
+            self._obd_connect()
             return
         addr, ok = QInputDialog.getText(self, "Diagnóstico da ligação",
                                         "Ligue o cabo ao carro com a ignição ligada.\n\n"
@@ -386,9 +454,17 @@ class MainWindow(QMainWindow):
         box.exec()
 
     # ------------------------------------------------------------ relatório
+    def _resolve_source(self, source):
+        if source != "auto":
+            return source
+        if self.stack.currentWidget() is self.obd and self.obd.report_items():
+            return "obd"
+        return "scan" if self.scan.items else "module"
+
     def _report_items(self, source):
-        if source == "auto":
-            source = "scan" if self.scan.items else "module"
+        source = self._resolve_source(source)
+        if source == "obd":
+            return self.obd.report_items()
         if source == "scan":
             return self.scan.items
         if self.module.info is None:
@@ -397,6 +473,7 @@ class MainWindow(QMainWindow):
                  "status": "ok", "info": self.module.info, "faults": self.module.faults}]
 
     def export_report(self, source):
+        source = self._resolve_source(source)
         items = self._report_items(source)
         if not items:
             QMessageBox.information(self, APP_NAME, "Ainda não há dados para o relatório.\n"
@@ -411,9 +488,14 @@ class MainWindow(QMainWindow):
         notes, ok = QInputDialog.getMultiLineText(self, APP_NAME, "Observações para o cliente (opcional):")
         if not ok:
             return
-        from_scan = items is self.scan.items
+        from_scan = source == "scan"
+        from_obd = source == "obd"
         if from_scan:
             meta = dict(self.scan.meta)
+        elif from_obd:
+            oi = self.obd.info
+            meta = {"interface": oi.get("interface", ""), "simulated": bool(oi.get("simulated")),
+                    "protocol": oi.get("protocol"), "vin": oi.get("vin"), "kind": "obd"}
         else:
             info = self.module.info or {}
             meta = {"interface": info.get("interface", ""), "simulated": bool(info.get("simulated"))}
@@ -424,7 +506,8 @@ class MainWindow(QMainWindow):
                 # o Auto-Scan já ficou no histórico quando terminou: actualiza-o em vez de criar outro
                 history.update_session(self.scan.session_id, vehicle, notes)
             else:
-                history.save_session("autoscan" if from_scan else "modulo", vehicle, items, notes, meta=meta)
+                history.save_session("autoscan" if from_scan else ("obd" if from_obd else "modulo"), vehicle, items,
+                                     notes, meta=meta)
         except Exception as e:
             self.append_log(f"Histórico: não foi possível guardar ({e})")
 
@@ -529,6 +612,8 @@ class MainWindow(QMainWindow):
                 self.reconnect_btn.hide()
 
     def on_result(self, cmd, data):
+        if cmd.startswith("obd_"):
+            return self._on_obd_result(cmd, data)
         if cmd in ("read_faults", "clear_faults"):
             self.module.show_faults(data)
             if cmd == "clear_faults":
@@ -595,9 +680,60 @@ class MainWindow(QMainWindow):
             self.toast.show_msg("Auto-Scan concluído" if not data["aborted"] else "Auto-Scan interrompido",
                                 "ok" if not data["aborted"] else "warn")
 
+    def _on_obd_result(self, cmd, data):
+        o = self.obd
+        if cmd == "obd_connect":
+            o.on_connected(data)
+            self.statusBar().showMessage(f"OBD-II: ligado — {data.get('protocol')}")
+            self.toast.show_msg("Ligado ao veículo por OBD-II" + (" (simulação)" if data.get("simulated") else ""))
+        elif cmd == "obd_steps":
+            o.show_steps(data)
+        elif cmd == "obd_dtcs":
+            o.on_dtcs(data)
+            n = sum(len(data.get(k, [])) for k in ("stored", "pending", "permanent"))
+            self.toast.show_msg("Sem avarias OBD-II" if not n else f"{n} avaria(s) OBD-II", "ok" if not n else "warn")
+        elif cmd == "obd_clear":
+            o.on_clear(data)
+            left = len(data["after"].get("stored", [])) + len(data["after"].get("pending", []))
+            self.toast.show_msg("Avarias apagadas — confirmado pela releitura" if not left else
+                                f"Pedido aceite, mas {left} avaria(s) continuam na memória", "ok" if not left else "warn")
+        elif cmd == "obd_freeze":
+            o.on_freeze(data)
+        elif cmd == "obd_uds":
+            o.on_uds(data)
+        elif cmd == "obd_lost":
+            o.on_lost(data)
+            self.toast.show_msg("Ligação OBD-II perdida", "bad")
+        elif cmd == "obd_disconnect":
+            o.on_disconnected()
+
+    def on_link_state(self, st):
+        """Estado detalhado (connstate) — a fonte de verdade do centro de ligação e da barra lateral em OBD-II.
+        Na barra lateral, as ligações VAG continuam a ser tratadas por on_state."""
+        self.home.set_link(st)
+        data = st.data if isinstance(st.data, dict) else None
+        if st.state == connstate.ECU_CONNECTED and data and data.get("kind") == "obd":
+            self._obd_conn = True
+            self.set_conn_state("connected", "Ligado por OBD-II",
+                                f"{data.get('protocol', '')}\n{len(data.get('ecus', []))} centralina(s)")
+        elif st.state == connstate.CONNECTING and st.data is None:          # ligação OBD-II a começar
+            self._obd_conn = True
+            self.set_conn_state("connecting", "A ligar por OBD-II…", "")
+        elif self._obd_conn:
+            self._obd_conn = False
+            port = self.options.config()["port"]
+            self.set_conn_state("disconnected", None, f"Interface: {port or '—'}")
+
     def on_error(self, cmd, msg):
         self.append_log(f"ERRO ({cmd}): {msg}")
         self.statusBar().showMessage(msg, 8000)
+        if cmd.startswith("obd_"):
+            self.obd.on_error(cmd, msg)
+            if cmd in ("obd_connect", "obd_clear"):
+                QMessageBox.warning(self, APP_NAME, msg)
+            elif cmd != "obd_uds":
+                self.toast.show_msg(msg, "bad")
+            return
         if cmd == "autoscan":
             self.scan.done(True, msg)
         if cmd == "clear_all":
@@ -611,6 +747,9 @@ class MainWindow(QMainWindow):
             self.toast.show_msg(msg, "bad")
 
     def on_live(self, data):
+        if data.get("mode") == "obd":
+            self.obd.on_live(data)
+            return
         self.module.on_live(data)
 
     def on_scan_progress(self, i, total, item):
@@ -627,6 +766,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue("ui/log_visible", "true" if self.log_dock.isVisible() else "false")
         self.settings.setValue("ui/geometry", self.saveGeometry())
         self.module.stop_live()
+        self.obd.stop_live()
         self.worker.submit("disconnect")
         self.worker.stop()
         super().closeEvent(ev)

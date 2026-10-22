@@ -105,6 +105,13 @@ def connected(info):
     return LinkStatus(ECU_CONNECTED, f"Ligado a {where} — {name}".strip(" —"), data=info)
 
 
+def obd_connected(info):
+    """Veículo ligado por OBD-II: pelo menos uma centralina respondeu ao pedido 01 00."""
+    n = len(info.get("ecus", []))
+    return LinkStatus(ECU_CONNECTED, f"Ligado por OBD-II — {info.get('protocol', '')} · {n} centralina(s)",
+                      data=info)
+
+
 def connecting(address):
     where = f"{address:02X}" if isinstance(address, int) else str(address)
     return LinkStatus(CONNECTING, f"A ligar ao controlador {where}…", data=address)

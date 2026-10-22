@@ -23,6 +23,7 @@ class OptionsPage(QWidget):
     test_req = Signal()
     link_check_req = Signal()
     hex_mode_req = Signal(str)
+    coverage_req = Signal()
     detect_done = Signal(object)          # resultado da procura do cabo (vem de uma thread à parte)
 
     def __init__(self, settings):
@@ -45,12 +46,28 @@ class OptionsPage(QWidget):
         f = QFormLayout(c)
         f.setContentsMargins(20, 18, 20, 18)
         f.setVerticalSpacing(12)
+        self.adapter = QComboBox()
+        for t, d in [("Cabo KKL / J2534 — diagnóstico VAG pela linha K (KW1281, KWP2000)", "kline"),
+                     ("Adaptador ELM327 — OBD-II / EOBD multimarca (CAN e linha K)", "elm327")]:
+            self.adapter.addItem(t, d)
+        self.adapter.currentIndexChanged.connect(self._adapter_changed)
+        f.addRow(lbl("Tipo de interface", "muted"), self.adapter)
         prow = QHBoxLayout()
         self.port = QComboBox()
         self.port.setMinimumWidth(240)
         prow.addWidget(self.port, 1)
         prow.addWidget(btn("Actualizar", None, self.refresh_ports))
         f.addRow(lbl("Porta do cabo", "muted"), prow)
+        self.port.currentIndexChanged.connect(self._port_changed)
+        self.elm_proto = QComboBox()
+        for t, d in [("Automático (o adaptador procura)", "0"), ("ISO 15765-4 CAN 11 bits 500k", "6"),
+                     ("ISO 15765-4 CAN 29 bits 500k", "7"), ("ISO 15765-4 CAN 11 bits 250k", "8"),
+                     ("ISO 15765-4 CAN 29 bits 250k", "9"), ("ISO 14230-4 KWP rápido", "5"),
+                     ("ISO 14230-4 KWP 5 baud", "4"), ("ISO 9141-2", "3"), ("SAE J1850 VPW", "2"),
+                     ("SAE J1850 PWM", "1")]:
+            self.elm_proto.addItem(t, d)
+        self.elm_proto_lbl = lbl("Protocolo OBD", "muted")
+        f.addRow(self.elm_proto_lbl, self.elm_proto)
         self.baud = QComboBox()
         for t, d in [("Automática", "auto"), ("10400", "10400"), ("9600", "9600"), ("4800", "4800")]:
             self.baud.addItem(t, d)
@@ -67,6 +84,7 @@ class OptionsPage(QWidget):
         crow.addWidget(self.detect_btn)
         crow.addWidget(btn("Testar interface", None, self._test))
         crow.addWidget(btn("Diagnóstico da ligação", None, lambda: self.link_check_req.emit()))
+        crow.addWidget(btn("Compatibilidade", None, lambda: self.coverage_req.emit()))
         crow.addStretch(1)
         f.addRow(lbl("Cabo", "muted"), crow)
         hrow = QHBoxLayout()
@@ -74,7 +92,9 @@ class OptionsPage(QWidget):
         hrow.addWidget(btn("Ler modo do cabo", None, lambda: self._hex("read")))
         hrow.addWidget(btn("Repor modo inteligente", None, lambda: self._hex("smart")))
         hrow.addStretch(1)
-        f.addRow(lbl("Cabo HEX", "muted"), hrow)
+        self.hex_lbl = lbl("Cabo HEX", "muted")
+        f.addRow(self.hex_lbl, hrow)
+        self._form, self._hex_row = f, hrow
         v.addWidget(c)
 
         wc = card()
@@ -113,6 +133,9 @@ class OptionsPage(QWidget):
             "Cabos suportados: cabos KKL 'VAG-COM 409.1' e clones VCDS de linha K com chip FTDI ou CH340 "
             "(aparecem como porta COM normal). Para máxima velocidade em cabos FTDI: Gestor de dispositivos → "
             "Portas (COM) → Propriedades → Definições da porta → Avançadas → Latency Timer = 1 ms.\n\n"
+            "Adaptadores ELM327 (USB ou Bluetooth) aparecem como porta COM: escolha \"Adaptador ELM327\" em Tipo de "
+            "interface e use a página OBD-II para qualquer marca com OBD-II/EOBD. Os clones baratos nem sempre "
+            "implementam todos os comandos; o programa indica o que o adaptador respondeu.\n\n"
             "Clones HEX-USB+CAN (chip FTDI VID 0403 PID FA24 com microcontrolador) aparecem como D2XX:… "
             "(driver RT-USB) ou FTDI:… (driver WinUSB). O Diagnóstico da ligação fala com o microcontrolador "
             "do cabo e mostra o estado real; a leitura de centralinas através dele ainda não está disponível. "
@@ -133,12 +156,31 @@ class OptionsPage(QWidget):
         if i >= 0:
             self.port.setCurrentIndex(i)
 
+    def _adapter_changed(self, *_):
+        """Mostra só as opções que se aplicam à interface escolhida."""
+        elm = self.adapter.currentData() == "elm327"
+        form = getattr(self, "_form", None)
+        if form is None:
+            return
+        form.setRowVisible(self.elm_proto, elm)
+        for row in (self.baud, self.echo, self._hex_row):
+            form.setRowVisible(row, not elm)
+
+    def _port_changed(self, *_):
+        from ...kline import is_elm_sim_port
+        if is_elm_sim_port(self.port.currentData() or ""):
+            i = self.adapter.findData("elm327")
+            if i >= 0 and self.adapter.currentIndex() != i:
+                self.adapter.setCurrentIndex(i)
+
     def _load(self):
-        for combo, key, default in ((self.port, "port", ""), (self.baud, "baud", "auto"), (self.echo, "echo", "auto")):
+        for combo, key, default in ((self.port, "port", ""), (self.baud, "baud", "auto"), (self.echo, "echo", "auto"),
+                                    (self.adapter, "adapter", "kline"), (self.elm_proto, "elm_protocol", "0")):
             i = combo.findData(self.settings.value(key, default))
             if i >= 0:
                 combo.setCurrentIndex(i)
         self.raw.setChecked(self.settings.value("raw_log", "false") == "true")
+        self._adapter_changed()
         for k, e in self.ws_edits.items():
             e.setText(self.settings.value(f"workshop/{k}", "") or "")
         self._show_logo()
@@ -192,7 +234,8 @@ class OptionsPage(QWidget):
 
     def config(self):
         return {"port": self.port.currentData() or "", "baud": self.baud.currentData(),
-                "echo": self.echo.currentData(), "raw_log": self.raw.isChecked()}
+                "echo": self.echo.currentData(), "raw_log": self.raw.isChecked(),
+                "adapter": self.adapter.currentData() or "kline", "elm_protocol": self.elm_proto.currentData() or "0"}
 
     def _save(self):
         c = self.config()
@@ -200,6 +243,8 @@ class OptionsPage(QWidget):
         self.settings.setValue("baud", c["baud"])
         self.settings.setValue("echo", c["echo"])
         self.settings.setValue("raw_log", "true" if c["raw_log"] else "false")
+        self.settings.setValue("adapter", c["adapter"])
+        self.settings.setValue("elm_protocol", c["elm_protocol"])
         for k, val in self.workshop().items():
             self.settings.setValue(f"workshop/{k}", val)
         self.saved.emit(c)
@@ -308,11 +353,15 @@ class OptionsPage(QWidget):
         self._save()
         self.test_req.emit()
 
-    def select_simulator(self):
-        from ...kline import SIM_PORT
-        i = self.port.findData(SIM_PORT)
+    def select_simulator(self, kind="kline"):
+        """kind: "kline" (simulador VAG) ou "elm327" (simulador OBD-II)."""
+        from ...kline import SIM_ELM_PORT, SIM_PORT
+        i = self.port.findData(SIM_ELM_PORT if kind == "elm327" else SIM_PORT)
         if i >= 0:
             self.port.setCurrentIndex(i)
+        j = self.adapter.findData(kind)
+        if j >= 0:
+            self.adapter.setCurrentIndex(j)
         self._save()
 
 

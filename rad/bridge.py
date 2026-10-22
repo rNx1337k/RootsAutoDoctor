@@ -6,6 +6,7 @@ Agora as respostas chegam por uma thread de leitura e cada pedido tem um tempo m
 lido continuamente (um driver que escreva muito no stderr deixava de bloquear o tubo)."""
 import collections
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -19,8 +20,13 @@ NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 class BridgeProcess:
     def __init__(self, args, name):
         self.name = name
+        # UTF-8 dos dois lados: com text=True sem codificação, o pai lia na página de código do Windows e a
+        # ponte escrevia na que o ambiente lhe desse (ex.: PYTHONIOENCODING=utf-8) — as mensagens de erro da
+        # ponte ("DLL não carregou") chegavam corrompidas.
+        env = dict(os.environ, PYTHONIOENCODING="utf-8")
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, text=True, creationflags=NO_WINDOW)
+                                     stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                                     env=env, creationflags=NO_WINDOW)
         self.args = self.proc.args
         self._lines = queue.Queue()
         self._err = collections.deque(maxlen=40)
