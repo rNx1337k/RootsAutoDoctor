@@ -49,3 +49,29 @@ def test_selftest_does_not_need_qt():
     with open(report, encoding="utf-8") as fh:
         text = fh.read()
     assert "auto-teste" in text and "OK    Ponte J2534 (simulador)" in text, text
+
+
+def test_ui_scale_setting_is_applied_at_startup_only_when_valid():
+    import tempfile
+    from rad import settings
+    ini = os.path.join(tempfile.mkdtemp(), "s.ini")
+    old = os.environ.get("RAD_SETTINGS_INI")
+    os.environ["RAD_SETTINGS_INI"] = ini
+    try:
+        env = {}
+        assert settings.apply_ui_scale(env) is None and "QT_SCALE_FACTOR" not in env      # normal: nada muda
+        s = settings.app_settings()
+        s.setValue("ui/scale", "1.3")
+        s.sync()
+        assert settings.apply_ui_scale(env) == "1.3" and env["QT_SCALE_FACTOR"] == "1.3"
+        env = {"QT_SCALE_FACTOR": "2"}
+        assert settings.apply_ui_scale(env) is None and env["QT_SCALE_FACTOR"] == "2"   # do utilizador: fica
+        s.setValue("ui/scale", "9")
+        s.sync()
+        env = {}
+        assert settings.ui_scale() == "1" and settings.apply_ui_scale(env) is None      # valor inválido
+    finally:
+        if old is None:
+            os.environ.pop("RAD_SETTINGS_INI", None)
+        else:
+            os.environ["RAD_SETTINGS_INI"] = old

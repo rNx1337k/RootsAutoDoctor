@@ -3,6 +3,15 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-10-24
+### Added
+- Customer report: **"Interventions on the modules"** section listing the codings and adaptations written during
+  the visit (same day, only the modules read in that visit, never mixing simulator and real car), with the
+  previous value, the time and whether the module confirmed it. The list is stored with the history session,
+  so a report regenerated later shows the same interventions
+- Options → **Display**: interface size (100%, 115%, 130%, 150%) so text, buttons and gauges can be read from
+  the car. Applied at the next start; a `QT_SCALE_FACTOR` set by the user is respected
+- `journal.changes_for_visit()`, `history.update_session(meta=...)` and tests for both
 ## [1.6.0] — 2026-10-24
 ### Added
 - **Change journal** (`rad/journal.py`, `alteracoes.db` next to the history): every coding and adaptation written

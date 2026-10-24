@@ -151,9 +151,10 @@ def save_session(kind, vehicle, items, notes="", directory=None, meta=None):
     return sid
 
 
-def update_session(sid, vehicle=None, notes=None, directory=None):
+def update_session(sid, vehicle=None, notes=None, directory=None, meta=None):
     """Actualiza os dados do veículo e/ou as observações de uma sessão já gravada (ex.: ao gerar o relatório
-    de um Auto-Scan que já ficou no histórico), em vez de criar uma sessão repetida."""
+    de um Auto-Scan que já ficou no histórico), em vez de criar uma sessão repetida. meta é juntado ao que já
+    lá estava (ex.: as alterações feitas na visita)."""
     db = _open(directory)
     try:
         row = db.execute("SELECT data FROM sessions WHERE id = ?", (sid,)).fetchone()
@@ -164,6 +165,8 @@ def update_session(sid, vehicle=None, notes=None, directory=None):
             data["vehicle"] = vehicle
         if notes is not None:
             data["notes"] = notes
+        if meta:
+            data["meta"] = dict(data.get("meta") or {}, **meta)
         s = summary(data)
         with db:
             db.execute("UPDATE sessions SET plate = ?, client = ?, model = ?, data = ? WHERE id = ?",

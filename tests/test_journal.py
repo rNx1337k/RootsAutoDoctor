@@ -122,3 +122,35 @@ def test_service_reset_records_the_mileage_counter_before_the_test():
     r = s.service_reset(0)
     assert r["status"] == "ok" and r["previous"] == 15 and r["value"] == 0
     kl.close()
+
+
+def test_changes_for_visit_only_today_and_only_the_controllers_read():
+    import datetime
+    d = tempfile.mkdtemp()
+    journal.record("coding", ENGINE, requested=4102, before=2, after=4102, directory=d)
+    journal.record("coding", dict(ENGINE, address=0x17, part="1J0920826C"), requested=1, before=2, after=1,
+                   directory=d)
+    journal.record("coding", ENGINE, requested=5, before=4102, after=5, simulated=True, directory=d)
+    items = [{"address": 0x01, "status": "ok", "info": {"part": "038906019FN"}},
+             {"address": 0x03, "status": "error", "info": {}}]
+    ch = journal.changes_for_visit(items, directory=d)
+    assert [c["requested"] for c in ch] == [4102]
+    assert [c["requested"] for c in journal.changes_for_visit(items, simulated=True, directory=d)] == [5]
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    assert journal.changes_for_visit(items, day=yesterday, directory=d) == []
+    assert journal.changes_for_visit([], directory=d) == []
+
+
+def test_report_lists_the_changes_made_in_the_visit():
+    from rad import report
+    d = tempfile.mkdtemp()
+    journal.record("coding", ENGINE, requested=4102, before=2, after=4102, directory=d)
+    journal.record("adaptation", ENGINE, requested=140, before=128, after=None, channel=1, status="unknown",
+                   directory=d)
+    items = [{"address": 0x01, "module": "Motor", "status": "ok", "info": dict(ENGINE, coding=4102), "faults": []}]
+    html = report.build_html({"name": "Oficina"}, {"plate": "AA-00-00"}, items,
+                             meta={"changes": journal.changes_for_visit(items, directory=d)})
+    assert "Intervenções nos controladores" in html
+    assert "Codificação: 00002 → 04102" in html and "Confirmada" in html
+    assert "Adaptação canal 01: 128 → 140 (por confirmar)" in html and "Por confirmar" in html
+    assert "Intervenções" not in report.build_html({"name": "Oficina"}, {}, items)

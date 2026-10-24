@@ -165,6 +165,11 @@ def test_changes_tab_records_writes_and_prepares_the_previous_value():
         m.chg_table.selectRow(0)
         m._prepare_selected_change()
         assert m.tabs.currentIndex() == 4 and m.ad_channel.value() == 1 and m.ad_new.value() == 128
+        # o relatório desta visita leva as duas alterações
+        from rad import journal
+        visit = journal.changes_for_visit(w._report_items("module"), simulated=True)
+        assert [c["kind"] for c in visit][-2:] == ["coding", "adaptation"]
+        assert w.options.scale.currentData() == "1"
         w.worker.submit("disconnect")
         assert _wait(app, lambda: not w.nav_btns["module"].isEnabled())
     finally:

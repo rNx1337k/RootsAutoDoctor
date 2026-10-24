@@ -82,3 +82,13 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("OK", name)
+
+
+def test_update_session_merges_meta():
+    d = tempfile.mkdtemp()
+    sid = history.save_session("autoscan", {"plate": "AA"}, [], directory=d, meta={"simulated": True, "total": 3})
+    history.update_session(sid, notes="ok", directory=d, meta={"changes": [{"kind": "coding"}]})
+    data = history.load_session(sid, d)
+    assert data["meta"]["total"] == 3 and data["meta"]["changes"] == [{"kind": "coding"}] and data["notes"] == "ok"
+    history.update_session(sid, notes="x", directory=d)                 # sem meta: fica igual
+    assert history.load_session(sid, d)["meta"]["changes"] == [{"kind": "coding"}]

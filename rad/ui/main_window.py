@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, applog, connstate, history, report, vag_data
+from .. import APP_NAME, VERSION, applog, connstate, history, journal, report, vag_data
 from ..settings import app_settings
 from ..kline import SIM_PORT, is_elm_sim_port, is_simulated_port
 from ..worker import Worker
@@ -499,12 +499,18 @@ class MainWindow(QMainWindow):
         else:
             info = self.module.info or {}
             meta = {"interface": info.get("interface", ""), "simulated": bool(info.get("simulated"))}
+        if not from_obd:                  # o OBD-II só lê: não há escritas a mostrar
+            try:
+                meta["changes"] = journal.changes_for_visit(items, simulated=bool(meta.get("simulated")))
+            except Exception as e:
+                self.append_log(f"Registo de alterações: não foi possível ler ({e})")
         if not self._write_report(items, vehicle, notes, meta):
             return
         try:
             if from_scan and self.scan.session_id:
                 # o Auto-Scan já ficou no histórico quando terminou: actualiza-o em vez de criar outro
-                history.update_session(self.scan.session_id, vehicle, notes)
+                history.update_session(self.scan.session_id, vehicle, notes,
+                                       meta={"changes": meta["changes"]} if meta.get("changes") else None)
             else:
                 history.save_session("autoscan" if from_scan else ("obd" if from_obd else "modulo"), vehicle, items,
                                      notes, meta=meta)

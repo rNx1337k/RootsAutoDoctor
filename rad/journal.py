@@ -109,6 +109,23 @@ def original_value(address, part, kind, channel=None, simulated=False, directory
         db.close()
 
 
+def changes_for_visit(items, simulated=False, day=None, directory=None):
+    """Alterações feitas no dia da visita (por omissão, hoje) nos controladores lidos nessa visita
+    (endereço + nº de peça), da mais antiga para a mais recente. Serve para o relatório do cliente."""
+    day = (day or datetime.date.today()).isoformat()
+    ecus = {(int(i["address"]), ((i.get("info") or {}).get("part") or "").strip())
+            for i in items if i.get("status") == "ok" and i.get("address") is not None}
+    if not ecus:
+        return []
+    db = _open(directory)
+    try:
+        rows = db.execute("SELECT * FROM changes WHERE date LIKE ? AND simulated = ? ORDER BY id ASC",
+                          (day + "%", int(bool(simulated)))).fetchall()
+    finally:
+        db.close()
+    return [dict(r) for r in rows if (r["address"], r["part"]) in ecus]
+
+
 def describe(change):
     """Texto curto para listas e relatórios, ex.: "Codificação 00002 → 04102"."""
     def fmt(v):

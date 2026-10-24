@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from ... import APP_NAME
 from ...kline import list_serial_ports
+from ...settings import ui_scale
 from ..style import BAD, OK, WARN
 from .common import lbl, btn, card, page_header
 
@@ -122,6 +123,20 @@ class OptionsPage(QWidget):
         wf.addRow(lbl("Logótipo da oficina", "muted"), lrow)
         wf.addRow(lbl("O logótipo aparece no relatório para o cliente e na barra lateral do programa.", "muted"))
         v.addWidget(wc)
+
+        sc = card()
+        sf = QFormLayout(sc)
+        sf.setContentsMargins(20, 18, 20, 18)
+        sf.setVerticalSpacing(10)
+        sf.addRow(lbl("Ecrã", "h2"))
+        self.scale = QComboBox()
+        for t, d in [("Normal (100%)", "1"), ("Grande (115%)", "1.15"), ("Muito grande (130%)", "1.3"),
+                     ("Oficina — ver ao longe (150%)", "1.5")]:
+            self.scale.addItem(t, d)
+        sf.addRow(lbl("Tamanho da interface", "muted"), self.scale)
+        sf.addRow(lbl("Aumenta letras, botões e mostradores para se lerem a partir do carro. "
+                      "Aplica-se quando o programa voltar a abrir.", "muted", wrap=True))
+        v.addWidget(sc)
         row = QHBoxLayout()
         row.addWidget(btn("Guardar", "primary", self._save))
         row.addSpacing(12)
@@ -180,6 +195,7 @@ class OptionsPage(QWidget):
             if i >= 0:
                 combo.setCurrentIndex(i)
         self.raw.setChecked(self.settings.value("raw_log", "false") == "true")
+        self.scale.setCurrentIndex(max(0, self.scale.findData(ui_scale(self.settings))))
         self._adapter_changed()
         for k, e in self.ws_edits.items():
             e.setText(self.settings.value(f"workshop/{k}", "") or "")
@@ -247,6 +263,11 @@ class OptionsPage(QWidget):
         self.settings.setValue("elm_protocol", c["elm_protocol"])
         for k, val in self.workshop().items():
             self.settings.setValue(f"workshop/{k}", val)
+        scale = self.scale.currentData() or "1"
+        if scale != ui_scale(self.settings):
+            self.settings.setValue("ui/scale", scale)
+            QMessageBox.information(self, APP_NAME, "O novo tamanho da interface aplica-se quando voltar a abrir "
+                                                    "o programa.")
         self.saved.emit(c)
 
     def _detect_cable(self):

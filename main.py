@@ -117,6 +117,9 @@ def create_window():
     from PySide6.QtWidgets import QApplication, QSplashScreen
     from rad.ui.main_window import MainWindow
     from rad.ui.widgets import asset_path
+    if QApplication.instance() is None:
+        from rad.settings import apply_ui_scale
+        apply_ui_scale()                          # tamanho da interface escolhido em Opções
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Roots")

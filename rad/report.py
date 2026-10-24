@@ -3,7 +3,7 @@ import base64
 import datetime
 import html
 
-from . import APP_NAME, VERSION, fault_advice
+from . import APP_NAME, VERSION, fault_advice, journal
 
 BLUE = "#2F6FE4"
 RED = "#D62F36"
@@ -52,7 +52,8 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                date=None):
     """items: lista no formato do Auto-Scan
        [{"address", "module", "status": ok|error, "info", "faults", "error"}].
-    meta: {"interface", "simulated", "aborted", "scanned", "total"} da sessão (opcional).
+    meta: {"interface", "simulated", "aborted", "scanned", "total", "changes"} da sessão (opcional);
+    changes = alterações do registo (rad/journal.py) feitas durante a visita.
     date: data da sessão (datetime ou texto ISO); por omissão, agora."""
     meta = meta or {}
     if isinstance(date, str):
@@ -109,6 +110,24 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                      f" · <span style='color:{sev_color}'>{_e(adv['severity_text'].lower())}</span></span>{causes}</div>")
         rows.append(f"<tr><td class='addr'>{addr}</td><td>{cell}</td><td>{status}</td></tr>")
 
+    changes_html = ""
+    changes = meta.get("changes") or []
+    if changes:
+        crow = []
+        for ch in changes:
+            when = str(ch.get("date", "")).replace("T", " ")[11:16]
+            color = OK if ch.get("status") == "ok" else WARN
+            crow.append(f"<tr><td class='addr'>{int(ch.get('address', 0)):02X}</td>"
+                        f"<td><b>{_e(ch.get('module'))}</b><br><span class='muted'>{_e(ch.get('part'))}</span></td>"
+                        f"<td>{_e(journal.describe(ch))}</td>"
+                        f"<td class='muted'>{_e(when)}</td>"
+                        f"<td style='color:{color}'><b>{'Confirmada' if ch.get('status') == 'ok' else 'Por confirmar'}"
+                        f"</b></td></tr>")
+        changes_html = ("<h2>Intervenções nos controladores</h2>"
+                        "<p class='muted'>Codificações e adaptações gravadas durante esta visita, com o valor anterior. "
+                        "\"Confirmada\" = o controlador devolveu o valor gravado.</p>"
+                        f"<table class='modules'>{''.join(crow)}</table>")
+
     notes_html = (f"<h2>Observações</h2><p>{_e(notes).replace(chr(10), '<br>')}</p>" if notes.strip() else "")
 
     return f"""<!doctype html>
@@ -149,6 +168,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
 
 <h2>Controladores</h2>
 <table class="modules">{''.join(rows) if rows else '<tr><td>Nenhum controlador lido.</td></tr>'}</table>
+{changes_html}
 {notes_html}
 <p class="muted" style="margin-top:24px">Gerado por {APP_NAME} v{VERSION}. Os códigos de avaria e o seu estado
 são os que os controladores registaram no momento da leitura; a gravidade e as possíveis causas são sugestões do
