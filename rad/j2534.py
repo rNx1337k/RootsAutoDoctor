@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 from .errors import ConnectError, InterfaceError, KLineError, KLineTimeout
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -86,8 +87,9 @@ def find_python(bits):
             continue
     where = ("volte a instalar o Roots Auto Doctor" if is_frozen() else
              r"execute o run.bat (prepara a pasta runtime) ou: .venv\Scripts\python.exe tools\get_runtime.py")
-    raise ConnectError(f"Esta interface usa um driver de {want} bits e falta o componente de {want} bits do "
-                       f"programa (pasta runtime/py{want}): {where}.")
+    raise ConnectError(tr("Esta interface usa um driver de {want} bits e falta o componente de {want} bits do "
+                          "programa (pasta runtime/py{want}): {where}.",
+                          want=want, where=where))
 
 
 class J2534Link:
@@ -119,7 +121,7 @@ class J2534Link:
 
     def _call(self, op, **kw):
         if self.proc is None:
-            raise InterfaceError("Interface J2534 não está aberta")
+            raise InterfaceError(tr("Interface J2534 não está aberta"))
         limit = self.OP_TIMEOUT.get(op, 10.0)
         if op == "read":
             limit = kw.get("timeout_ms", 1000) / 1000 + 5.0
@@ -137,7 +139,7 @@ class J2534Link:
         if self.proc is not None:
             return
         if not self.is_simulator and not os.path.exists(self.dll):
-            raise KLineError(f"Driver J2534 não encontrado: {self.dll}")
+            raise KLineError(tr("Driver J2534 não encontrado: {dll}", dll=self.dll))
         bits = None if self.is_simulator else dll_bitness(self.dll)
         exe = find_python(bits)
         from .bridge import BridgeProcess
@@ -176,7 +178,7 @@ class J2534Link:
     def read_frame(self, timeout):
         data = self._call("read", timeout_ms=int(timeout * 1000))["data"]
         if data is None:
-            raise KLineTimeout("O controlador não respondeu (timeout J2534)")
+            raise KLineTimeout(tr("O controlador não respondeu (timeout J2534)"))
         if self.raw_log:
             self.log("    ‹ " + " ".join(f"{b:02X}" for b in data))
         return data

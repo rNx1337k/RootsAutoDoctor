@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from ... import fault_advice
 from ..style import CYAN, MUTED, pill_style, severity_color
 from ..widgets import GaugeCell, IconBadge
+from ...i18n import tr
 
 
 # ------------------------------------------------------------------ helpers
@@ -84,7 +85,7 @@ class StatCard(QFrame):
 class FaultAdviceCard(QFrame):
     """Mostra a gravidade, as causas prováveis e o que verificar para a avaria seleccionada."""
 
-    def __init__(self, empty_text="Seleccione uma avaria para ver as causas prováveis e o que verificar."):
+    def __init__(self, empty_text=tr("Seleccione uma avaria para ver as causas prováveis e o que verificar.")):
         super().__init__()
         self.setObjectName("card")
         v = QVBoxLayout(self)
@@ -95,7 +96,7 @@ class FaultAdviceCard(QFrame):
         head.addWidget(IconBadge("fault", CYAN, 34), 0, Qt.AlignTop)
         tv = QVBoxLayout()
         tv.setSpacing(0)
-        self.eyebrow = lbl("ASSISTENTE DE DIAGNÓSTICO", "eyebrow")
+        self.eyebrow = lbl(tr("ASSISTENTE DE DIAGNÓSTICO"), "eyebrow")
         self.title = lbl(empty_text, "h2", wrap=True)
         tv.addWidget(self.eyebrow)
         tv.addWidget(self.title)
@@ -138,16 +139,20 @@ class FaultAdviceCard(QFrame):
         if a["notes"]:
             parts.append("".join(f"<p style='color:{MUTED}; margin:2px 0'>{html.escape(n)}</p>" for n in a["notes"]))
         if a["causes"]:
-            parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>Possíveis causas</b> "
-                         f"<span style='color:{MUTED}'>— sugestão do programa, confirme com medições</span></p>"
-                         "<ul style='margin:0'>"
+            parts.append(tr("<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>Possíveis causas</b> <span "
+                            "style='color:{MUTED}'>— sugestão do programa, confirme com medições</span></p><ul "
+                            "style='margin:0'>",
+                            CYAN=CYAN, MUTED=MUTED)
                          + "".join(f"<li>{html.escape(c)}</li>" for c in a["causes"]) + "</ul>")
         if a["checks"]:
-            parts.append(f"<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>O que verificar</b></p><ul style='margin:0'>"
+            parts.append(tr("<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>O que verificar</b></p><ul "
+                            "style='margin:0'>",
+                            CYAN=CYAN)
                          + "".join(f"<li>{html.escape(c)}</li>" for c in a["checks"]) + "</ul>")
         if not a["known"] and not fault.get("obd_kind"):
-            parts.append(f"<p style='color:{MUTED}; margin-top:6px'>Sem ficha específica para este código: "
-                         "use o tipo de avaria acima como ponto de partida e consulte a documentação do motor.</p>")
+            parts.append(tr("<p style='color:{MUTED}; margin-top:6px'>Sem ficha específica para este código: use o "
+                            "tipo de avaria acima como ponto de partida e consulte a documentação do motor.</p>",
+                            MUTED=MUTED))
         self.body.setText("".join(parts))
         self.body.show()
 
@@ -157,7 +162,7 @@ class FaultInfoDialog(QDialog):
 
     def __init__(self, parent, fault, address=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Avaria {fault['vag']}")
+        self.setWindowTitle(tr("Avaria {vag}", vag=fault['vag']))
         self.resize(640, 420)
         v = QVBoxLayout(self)
         v.setContentsMargins(18, 16, 18, 16)
@@ -166,7 +171,7 @@ class FaultInfoDialog(QDialog):
         v.addWidget(self.card, 1)
         row = QHBoxLayout()
         row.addStretch(1)
-        row.addWidget(btn("Fechar", None, self.close))
+        row.addWidget(btn(tr("Fechar"), None, self.close))
         v.addLayout(row)
 
 
@@ -179,7 +184,7 @@ class FieldCell(QFrame):
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 8, 12, 10)
         v.setSpacing(0)
-        self.name = lbl(f"CAMPO {n}", "cellName")
+        self.name = lbl(tr("CAMPO {n}", n=n), "cellName")
         self.value = lbl("—", "value")
         self.unit = lbl("", "unit")
         v.addWidget(self.name)
@@ -194,7 +199,7 @@ class FieldCell(QFrame):
             return
         self.value.setText(field["value"])
         self.unit.setText(field["unit"])
-        self.setToolTip(f"fórmula {field['formula']}  a={field['a']}  b={field['b']}")
+        self.setToolTip(tr("fórmula {formula}  a={a}  b={b}", formula=field['formula'], a=field['a'], b=field['b']))
 
 
 class GroupCard(QFrame):
@@ -207,13 +212,13 @@ class GroupCard(QFrame):
         v.setContentsMargins(14, 12, 14, 14)
         top = QHBoxLayout()
         self.enable = QCheckBox("")
-        self.enable.setToolTip(f"Ler este grupo ({title})")
+        self.enable.setToolTip(tr("Ler este grupo ({title})", title=title))
         self.enable.setChecked(enabled)
-        self.enable.setVisible(title != "Grupo")
+        self.enable.setVisible(title != tr("Grupo"))
         self.spin = QSpinBox()
         self.spin.setRange(0, 255)
         self.spin.setValue(default_group)
-        self.spin.setPrefix("Grupo ")
+        self.spin.setPrefix(tr("Grupo "))
         self.spin.setFixedWidth(120)
         self.status = lbl("", "muted")
         top.addWidget(self.enable)

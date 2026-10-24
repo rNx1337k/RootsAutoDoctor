@@ -1,4 +1,5 @@
 """Pontuação de saúde do veículo (sem dependências de Qt, usada no programa e no relatório)."""
+from .i18n import tr
 
 
 def health_score(items):
@@ -19,9 +20,9 @@ def health_score(items):
 
 def health_text(score):
     if score is None:
-        return "Sem dados"
+        return tr("Sem dados")
     if score >= 85:
-        return "Bom estado"
+        return tr("Bom estado")
     if score >= 60:
-        return "Requer atenção"
-    return "Intervenção recomendada"
+        return tr("Requer atenção")
+    return tr("Intervenção recomendada")

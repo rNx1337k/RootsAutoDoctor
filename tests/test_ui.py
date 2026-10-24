@@ -16,6 +16,7 @@ _TMP = tempfile.mkdtemp()
 def _env():
     os.environ["APPDATA"] = _TMP
     os.environ["RAD_SETTINGS_INI"] = os.path.join(_TMP, "settings.ini")
+    os.environ["RAD_NO_UPDATE_CHECK"] = "1"          # os testes nunca vão à internet
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
@@ -175,6 +176,71 @@ def test_changes_tab_records_writes_and_prepares_the_previous_value():
     finally:
         w.close()
         app.processEvents()
+
+
+def test_license_demo_mode_and_update_notice():
+    app, w = _window()
+    from rad import ed25519, licensing, license_pubkey
+    from PySide6.QtWidgets import QMessageBox
+    secret = bytes(range(32))
+    old = (license_pubkey.PUBLIC_KEY, licensing.DIRECTORY, QMessageBox.information, QMessageBox.warning)
+    license_pubkey.PUBLIC_KEY = ed25519.public_key(secret).hex()
+    licensing.DIRECTORY = tempfile.mkdtemp()
+    shown = []
+    QMessageBox.information = staticmethod(lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok)
+    QMessageBox.warning = staticmethod(lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok)
+    try:
+        w.apply_license()
+        assert not w.worker.licensed and w.demo_badge.isVisibleTo(w)
+        assert "demonstração" in w.options.lic_state.text()
+        # chave de outro PC: recusada e explicada
+        w.options.lic_key.setPlainText(licensing.make_key(secret, "Oficina", "ZZZZ-ZZZZ-ZZZZ"))
+        w.options._activate_license()
+        assert shown and "outro PC" in shown[-1] and not w.worker.licensed
+        # chave deste PC: activa e tira o aviso
+        w.options.lic_key.setPlainText(licensing.make_key(secret, "Oficina Teste", licensing.machine_id()))
+        w.options._activate_license()
+        app.processEvents()
+        assert w.worker.licensed and not w.demo_badge.isVisibleTo(w)
+        assert "Oficina Teste" in w.options.lic_state.text() and w.options.lic_remove_btn.isVisibleTo(w)
+
+        w.options.update_done.emit({"available": True, "version": "9.9.9", "url": "https://example.com",
+                                    "download": None, "notes": ""}, False)
+        app.processEvents()
+        assert w.update_btn.isVisibleTo(w) and "9.9.9" in w.update_btn.text()
+        w.options.update_done.emit(__import__("rad.updates", fromlist=["x"]).UpdateError("Sem ligação"), False)
+        app.processEvents()
+        assert "Sem ligação" in w.options.upd_lbl.text()
+    finally:
+        license_pubkey.PUBLIC_KEY, licensing.DIRECTORY, QMessageBox.information, QMessageBox.warning = old
+        w.close()
+        app.processEvents()
+
+
+def test_english_interface_end_to_end():
+    """Com o idioma em inglês: menu, módulo, avarias e relatório em inglês (a lógica é a mesma)."""
+    from rad import i18n, report
+    i18n.set_language("en")
+    w = None
+    try:
+        app, w = _window()
+        assert w.nav_btns["home"].text() == "Home" and w.nav_btns["options"].text() == "Options"
+        w.connect_module(0x01)
+        assert _wait(app, lambda: w.nav_btns["module"].isEnabled()), "did not connect to the engine"
+        assert w.module.info["module"] == "Engine electronics"
+        assert w.module.tabs.tabText(1) == "Faults"
+        w.module._quick_faults()
+        assert _wait(app, lambda: w.module.fault_table.rowCount() == 2)
+        assert w.module.fault_table.item(1, 4).text() in ("High", "Medium", "Low")
+        html = report.build_html({"name": "Garage"}, {"plate": "EN-00-01"}, w._report_items("module"))
+        assert "Vehicle health" in html and "Customer" in html
+        w.worker.submit("disconnect")
+        assert _wait(app, lambda: not w.nav_btns["module"].isEnabled())
+    finally:
+        i18n.set_language("pt")                  # sempre, mesmo que a janela não abra
+        if w is not None:
+            w.close()
+            app.processEvents()
 
 
 def test_failed_connect_and_repeated_clicks():

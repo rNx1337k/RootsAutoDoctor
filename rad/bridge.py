@@ -13,6 +13,7 @@ import sys
 import threading
 
 from .errors import InterfaceError
+from .i18n import tr
 
 NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
@@ -59,24 +60,27 @@ class BridgeProcess:
             self.proc.stdin.flush()
         except (OSError, ValueError) as e:
             self.kill()
-            raise InterfaceError(f"A ponte {self.name} parou: {e}") from e
+            raise InterfaceError(tr("A ponte {name} parou: {e}", name=self.name, e=e)) from e
         try:
             line = self._lines.get(timeout=timeout)
         except queue.Empty:
             self.kill()
-            raise InterfaceError(f"A ponte {self.name} não respondeu em {timeout:.0f} s (pedido '{req.get('op')}'): "
-                                 "o driver da interface bloqueou. Desligue e volte a ligar o cabo.") from None
+            raise InterfaceError(tr("A ponte {name} não respondeu em {timeout:.0f} s (pedido '{v}'): o driver da "
+                                    "interface bloqueou. Desligue e volte a ligar o cabo.",
+                                    name=self.name, timeout=timeout, v=req.get('op'))) from None
         if line is None:
             self.wait(1)
             self._err_thread.join(1)          # deixar chegar a última mensagem de erro da ponte
             err = self.stderr_tail()
-            raise InterfaceError(f"A ponte {self.name} terminou inesperadamente" + (f": {err}" if err else ""))
+            raise InterfaceError(tr("A ponte {name} terminou inesperadamente",
+                                    name=self.name) + (f": {err}" if err else ""))
         try:
             return json.loads(line)
         except ValueError:
             # p.ex. um driver que escreve no stdout: a conversa com a ponte ficou dessincronizada
             self.kill()
-            raise InterfaceError(f"Resposta inválida da ponte {self.name}: {line.strip()[:120]!r}") from None
+            raise InterfaceError(tr("Resposta inválida da ponte {name}: {v!r}",
+                                    name=self.name, v=line.strip()[:120])) from None
 
     def close(self):
         """Pede à ponte para fechar a interface e terminar; se não terminar em 2 s, é morta."""

@@ -8,6 +8,7 @@ from . import dtc as dtcmod
 from . import pids as pidmod
 from .j1979 import Obd2
 from .uds import UdsClient
+from ..i18n import tr
 
 KINDS = (("stored", "memorizada"), ("pending", "pendente"), ("permanent", "permanente"))
 LOW_VOLTAGE = 11.5
@@ -64,42 +65,44 @@ class ObdSession:
             try:
                 desc = link.open()
             except NotSupported as e:
-                self._step("Adaptador ELM327", False, str(e))
+                self._step(tr("Adaptador ELM327"), False, str(e))
                 raise ProtocolError(str(e)) from e
             except Exception as e:
-                self._step("Abrir a interface", False, str(e))
+                self._step(tr("Abrir a interface"), False, str(e))
                 raise
-            self._step("Abrir a interface", True, port)
+            self._step(tr("Abrir a interface"), True, port)
             ver = desc.get("version") or "?"
-            self._step("Adaptador respondeu", True, f"{ver}" + (f" a {desc['baud']} baud" if desc.get("baud") else "")
-                       + (" — simulação" if desc.get("simulated") else ""))
+            detail = tr("{version} a {baud} baud", version=ver, baud=desc["baud"]) if desc.get("baud") else ver
+            if desc.get("simulated"):
+                detail += tr(" — simulação")
+            self._step(tr("Adaptador respondeu"), True, detail)
             v = desc.get("voltage")
             if v is None:
-                self._step("Tensão na ficha OBD", True, "não medida pelo adaptador")
+                self._step(tr("Tensão na ficha OBD"), True, tr("não medida pelo adaptador"))
             elif v < LOW_VOLTAGE:
-                self._step("Tensão na ficha OBD", False,
-                           f"{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto no pino 16")
+                self._step(tr("Tensão na ficha OBD"), False,
+                           tr("{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto no pino 16", v=v))
             else:
-                self._step("Tensão na ficha OBD", True, f"{v:.1f} V (medida pelo adaptador)")
+                self._step(tr("Tensão na ficha OBD"), True, tr("{v:.1f} V (medida pelo adaptador)", v=v))
         # 2) veículo
         try:
             if hasattr(link, "connect_vehicle"):
                 link.connect_vehicle()
-            self._step("Protocolo do veículo", True, link.protocol)
+            self._step(tr("Protocolo do veículo"), True, link.protocol)
             sup = self.obd.discover()
         except NoResponse as e:
-            self._step("Comunicação com o veículo", False, str(e))
+            self._step(tr("Comunicação com o veículo"), False, str(e))
             raise
         except Exception as e:
-            self._step("Comunicação com o veículo", False, str(e))
+            self._step(tr("Comunicação com o veículo"), False, str(e))
             raise
         names = {}
         try:
             names = self.obd.ecu_names()
         except (ProtocolError, RequestRejected, NotSupported) as e:
             self.log(f"OBD: nomes das centralinas indisponíveis ({e})")
-        self._step("Centralinas OBD-II", True, ", ".join(f"{ecu_label(e, names)}: {len(p)} parâmetros"
-                                                          for e, p in sup.items()))
+        self._step(tr("Centralinas OBD-II"), True, ", ".join(tr("{ecu}: {n} parâmetros", ecu=ecu_label(e, names),
+                                                                n=len(p)) for e, p in sup.items()))
         status = {}
         try:
             status = self.obd.monitor_status()
@@ -180,8 +183,9 @@ class ObdSession:
         try:
             after = self.read_dtcs()
         except (ProtocolError, RequestRejected) as e:
-            raise OperationUnconfirmed(f"O pedido de apagar foi aceite por {', '.join(ok)}, mas não foi possível "
-                                       f"voltar a ler as avarias ({e}). Leia novamente para confirmar.") from e
+            raise OperationUnconfirmed(tr("O pedido de apagar foi aceite por {v}, mas não foi possível voltar a ler "
+                                          "as avarias ({e}). Leia novamente para confirmar.",
+                                          v=', '.join(ok), e=e)) from e
         try:
             status = self.obd.monitor_status()
             if self.info is not None:
@@ -210,7 +214,7 @@ class ObdSession:
     # ------------------------------------------------------------------ UDS
     def _uds(self, target):
         if not self.link.is_can:
-            raise NotSupported("UDS só está disponível em veículos com CAN (ISO 15765)")
+            raise NotSupported(tr("UDS só está disponível em veículos com CAN (ISO 15765)"))
         return UdsClient(self.link, target, self.log)
 
     def uds_info(self, target):
@@ -219,7 +223,8 @@ class ObdSession:
         u = self._uds(target)
         ident = u.identification()
         if not ident:
-            raise NotSupported(f"A centralina {target} não respondeu a nenhum identificador UDS normalizado")
+            raise NotSupported(tr("A centralina {target} não respondeu a nenhum identificador UDS normalizado",
+                                  target=target))
         try:
             dtcs = u.read_dtcs()
             dtc_err = None
@@ -229,7 +234,7 @@ class ObdSession:
 
     def _require(self):
         if not self.connected:
-            raise ProtocolError("Não há ligação ao veículo")
+            raise ProtocolError(tr("Não há ligação ao veículo"))
 
     # ------------------------------------------------------------------ relatório
     def report_items(self, dtcs):

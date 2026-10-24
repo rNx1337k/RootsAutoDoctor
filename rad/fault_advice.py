@@ -7,9 +7,12 @@ import re
 import unicodedata
 
 from . import vag_data
+from .i18n import tr, tr_data
 
+# Textos de origem em português; advice() devolve-os traduzidos (tr_data).
 SEVERITY_TEXT = {"alta": "Gravidade alta", "media": "Gravidade média", "baixa": "Gravidade baixa",
                  "na": "Gravidade não avaliada"}
+SEVERITY_SHORT = {"alta": "Alta", "media": "Média", "baixa": "Baixa", "na": "—"}
 
 # --------------------------------------------------------------- por código
 _ABS_SENSOR = {
@@ -301,15 +304,17 @@ def advice(fault, address=None):
         try:
             cat = obd_dtc.category(code_txt)
         except (IndexError, KeyError):
-            cat = "Código OBD"
-        notes = [f"Categoria do código: {cat}."]
+            cat = tr_data("Código OBD")
+        notes = [tr("Categoria do código: {cat}.", cat=cat)]
         if fault.get("obd_kind") == "pending":
-            notes.append("Pendente: a centralina detectou a falha num ciclo de condução, mas ainda não a confirmou.")
+            notes.append(tr("Pendente: a centralina detectou a falha num ciclo de condução, mas ainda não a "
+                            "confirmou."))
         elif fault.get("obd_kind") == "permanent":
-            notes.append("Permanente: só desaparece quando a própria centralina confirmar a reparação "
-                         "(não se apaga pelo programa).")
-        notes.append("As causas dependem do fabricante e do motor: consulte a documentação técnica do veículo.")
-        return {"severity": "na", "severity_text": SEVERITY_TEXT["na"],
+            notes.append(tr("Permanente: só desaparece quando a própria centralina confirmar a reparação "
+                            "(não se apaga pelo programa)."))
+        notes.append(tr("As causas dependem do fabricante e do motor: consulte a documentação técnica do veículo."))
+        return {"severity": "na", "severity_text": tr_data(SEVERITY_TEXT["na"]),
+                "severity_short": tr_data(SEVERITY_SHORT["na"]),
                 "system": cat.split(" · ")[0], "causes": [], "checks": [], "notes": notes, "known": False}
     code = fault.get("code")
     if code is None:
@@ -324,16 +329,17 @@ def advice(fault, address=None):
     notes = []
     hint = ELAB_HINTS.get(fault.get("elab_code"))
     if hint:
-        notes.append(hint)
+        notes.append(tr_data(hint))
     if fault.get("intermittent"):
-        notes.append("Intermitente: a avaria não está presente neste momento. Apague e faça um teste de "
-                     "estrada; se voltar, investigue as causas abaixo.")
+        notes.append(tr("Intermitente: a avaria não está presente neste momento. Apague e faça um teste de "
+                        "estrada; se voltar, investigue as causas abaixo."))
     return {
         "severity": sev,
-        "severity_text": SEVERITY_TEXT[sev],
-        "system": entry["system"] if entry else MODULE_SYSTEM.get(address, "Geral"),
-        "causes": list(entry["causes"]) if entry else [],
-        "checks": list(entry["checks"]) if entry else [],
+        "severity_text": tr_data(SEVERITY_TEXT[sev]),
+        "severity_short": tr_data(SEVERITY_SHORT[sev]),
+        "system": tr_data(entry["system"] if entry else MODULE_SYSTEM.get(address, "Geral")),
+        "causes": [tr_data(c) for c in entry["causes"]] if entry else [],
+        "checks": [tr_data(c) for c in entry["checks"]] if entry else [],
         "notes": notes,
         "known": bool(entry),
     }
@@ -378,12 +384,13 @@ def search_codes(query, limit=8):
     for code, desc in vag_data.VAG_DTC.items():
         if code in (0,):
             continue
-        if all(w in _plain(desc) for w in words):
+        text = _plain(desc + " " + tr_data(desc))           # pesquisa no texto original e no traduzido
+        if all(w in text for w in words):
             out.append(vag_data.decode_fault(code, 0))
             if len(out) >= limit:
                 return out
     for p, desc in vag_data.PCODE_DESC.items():
-        if all(w in _plain(f"{p} {desc}") for w in words):
+        if all(w in _plain(f"{p} {desc} {tr_data(desc)}") for w in words):
             f = lookup_code(p)
             if f:
                 out.append(f)

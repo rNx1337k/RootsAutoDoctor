@@ -1,5 +1,8 @@
 """Dados VAG: endereços de módulos, códigos de avaria, tipos de avaria e
-fórmulas dos valores de medição (blocos de 3 bytes: fórmula, a, b)."""
+fórmulas dos valores de medição (blocos de 3 bytes: fórmula, a, b).
+
+Os textos das tabelas estão em português (texto de origem) e são traduzidos à saída, com tr_data."""
+from .i18n import tr, tr_data
 
 # --------------------------------------------------------------- módulos VAG
 VAG_MODULES = {
@@ -55,7 +58,7 @@ AUTOSCAN_ADDRESSES = [0x01, 0x02, 0x03, 0x08, 0x09, 0x15, 0x16, 0x17, 0x19, 0x22
 
 
 def module_name(address):
-    return VAG_MODULES.get(address, "Controlador desconhecido")
+    return tr_data(VAG_MODULES.get(address, "Controlador desconhecido"))
 
 
 # ------------------------------------------------------- códigos de avaria VAG
@@ -288,11 +291,11 @@ def vag_to_pcode(code):
 
 def dtc_description(code):
     if code in VAG_DTC:
-        return VAG_DTC[code]
+        return tr_data(VAG_DTC[code])
     p = vag_to_pcode(code)
     if p:
-        return f"{p} — {PCODE_DESC.get(p, 'código OBD-II (ver manual)')}"
-    return "Descrição não disponível na base de dados"
+        return f"{p} — {tr_data(PCODE_DESC.get(p, 'código OBD-II (ver manual)'))}"
+    return tr_data("Descrição não disponível na base de dados")
 
 
 def decode_fault(code, status):
@@ -303,7 +306,7 @@ def decode_fault(code, status):
         "pcode": vag_to_pcode(code),
         "desc": dtc_description(code),
         "elab_code": elab,
-        "elab": FAULT_ELABORATION.get(elab, f"Tipo {elab:02d}"),
+        "elab": tr_data(FAULT_ELABORATION[elab]) if elab in FAULT_ELABORATION else tr("Tipo {n:02d}", n=elab),
         "intermittent": bool(status & 0x80),
         "status": status,
     }
@@ -340,7 +343,8 @@ def group_labels(part, group):
     part = (part or "").replace(" ", "").upper()
     for prefix, groups in GROUP_LABELS.items():
         if part.startswith(prefix):
-            return groups.get(group)
+            labels = groups.get(group)
+            return [tr_data(x) for x in labels] if labels else None
     return None
 
 
@@ -440,14 +444,16 @@ def format_number(v):
 def decode_value(formula, a, b):
     fn = FORMULAS.get(formula)
     if fn is None:
-        return {"value": f"{a}/{b}", "unit": f"(fórm. {formula})", "formula": formula,
+        return {"value": f"{a}/{b}", "unit": tr("(fórm. {formula})", formula=formula), "formula": formula,
                 "a": a, "b": b, "numeric": None}
     try:
         val, unit = fn(a, b)
     except Exception:
         return {"value": "?", "unit": "", "formula": formula, "a": a, "b": b, "numeric": None}
     numeric = None if isinstance(val, str) else float(val)
-    return {"value": format_number(val), "unit": unit, "formula": formula,
+    if isinstance(val, str):
+        val = tr_data(val)                # QUENTE/FRIO, 1º/2º mapa
+    return {"value": format_number(val), "unit": tr_data(unit), "formula": formula,
             "a": a, "b": b, "numeric": numeric}
 
 

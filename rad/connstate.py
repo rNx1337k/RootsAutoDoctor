@@ -19,6 +19,8 @@ Este módulo é lógica pura (sem Qt nem hardware), para poder ser testado sem o
 O worker (rad/worker.py) usa-o para classificar os acontecimentos e emite o resultado para a interface.
 """
 
+from .i18n import tr, tr_data
+
 NO_DEVICE = "no_device"
 UNREACHABLE = "unreachable"
 OPEN_NO_ECU = "open_no_ecu"
@@ -28,7 +30,7 @@ ERROR = "error"
 
 ALL = (NO_DEVICE, UNREACHABLE, OPEN_NO_ECU, CONNECTING, ECU_CONNECTED, ERROR)
 
-# Rótulo curto para a interface, em português.
+# Rótulo curto para a interface (texto de origem em português; traduzido ao usar, com tr_data).
 LABELS = {
     NO_DEVICE: "Sem interface",
     UNREACHABLE: "Interface inacessível",
@@ -73,13 +75,13 @@ class LinkStatus:
         if state not in ALL:
             raise ValueError(f"estado desconhecido: {state!r}")
         self.state = state
-        self.message = message or LABELS[state]
+        self.message = message or tr_data(LABELS[state])
         self.fatal = fatal
         self.data = data
 
     @property
     def label(self):
-        return LABELS[self.state]
+        return tr_data(LABELS[self.state])
 
     @property
     def live(self):
@@ -102,25 +104,26 @@ def connected(info):
     addr = info.get("address")
     name = info.get("module", "")
     where = f"{addr:02X}" if isinstance(addr, int) else "?"
-    return LinkStatus(ECU_CONNECTED, f"Ligado a {where} — {name}".strip(" —"), data=info)
+    text = tr("Ligado a {where} — {name}", where=where, name=name) if name else tr("Ligado a {where}", where=where)
+    return LinkStatus(ECU_CONNECTED, text, data=info)
 
 
 def obd_connected(info):
     """Veículo ligado por OBD-II: pelo menos uma centralina respondeu ao pedido 01 00."""
     n = len(info.get("ecus", []))
-    return LinkStatus(ECU_CONNECTED, f"Ligado por OBD-II — {info.get('protocol', '')} · {n} centralina(s)",
-                      data=info)
+    return LinkStatus(ECU_CONNECTED, tr("Ligado por OBD-II — {protocol} · {n} centralina(s)",
+                                        protocol=info.get("protocol", ""), n=n), data=info)
 
 
 def connecting(address):
     where = f"{address:02X}" if isinstance(address, int) else str(address)
-    return LinkStatus(CONNECTING, f"A ligar ao controlador {where}…", data=address)
+    return LinkStatus(CONNECTING, tr("A ligar ao controlador {where}…", where=where), data=address)
 
 
 def opened(port):
     """A interface abriu, mas ainda não falou com nenhuma centralina."""
-    return LinkStatus(OPEN_NO_ECU, f"Interface {port} aberta — ainda sem ligação a nenhuma centralina.",
-                      data=port)
+    return LinkStatus(OPEN_NO_ECU, tr("Interface {port} aberta — ainda sem ligação a nenhuma centralina.",
+                                      port=port), data=port)
 
 
 def classify_error(exc, present=None):

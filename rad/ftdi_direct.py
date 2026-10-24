@@ -18,6 +18,7 @@ import logging
 import time
 
 from .errors import InterfaceError, KLineError
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def parse_port(port):
         _, vid, pid, serial = port.split(":", 3)
         return int(vid, 16), int(pid, 16), (serial or None)
     except ValueError:
-        raise KLineError(f"Porta USB inválida: {port}") from None
+        raise KLineError(tr("Porta USB inválida: {port}", port=port)) from None
 
 
 class DependencyMissing(KLineError):
@@ -68,7 +69,7 @@ def _backend():
     try:
         import usb.backend.libusb1  # noqa: F401
     except ImportError:
-        raise DependencyMissing("Falta o pyusb. Instale com: pip install pyftdi libusb-package") from None
+        raise DependencyMissing(tr("Falta o pyusb. Instale com: pip install pyftdi libusb-package")) from None
     be = None
     try:
         import libusb_package
@@ -79,7 +80,7 @@ def _backend():
         import usb.backend.libusb1
         be = usb.backend.libusb1.get_backend()
     if be is None:
-        raise DependencyMissing("libusb-1.0 não encontrado. Instale com: pip install libusb-package")
+        raise DependencyMissing(tr("libusb-1.0 não encontrado. Instale com: pip install libusb-package"))
     return be
 
 
@@ -121,8 +122,9 @@ def list_ports():
     out = []
     for d in list_devices():
         name = d["known"] or d["product"] or "Interface FTDI"
-        out.append((d["port"], f"USB directo — {name} [{d['chip']}, VID {d['vid']:04X} PID {d['pid']:04X}"
-                               f"{', S/N ' + d['serial'] if d['serial'] else ''}]"))
+        out.append((d["port"], tr("USB directo — {name} [{chip}, VID {vid:04X} PID {pid:04X}{v}]",
+                                  name=name, chip=d['chip'], vid=d['vid'], pid=d['pid'],
+                                  v=', S/N ' + d['serial'] if d['serial'] else '')))
     return out
 
 
@@ -131,7 +133,7 @@ def _open_ftdi(vid, pid, serial):
     try:
         from pyftdi.ftdi import Ftdi
     except ImportError:
-        raise DependencyMissing("Falta o pyftdi. Instale com: pip install pyftdi libusb-package") from None
+        raise DependencyMissing(tr("Falta o pyftdi. Instale com: pip install pyftdi libusb-package")) from None
     dev = Ftdi()
     dev.open(vid, pid, serial=serial)
     return dev
@@ -157,13 +159,13 @@ class FtdiSerial:
     # ---------------------------------------------------------------- abrir/fechar
     def _guard(self, what, fn, *args):
         if self.dev is None:
-            raise InterfaceError(f"{self.port}: interface fechada")
+            raise InterfaceError(tr("{port}: interface fechada", port=self.port))
         try:
             return fn(*args)
         except KLineError:
             raise
         except Exception as e:
-            raise InterfaceError(f"{what}: {e} — o cabo foi desligado?") from e
+            raise InterfaceError(tr("{what}: {e} — o cabo foi desligado?", what=what, e=e)) from e
 
     def open(self):
         try:
@@ -181,7 +183,7 @@ class FtdiSerial:
             self.dev.purge_buffers()
         except Exception as e:
             self.close()
-            raise KLineError(f"Não foi possível configurar o chip FTDI: {e}") from e
+            raise KLineError(tr("Não foi possível configurar o chip FTDI: {e}", e=e)) from e
 
     def close(self):
         d, self.dev = self.dev, None

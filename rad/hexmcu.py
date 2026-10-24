@@ -25,6 +25,7 @@ com DTR e RTS desligados (HEX_LINES).
 """
 import logging
 import time
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ class HexMcu:
             try:
                 self.ser.baudrate = baud
             except Exception as e:
-                out["raw"].append(f"{baud}: velocidade recusada ({e})")
+                out["raw"].append(tr("{baud}: velocidade recusada ({e})", baud=baud, e=e))
                 continue
             self.baud = baud
             time.sleep(0.02)
@@ -183,16 +184,17 @@ class HexMcu:
         Só avança se o cabo responder a ReadBoot com um pacote válido. Devolve o modo lido depois."""
         before = self.read_mode()
         if before is None:
-            raise HexMcuError("O cabo não respondeu ao pedido de modo (ReadBoot): não é seguro enviar a mudança")
+            raise HexMcuError(tr("O cabo não respondeu ao pedido de modo (ReadBoot): não é seguro enviar a mudança"))
         if before == mode:
             return mode
         ans, raw = self.transact(OP_SET_BOOT, bytes([mode]), timeout=1.0)
         if not ans or ans[0] != OP_ACK:
-            raise HexMcuError(f"O cabo não confirmou a mudança de modo (resposta: {raw.hex(' ').upper() or 'nada'})")
+            raise HexMcuError(tr("O cabo não confirmou a mudança de modo (resposta: {v})",
+                                 v=raw.hex(' ').upper() or 'nada'))
         after = self.read_mode()
         if after != mode:
-            raise HexMcuError(f"O cabo confirmou, mas o modo lido a seguir é "
-                              f"{'—' if after is None else hex(after)}")
+            raise HexMcuError(tr("O cabo confirmou, mas o modo lido a seguir é {v}",
+                                 v='—' if after is None else hex(after)))
         return after
 
 

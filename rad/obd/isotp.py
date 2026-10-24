@@ -15,6 +15,7 @@ import time
 
 from ..errors import InterfaceError, NoResponse, ProtocolError
 from .link import Response
+from ..i18n import tr
 
 SF, FF, CF, FC = 0, 1, 2, 3
 FC_CTS, FC_WAIT, FC_OVFLW = 0, 1, 2
@@ -35,7 +36,7 @@ def segment(payload, pad=PAD):
     payload = bytes(payload)
     n = len(payload)
     if n == 0:
-        raise ValueError("mensagem vazia")
+        raise ValueError(tr("mensagem vazia"))
     if n <= 7:
         f = bytes([n]) + payload
         return [f + bytes([pad]) * (8 - len(f)) if pad is not None else f]
@@ -71,10 +72,10 @@ def st_min_seconds(st):
 
 def frame_type(frame):
     if not frame:
-        raise IsoTpError("trama vazia")
+        raise IsoTpError(tr("trama vazia"))
     t = frame[0] >> 4
     if t > 3:
-        raise IsoTpError(f"tipo de trama ISO-TP inválido (PCI 0x{frame[0]:02X})")
+        raise IsoTpError(tr("tipo de trama ISO-TP inválido (PCI 0x{v:02X})", v=frame[0]))
     return t
 
 
@@ -101,33 +102,34 @@ class Reassembler:
             n = frame[0] & 0x0F
             if n == 0:                               # CAN-FD: comprimento no 2.º byte
                 if len(frame) < 2:
-                    raise IsoTpError("Single Frame CAN-FD curta")
+                    raise IsoTpError(tr("Single Frame CAN-FD curta"))
                 n, data = frame[1], frame[2:]
             else:
                 data = frame[1:]
             if n == 0 or len(data) < n:
-                raise IsoTpError(f"Single Frame com comprimento {n} e {len(data)} byte(s) de dados")
+                raise IsoTpError(tr("Single Frame com comprimento {n} e {v} byte(s) de dados", n=n, v=len(data)))
             return data[:n]
         if t == FF:
             if len(frame) < 8:
-                raise IsoTpError("First Frame com menos de 8 bytes")
+                raise IsoTpError(tr("First Frame com menos de 8 bytes"))
             n = ((frame[0] & 0x0F) << 8) | frame[1]
             data = frame[2:]
             if n == 0:
                 n = int.from_bytes(frame[2:6], "big")
                 data = frame[6:]
             if n < 8:
-                raise IsoTpError(f"First Frame com comprimento {n} (mínimo 8)")
+                raise IsoTpError(tr("First Frame com comprimento {n} (mínimo 8)", n=n))
             self.expected, self.buf, self.seq = n, bytearray(data), 1
             return None
         if t == CF:
             if self.expected is None:
-                raise IsoTpError("Consecutive Frame sem First Frame")
+                raise IsoTpError(tr("Consecutive Frame sem First Frame"))
             seq = frame[0] & 0x0F
             if seq != self.seq:
                 exp = self.seq
                 self.reset()
-                raise IsoTpError(f"Consecutive Frame fora de sequência (esperado {exp}, recebido {seq})")
+                raise IsoTpError(tr("Consecutive Frame fora de sequência (esperado {exp}, recebido {seq})",
+                                    exp=exp, seq=seq))
             self.seq = (self.seq + 1) & 0x0F
             self.buf += frame[1:]
             if len(self.buf) >= self.expected:
@@ -136,7 +138,7 @@ class Reassembler:
                 return out
             return None
         # Flow Control não pertence a uma mensagem: o chamador trata-o
-        raise IsoTpError("Flow Control inesperado")
+        raise IsoTpError(tr("Flow Control inesperado"))
 
 
 # ------------------------------------------------------------------ link sobre CAN cru
@@ -188,13 +190,13 @@ class IsoTpLink:
         try:
             self.bus.send(arb_id, data)
         except Exception as e:
-            raise InterfaceError(f"Erro ao enviar na interface CAN: {e}") from e
+            raise InterfaceError(tr("Erro ao enviar na interface CAN: {e}", e=e)) from e
 
     def _rx(self, timeout):
         try:
             m = self.bus.recv(timeout)
         except Exception as e:
-            raise InterfaceError(f"Erro ao ler da interface CAN: {e}") from e
+            raise InterfaceError(tr("Erro ao ler da interface CAN: {e}", e=e)) from e
         if m is not None and self.raw_log:
             self.log(f"    ‹ {m[0]:03X} {bytes(m[1]).hex(' ').upper()}")
         return m
@@ -210,14 +212,15 @@ class IsoTpLink:
             while True:                                   # à espera do Flow Control
                 m = self._rx(max(0.0, deadline - time.monotonic()))
                 if m is None:
-                    raise NoResponse(f"A centralina {rx_id:03X} não enviou Flow Control")
+                    raise NoResponse(tr("A centralina {rx_id:03X} não enviou Flow Control", rx_id=rx_id))
                 if m[0] == rx_id and m[1] and m[1][0] >> 4 == FC:
                     break
             status, bs, st = m[1][0] & 0x0F, m[1][1], m[1][2]
             if status == FC_WAIT:
                 continue
             if status == FC_OVFLW:
-                raise ProtocolError(f"A centralina {rx_id:03X} recusou a mensagem (transbordo do buffer)")
+                raise ProtocolError(tr("A centralina {rx_id:03X} recusou a mensagem (transbordo do buffer)",
+                                       rx_id=rx_id))
             gap = st_min_seconds(st)
             n = 0
             while i < len(frames) and (bs == 0 or n < bs):
@@ -231,7 +234,7 @@ class IsoTpLink:
         payload = bytes(payload)
         if target is None:
             if len(payload) > 7:
-                raise ProtocolError("Pedidos funcionais têm de caber numa única trama")
+                raise ProtocolError(tr("Pedidos funcionais têm de caber numa única trama"))
             tx_id, wanted = FUNCTIONAL_11, set(PHYS_RESP_11)
         else:
             tx_id = int(target, 16) if isinstance(target, str) else int(target)
@@ -277,7 +280,7 @@ class IsoTpLink:
                 break                         # pedido físico: uma resposta basta
             deadline = time.monotonic() + self.p2
         if not done:
-            raise NoResponse("Nenhuma centralina respondeu no barramento CAN")
+            raise NoResponse(tr("Nenhuma centralina respondeu no barramento CAN"))
         return done
 
     def close(self):

@@ -23,6 +23,7 @@ import time
 from ..errors import InterfaceError, KLineError, NoResponse, NotSupported, ProtocolError
 from . import isotp
 from .link import Response
+from ..i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class Elm327Link:
         try:
             self.ser.write((text + "\r").encode("ascii"))
         except Exception as e:
-            raise InterfaceError(f"Erro de escrita na porta {self.port_name}: {e}") from e
+            raise InterfaceError(tr("Erro de escrita na porta {port_name}: {e}", port_name=self.port_name, e=e)) from e
 
     def _read_until_prompt(self, timeout):
         """Lê até ao ">" do ELM327. Devolve o texto (sem o ">") ou None se o tempo acabar."""
@@ -140,11 +141,12 @@ class Elm327Link:
         end = time.monotonic() + timeout
         while time.monotonic() < end:
             if self.cancelled:
-                raise ProtocolError("Operação cancelada")
+                raise ProtocolError(tr("Operação cancelada"))
             try:
                 chunk = self.ser.read(256)
             except Exception as e:
-                raise InterfaceError(f"Erro de leitura na porta {self.port_name}: {e}") from e
+                raise InterfaceError(tr("Erro de leitura na porta {port_name}: {e}",
+                                        port_name=self.port_name, e=e)) from e
             if chunk:
                 buf += chunk
                 if b">" in buf:
@@ -166,7 +168,8 @@ class Elm327Link:
         self._write(cmd)
         text = self._read_until_prompt(timeout or self.timeout)
         if text is None:
-            raise InterfaceError(f"O adaptador deixou de responder (sem resposta a {cmd!r} na porta {self.port_name})")
+            raise InterfaceError(tr("O adaptador deixou de responder (sem resposta a {cmd!r} na porta {port_name})",
+                                    cmd=cmd, port_name=self.port_name))
         lines = [l.strip() for l in text.replace("\n", "\r").split("\r")]
         return [l for l in lines if l and l.replace(" ", "").upper() != cmd.replace(" ", "").upper()]
 
@@ -175,9 +178,9 @@ class Elm327Link:
         if lines and lines[-1].upper() == "OK":
             return lines
         if lines and lines[-1] == "?":
-            msg = f"O adaptador não suporta o comando {cmd}"
+            msg = tr("O adaptador não suporta o comando {cmd}", cmd=cmd)
             if required:
-                raise NotSupported(msg + " — não é um ELM327 compatível.")
+                raise NotSupported(msg + tr(" — não é um ELM327 compatível."))
             self.warnings.append(msg)
             self.log(f"ELM327: {msg} (ignorado)")
             return lines
@@ -196,7 +199,8 @@ class Elm327Link:
             except Exception as e:
                 last_err = e
                 if baud == BAUDS[0]:
-                    raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}") from e
+                    raise KLineError(tr("Não foi possível abrir a porta {port_name}: {e}",
+                                        port_name=self.port_name, e=e)) from e
                 continue
             tried.append(baud)
             try:
@@ -212,10 +216,11 @@ class Elm327Link:
                 break
         if self.ser is None:
             raise AdapterNotResponding(
-                f"A porta {self.port_name} abriu, mas nenhum adaptador ELM327 respondeu "
-                f"(velocidades tentadas: {', '.join(map(str, tried)) or '—'}). Confirme que é um ELM327, "
-                "que o Bluetooth está emparelhado e que nenhum outro programa está a usar a porta."
-                + (f" Detalhe: {last_err}" if last_err else ""))
+                tr("A porta {port_name} abriu, mas nenhum adaptador ELM327 respondeu (velocidades tentadas: {v}). "
+                   "Confirme que é um ELM327, que o Bluetooth está emparelhado e que nenhum outro programa está a "
+                   "usar a porta.",
+                   port_name=self.port_name, v=', '.join(map(str, tried)) or '—')
+                + (tr(" Detalhe: {last_err}", last_err=last_err) if last_err else ""))
         self._init_adapter()
         return self.describe()
 
@@ -237,7 +242,8 @@ class Elm327Link:
             lines = self._command("ATI")
             ident = next((l for l in lines if "ELM" in l.upper()), None)
         if ident is None:
-            raise AdapterNotResponding(f"O dispositivo na porta {self.port_name} não se identificou como ELM327.")
+            raise AdapterNotResponding(tr("O dispositivo na porta {port_name} não se identificou como ELM327.",
+                                          port_name=self.port_name))
         self.version = ident.strip()
         self._at("ATE0")
         self._at("ATL0", required=False)
@@ -283,14 +289,14 @@ class Elm327Link:
         if len(num) == 2 and num[0] == "A":          # "A6" = escolhido pela procura automática
             num = num[1]
         if num not in PROTOCOLS:
-            raise ProtocolError(f"O adaptador indicou um protocolo desconhecido: {dpn!r}")
+            raise ProtocolError(tr("O adaptador indicou um protocolo desconhecido: {dpn!r}", dpn=dpn))
         self.proto = num
         self.header = None
         if num == "A":
-            raise NotSupported("O veículo respondeu em SAE J1939 (pesados): não suportado nesta versão.")
+            raise NotSupported(tr("O veículo respondeu em SAE J1939 (pesados): não suportado nesta versão."))
         resp = self._parse(lines)
         if not resp:
-            raise NoResponse("O adaptador indicou um protocolo, mas nenhuma centralina deu uma resposta válida.")
+            raise NoResponse(tr("O adaptador indicou um protocolo, mas nenhuma centralina deu uma resposta válida."))
         self.log(f"ELM327: protocolo {self.protocol}")
         return resp
 
@@ -299,8 +305,8 @@ class Elm327Link:
         for l in lines:
             key = l.upper().strip()
             if key.startswith("BUS INIT") and "ERROR" in key:
-                raise NoResponse("A inicialização da linha K falhou (BUS INIT: ERROR): ignição desligada, "
-                                 "centralina sem OBD-II na linha K, ou protocolo errado.")
+                raise NoResponse(tr("A inicialização da linha K falhou (BUS INIT: ERROR): ignição desligada, "
+                                 "centralina sem OBD-II na linha K, ou protocolo errado."))
             for k, (exc, text) in ERRORS.items():
                 if key == k or (k != "?" and key.startswith(k)):
                     if exc is NoResponse and has_data:
@@ -320,9 +326,9 @@ class Elm327Link:
 
     def request(self, payload, target=None, timeout=None):
         if self.proto is None:
-            raise ProtocolError("Ainda não há protocolo com o veículo (ligue primeiro)")
+            raise ProtocolError(tr("Ainda não há protocolo com o veículo (ligue primeiro)"))
         if target is not None and not self.is_can:
-            raise NotSupported("Pedidos dirigidos a uma centralina só estão disponíveis em CAN nesta versão")
+            raise NotSupported(tr("Pedidos dirigidos a uma centralina só estão disponíveis em CAN nesta versão"))
         self._set_header(target)
         cmd = bytes(payload).hex().upper()
         for _attempt in range(4):
@@ -336,7 +342,7 @@ class Elm327Link:
             self.log(f"ELM327: {pending[0].ecu} pediu para esperar (resposta pendente) — a repetir o pedido")
             time.sleep(0.2)
         if not final:
-            raise NoResponse(f"Sem resposta válida ao pedido {cmd}")
+            raise NoResponse(tr("Sem resposta válida ao pedido {cmd}", cmd=cmd))
         return final
 
     def _parse(self, lines):

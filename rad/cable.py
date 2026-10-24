@@ -13,6 +13,7 @@ import logging
 import re
 import subprocess
 import sys
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -105,23 +106,25 @@ def _d2xx_finding(d, name, chip, serial, caveat):
     dll = find_dll()
     if not dll:
         return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
-                "title": f"{name} — driver RT-USB sem RT-USB.DLL",
-                "detail": ("O driver está instalado mas falta a biblioteca RT-USB.DLL. Reinstale o driver, ou "
-                           "troque-o pelo WinUSB com o Zadig para usar o acesso USB directo. " + caveat)}
+                "title": tr("{name} — driver RT-USB sem RT-USB.DLL", name=name),
+                "detail": (tr("O driver está instalado mas falta a biblioteca RT-USB.DLL. Reinstale o driver, ou "
+                           "troque-o pelo WinUSB com o Zadig para usar o acesso USB directo. ") + caveat)}
     bits = dll_bitness(dll)
     try:
         find_python(bits)
     except Exception:
         return {**base, "level": "warn", "driver_url": None,
-                "title": f"{name} — driver RT-USB OK, falta o componente de {bits} bits do programa",
-                "detail": (f"O {dll} é de {bits} bits e é carregado pelo componente de {bits} bits que vem com o "
-                           f"Roots Auto Doctor (pasta runtime/py{bits}), que não foi encontrado. Volte a instalar "
-                           "o programa (ou, no código-fonte, execute o run.bat) e carregue outra vez em Detectar "
-                           "cabo. " + caveat)}
+                "title": tr("{name} — driver RT-USB OK, falta o componente de {bits} bits do programa",
+                            name=name, bits=bits),
+                "detail": (tr("O {dll} é de {bits} bits e é carregado pelo componente de {bits} bits que vem com o "
+                              "Roots Auto Doctor (pasta runtime/py{bits}), que não foi encontrado. Volte a instalar o "
+                              "programa (ou, no código-fonte, execute o run.bat) e carregue outra vez em Detectar "
+                              "cabo. ",
+                              dll=dll, bits=bits) + caveat)}
     return {**base, "level": "ok", "com": PREFIX + (serial or ""),
-            "title": f"{name} pronta pelo driver RT-USB ({chip}, S/N {serial or '—'})",
-            "detail": ("Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da "
-                       "ligação com o cabo no carro e a ignição ligada. " + caveat)}
+            "title": tr("{name} pronta pelo driver RT-USB ({chip}, S/N {v})", name=name, chip=chip, v=serial or '—'),
+            "detail": (tr("Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da "
+                       "ligação com o cabo no carro e a ignição ligada. ") + caveat)}
 
 
 def _hex_usb_finding(d, vid, pid):
@@ -131,34 +134,36 @@ def _hex_usb_finding(d, vid, pid):
     serial = _usb_serial(d["id"])
     service = (d.get("service") or "").lower()
     name = d["name"] or "Ross-Tech HEX-USB"
-    caveat = ("Estes clones (HEX-USB+CAN) têm um microcontrolador entre o chip FTDI e a ficha OBD: o "
+    caveat = (tr("Estes clones (HEX-USB+CAN) têm um microcontrolador entre o chip FTDI e a ficha OBD: o "
               "Diagnóstico da ligação fala com ele, confirma que responde e põe-no em modo KKL para chegar à "
-              "linha K. Faça-o com o cabo no carro e a ignição ligada.")
+              "linha K. Faça-o com o cabo no carro e a ignição ligada."))
     base = {"com": None, "driver_url": None}
     if d["status"].upper() != "OK" or not service:
         return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
-                "title": f"{name} — chip {chip}, VID {vid} PID {pid}, sem driver",
-                "detail": ("Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB "
-                           "directo, instale o driver WinUSB com o Zadig: Options → List All Devices → escolha "
-                           f"'{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. "
-                           "(O VCDS deixa de reconhecer esta interface enquanto tiver o WinUSB.) " + caveat)}
+                "title": tr("{name} — chip {chip}, VID {vid} PID {pid}, sem driver",
+                            name=name, chip=chip, vid=vid, pid=pid),
+                "detail": (tr("Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB "
+                              "directo, instale o driver WinUSB com o Zadig: Options → List All Devices → escolha "
+                              "'{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. (O VCDS "
+                              "deixa de reconhecer esta interface enquanto tiver o WinUSB.) ",
+                              name=name) + caveat)}
     if service == "rt-usb":
         return _d2xx_finding(d, name, chip, serial, caveat)
     if service not in WINUSB_SERVICES:
         return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
-                "title": f"{name} — usa o driver '{d.get('service')}'",
-                "detail": ("Este driver é o do programa do fabricante e o Roots Auto Doctor não o usa. Para "
+                "title": tr("{name} — usa o driver '{v}'", name=name, v=d.get('service')),
+                "detail": (tr("Este driver é o do programa do fabricante e o Roots Auto Doctor não o usa. Para "
                            "acesso USB directo substitua-o pelo WinUSB com o Zadig (pode voltar ao driver "
-                           "anterior no Gestor de Dispositivos → Controlador → Reverter). " + caveat)}
+                           "anterior no Gestor de Dispositivos → Controlador → Reverter). ") + caveat)}
     if not _pyftdi_available():
         return {**base, "level": "warn",
-                "title": f"{name} — driver WinUSB OK, falta o pyftdi",
-                "detail": "Instale as dependências: .venv\\Scripts\\python.exe -m pip install -r requirements.txt"}
+                "title": tr("{name} — driver WinUSB OK, falta o pyftdi", name=name),
+                "detail": tr("Instale as dependências: .venv\\Scripts\\python.exe -m pip install -r requirements.txt")}
     port = make_port(int(vid, 16), int(pid, 16), serial)
     return {**base, "level": "ok", "com": port,
-            "title": f"{name} pronta por USB directo ({chip}, S/N {serial or '—'})",
-            "detail": ("Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada para confirmar "
-                       "que chega à linha K. " + caveat)}
+            "title": tr("{name} pronta por USB directo ({chip}, S/N {v})", name=name, chip=chip, v=serial or '—'),
+            "detail": (tr("Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada para confirmar "
+                       "que chega à linha K. ") + caveat)}
 
 
 def _vid_pid(instance_id):
@@ -235,12 +240,12 @@ def classify(devices, latency=None):
                 kind, who = "com firmware próprio", "do fabricante"
             findings.append({
                 "level": "bad", "com": None, "driver_url": None,
-                "title": f"Interface {kind} ({d['name'] or 'sem nome'})",
-                "detail": (f"Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, "
-                           "e só fala com o programa desse fabricante. Não funciona como cabo KKL e não pode "
-                           "ser usada pelo Roots Auto Doctor, mesmo com drivers. "
-                           "É preciso um cabo KKL 'VAG-COM 409.1' (FTDI ou CH340); para módulos KWP2000 "
-                           "também serve uma interface J2534."),
+                "title": tr("Interface {kind} ({v})", kind=kind, v=d['name'] or 'sem nome'),
+                "detail": (tr("Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, e só "
+                              "fala com o programa desse fabricante. Não funciona como cabo KKL e não pode ser usada "
+                              "pelo Roots Auto Doctor, mesmo com drivers. É preciso um cabo KKL 'VAG-COM 409.1' (FTDI "
+                              "ou CH340); para módulos KWP2000 também serve uma interface J2534.",
+                              who=who)),
             })
             continue
         if com and status_ok:
@@ -248,32 +253,34 @@ def classify(devices, latency=None):
             if vendor == "FTDI" and lat is not None and lat > 1:
                 findings.append({
                     "level": "warn", "com": com, "driver_url": None,
-                    "title": f"Cabo {chip} pronto em {com} — Latency Timer {lat} ms",
-                    "detail": (f"Funciona, mas a leitura será lenta. Gestor de Dispositivos → Portas (COM e LPT) → "
-                               f"{com} → Propriedades → Definições da porta → Avançadas → Latency Timer = 1."),
+                    "title": tr("Cabo {chip} pronto em {com} — Latency Timer {lat} ms", chip=chip, com=com, lat=lat),
+                    "detail": (tr("Funciona, mas a leitura será lenta. Gestor de Dispositivos → Portas (COM e LPT) → "
+                                  "{com} → Propriedades → Definições da porta → Avançadas → Latency Timer = 1.",
+                                  com=com)),
                 })
             else:
                 findings.append({
                     "level": "ok", "com": com, "driver_url": None,
-                    "title": f"Cabo {chip} pronto em {com}",
-                    "detail": f"Escolha {com} na porta do cabo e carregue em Testar interface com a ignição ligada.",
+                    "title": tr("Cabo {chip} pronto em {com}", chip=chip, com=com),
+                    "detail": tr("Escolha {com} na porta do cabo e carregue em Testar interface com a ignição ligada.",
+                                 com=com),
                 })
         elif (vid, pid) in with_com:
             continue                     # entrada USB do mesmo cabo que já tem porta COM
         elif vendor == "FTDI" and status_ok and d["cls"].upper() == "USB":
             findings.append({
                 "level": "warn", "com": None, "driver_url": DRIVERS["FTDI"],
-                "title": "Cabo FTDI sem porta COM",
-                "detail": ("O driver está instalado mas a porta COM está desligada. Gestor de Dispositivos → "
+                "title": tr("Cabo FTDI sem porta COM"),
+                "detail": (tr("O driver está instalado mas a porta COM está desligada. Gestor de Dispositivos → "
                            "Controladores USB → USB Serial Converter → Propriedades → Avançadas → marque "
                            "'Load VCP' → OK, e volte a ligar o cabo. Se não existir essa opção, instale o "
-                           "driver VCP da FTDI."),
+                           "driver VCP da FTDI.")),
             })
         elif not status_ok:
             findings.append({
                 "level": "warn", "com": None, "driver_url": DRIVERS.get(vendor),
-                "title": f"Cabo {chip} sem driver",
-                "detail": f"Instale o driver oficial ({vendor}) e volte a ligar o cabo.",
+                "title": tr("Cabo {chip} sem driver", chip=chip),
+                "detail": tr("Instale o driver oficial ({vendor}) e volte a ligar o cabo.", vendor=vendor),
             })
     return findings
 

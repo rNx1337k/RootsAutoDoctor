@@ -14,6 +14,8 @@ import json
 import logging
 import os
 
+from ..i18n import tr, tr_data
+
 log = logging.getLogger(__name__)
 
 SYSTEMS = {0: "P", 1: "C", 2: "B", 3: "U"}
@@ -231,12 +233,12 @@ def is_generic(code):
 def category(code):
     """Descrição estrutural do código — sempre verdadeira, mesmo sem base de dados."""
     s = code[0]
-    kind = "genérico (normalizado)" if is_generic(code) else "específico do fabricante"
-    out = f"{SYSTEM_NAMES[s]} · {kind}"
+    kind = tr_data("genérico (normalizado)") if is_generic(code) else tr_data("específico do fabricante")
+    out = f"{tr_data(SYSTEM_NAMES[s])} · {kind}"
     if s == "P" and code[1] == "0":
         grp = P0_GROUPS.get(code[2])
         if grp:
-            out += f" · {grp}"
+            out += f" · {tr_data(grp)}"
     return out
 
 
@@ -246,18 +248,21 @@ def describe(code):
     if code in _extra_db:
         desc, src = _extra_db[code]
     elif code in GENERIC:
-        desc, src = GENERIC[code], "generic"
-    return {"code": code, "desc": desc, "source": SOURCES.get(src) if src else None,
+        desc, src = tr_data(GENERIC[code]), "generic"       # a base genérica incluída é traduzida
+    source = SOURCES.get(src) if src else None
+    if src == "generic":
+        source = tr_data(source)
+    return {"code": code, "desc": desc, "source": source,
             "category": category(code), "generic": is_generic(code)}
 
 
 def ftb_text(ftb):
-    return FTB.get(ftb, f"tipo de falha 0x{ftb:02X}")
+    return tr_data(FTB[ftb]) if ftb in FTB else tr("tipo de falha 0x{ftb:02X}", ftb=ftb)
 
 
 def uds_status_text(status):
     """Lista das frases dos bits activos do byte de estado UDS."""
-    return [txt for bit, _name, txt in UDS_STATUS_BITS if status & bit]
+    return [tr_data(txt) for bit, _name, txt in UDS_STATUS_BITS if status & bit]
 
 
 def load_database(path, source_key, source_text):

@@ -3,7 +3,33 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [1.7.0] — 2026-10-24
+## [1.8.0] — 2026-10-24
+### Added
+- **English interface** (Options → Display → Language, applied at the next start): every screen, dialog and
+  message, VAG module names, VAG and generic OBD-II fault descriptions, fault types, the diagnostic assistant,
+  OBD-II parameters and readiness monitors, the compatibility matrix and the customer report. Fault search
+  works in both languages. The technical communication log stays in Portuguese
+- `rad/i18n.py` (`tr()` / `tr_data()`), English catalogue `rad/i18n_en.py` and `tools/i18n_check.py`; tests check
+  that every text is translated, that translations keep the same placeholders and HTML tags, and that every
+  `tr()` call passes exactly the values its text uses
+- **Per-workshop licence with offline activation** (`rad/licensing.py`): a PC ID in Options → Licence, keys signed
+  with Ed25519 (pure-Python implementation in `rad/ed25519.py`, checked against RFC 8032) and an optional expiry
+  date. Without a valid licence the app runs in **demo mode**: it reads everything, the simulator has no limits,
+  but writing to a real vehicle (coding, adaptation, basic settings, clearing faults, output tests, service reset)
+  is refused by the communication thread and reports are marked as demo. A build without a public key
+  (`rad/license_pubkey.py`, `PUBLIC_KEY = None`) has licensing switched off
+- `tools/license_tool.py` (vendor only): `genkey` creates the key pair (the private key is kept outside the
+  repository and is never overwritten), `issue` creates a workshop key and logs it; see `docs/LICENSING.md`
+- **Update check** (`rad/updates.py`): at start-up (optional) and with "Check now" in Options, compares the
+  installed version with the latest GitHub release (or the highest version tag). It only notifies and opens the
+  download page; nothing is installed automatically, and offline PCs are not affected
+- Tests: `test_i18n`, `test_licensing`, `test_updates`, plus UI tests for demo mode, the update notice and the
+  English interface
+### Fixed
+- "Most severe fault" and the severity column showed the last word of the severity text; the assistant now
+  returns a short severity label (`severity_short`), so "not assessed" shows as "—"
+- Customer report: "1 avarias" when exactly one fault was found
+
 ### Added
 - Customer report: **"Interventions on the modules"** section listing the codings and adaptations written during
   the visit (same day, only the modules read in that visit, never mixing simulator and real car), with the

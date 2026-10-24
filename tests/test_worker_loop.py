@@ -109,3 +109,30 @@ def test_confirmed_writes_go_to_the_change_journal_and_rejected_ones_do_not():
         w._close_all()
     finally:
         journal.DIRECTORY = None
+
+
+def test_demo_mode_blocks_writes_on_real_interfaces_but_not_in_the_simulator():
+    from rad import licensing
+    w, ev = _worker()
+    w.licensed = False
+    w._dispatch("connect", (0x01,))                                 # simulador: escreve na mesma
+    w._dispatch("recode", (4102, 12345))
+    assert "recode" in dict(ev["result"]) and not ev["error"]
+    assert w.set_live("basic", [1]) is True
+    w.set_live(None, [])
+    w._close_all()
+
+    w, ev = _worker()
+    w.licensed = False
+    w.cfg["port"] = "COM7"                                         # interface real, sem licença
+    for cmd, args in (("recode", (1, 0)), ("adaptation_save", (1, 1, 0)), ("clear_faults", ()),
+                      ("clear_all", ([1],)), ("obd_clear", ()), ("output_test", ()), ("service_reset", (0,))):
+        w._dispatch(cmd, args)
+    assert [c for c, _m in ev["error"]] == ["recode", "adaptation_save", "clear_faults", "clear_all", "obd_clear",
+                                            "output_test", "service_reset"]
+    assert all(m == licensing.demo_block_message() for _c, m in ev["error"])
+    assert w.kl is None                                            # nem chegou a abrir a porta
+    assert w.set_live("basic", [1]) is False and w.live_mode is None
+    assert w.set_live("read", [1, 2]) is True and w.live_mode == "read"   # ler continua a funcionar
+    w.licensed = True
+    assert w.write_allowed()

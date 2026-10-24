@@ -9,13 +9,16 @@ from PySide6.QtWidgets import (
 from ... import APP_NAME
 from ..style import BAD, CYAN, MUTED, OK, WARN
 from .common import lbl, btn, page_header, ask
+from ...i18n import tr
 
 
 class HistoryPage(QWidget):
     report_req = Signal(object)
 
-    COLS = ["Data", "Matrícula", "Cliente", "Veículo", "Tipo", "Módulos", "Avarias", "Origem"]
-    ORIGIN = {1: "Simulação", 0: "Interface real", None: "—"}     # None: gravado antes da v1.3 (desconhecido)
+    # traduzidas ao importar: o idioma é escolhido antes de criar a janela (main.py)
+    COLS = [tr("Data"), tr("Matrícula"), tr("Cliente"), tr("Veículo"), tr("Tipo"), tr("Módulos"), tr("Avarias"),
+            tr("Origem")]
+    ORIGIN = {1: tr("Simulação"), 0: tr("Interface real"), None: "—"}   # None: gravado antes da v1.3 (desconhecido)
 
     def __init__(self):
         super().__init__()
@@ -24,18 +27,19 @@ class HistoryPage(QWidget):
         self.sessions = []
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Histórico", "Todos os Auto-Scans e relatórios ficam guardados neste computador. "
-                                             "Procure pela matrícula ou pelo nome do cliente.",
-                                "Oficina"))
+        v.addWidget(page_header(tr("Histórico"),
+                                tr("Todos os Auto-Scans e relatórios ficam guardados neste computador. "
+                                   "Procure pela matrícula ou pelo nome do cliente."),
+                                tr("Oficina")))
         row = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Procurar matrícula, cliente ou modelo")
+        self.search.setPlaceholderText(tr("Procurar matrícula, cliente ou modelo"))
         self.search.textChanged.connect(self._fill)
         row.addWidget(self.search, 1)
-        row.addWidget(btn("Relatório", "primary", self._report))
-        row.addWidget(btn("Comparar com anterior", None, self._compare))
-        row.addWidget(btn("Apagar", "danger", self._delete))
-        row.addWidget(btn("Abrir pasta", None, self._open_dir))
+        row.addWidget(btn(tr("Relatório"), "primary", self._report))
+        row.addWidget(btn(tr("Comparar com anterior"), None, self._compare))
+        row.addWidget(btn(tr("Apagar"), "danger", self._delete))
+        row.addWidget(btn(tr("Abrir pasta"), None, self._open_dir))
         v.addLayout(row)
         self.table = QTableWidget(0, len(self.COLS))
         self.table.setHorizontalHeaderLabels(self.COLS)
@@ -52,11 +56,11 @@ class HistoryPage(QWidget):
         self.table.cellDoubleClicked.connect(lambda *_: self._report())
         v.addWidget(self.table, 3)
         self.detail = QTreeWidget()
-        self.detail.setHeaderLabels(["Endereço", "Módulo / Avaria", "Estado"])
+        self.detail.setHeaderLabels([tr("Endereço"), tr("Módulo / Avaria"), tr("Estado")])
         self.detail.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.detail.header().setSectionResizeMode(1, QHeaderView.Stretch)
         v.addWidget(self.detail, 2)
-        self.empty = lbl("Ainda não há diagnósticos guardados. Faça um Auto-Scan para começar.", "muted")
+        self.empty = lbl(tr("Ainda não há diagnósticos guardados. Faça um Auto-Scan para começar."), "muted")
         v.addWidget(self.empty)
 
     def refresh(self):
@@ -82,7 +86,7 @@ class HistoryPage(QWidget):
             r = self.table.rowCount()
             self.table.insertRow(r)
             date = s["date"].replace("T", "  ")[:17]
-            kind = {"autoscan": "Auto-Scan", "obd": "OBD-II"}.get(s["kind"], "Módulo")
+            kind = {"autoscan": "Auto-Scan", "obd": "OBD-II"}.get(s["kind"], tr("Módulo"))
             origin = s.get("simulated")
             vals = [date, s["plate"] or "—", s["client"] or "—", s["model"] or "—", kind,
                     str(s["modules"]), str(s["faults"]), self.ORIGIN.get(origin, "—")]
@@ -95,8 +99,8 @@ class HistoryPage(QWidget):
                 if c == 7:
                     it.setForeground(QBrush(QColor(WARN if origin == 1 else MUTED)))
                     if origin is None:
-                        it.setToolTip("Sessão gravada por uma versão anterior, que não registava a interface: "
-                                      "não se sabe se veio do simulador ou do carro.")
+                        it.setToolTip(tr("Sessão gravada por uma versão anterior, que não registava a interface: "
+                                         "não se sabe se veio do simulador ou do carro."))
                 self.table.setItem(r, c, it)
 
     def _selected_id(self):
@@ -114,20 +118,20 @@ class HistoryPage(QWidget):
         try:
             data = self.history.load_session(sid)
         except Exception as e:
-            QMessageBox.warning(self, APP_NAME, f"Não foi possível abrir o registo: {e}")
+            QMessageBox.warning(self, APP_NAME, tr("Não foi possível abrir o registo: {e}", e=e))
             return
         for item in data.get("items", []):
             top = QTreeWidgetItem([f"{item['address']:02X}", item.get("module", ""), ""])
             if item.get("status") == "ok":
                 n = len(item.get("faults", []))
                 top.setText(1, f"{item['module']}  —  {item['info'].get('part', '')}")
-                top.setText(2, "OK" if n == 0 else f"{n} avaria(s)")
+                top.setText(2, tr("OK") if n == 0 else tr("{n} avaria(s)", n=n))
                 top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
                 for f in item.get("faults", []):
                     QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
-                                          "Intermitente" if f.get("intermittent") else ""])
+                                          tr("Intermitente") if f.get("intermittent") else ""])
             else:
-                top.setText(2, "Erro")
+                top.setText(2, tr("Erro"))
                 top.setForeground(2, QBrush(QColor(BAD)))
             self.detail.addTopLevelItem(top)
             top.setExpanded(True)
@@ -135,7 +139,7 @@ class HistoryPage(QWidget):
     def _report(self):
         sid = self._selected_id()
         if not sid:
-            QMessageBox.information(self, APP_NAME, "Escolha um diagnóstico da lista.")
+            QMessageBox.information(self, APP_NAME, tr("Escolha um diagnóstico da lista."))
             return
         self.report_req.emit(self.history.load_session(sid))
 
@@ -158,34 +162,36 @@ class HistoryPage(QWidget):
             return f"<p><b style='color:{color}'>{title}: {len(faults)}</b></p><ul>{rows}</ul>"
 
         d0, d1 = prev["date"], data["date"]
-        head = (f"<p><b>{escape(plate)}</b>: visita de {d1[8:10]}/{d1[5:7]}/{d1[:4]} comparada com "
-                f"{d0[8:10]}/{d0[5:7]}/{d0[:4]}.<br><span style='color:{MUTED}'>Só entram os controladores lidos "
-                "nas duas visitas.</span></p>")
-        return (head + block("Novas", CYAN, diff["new"]) + block("Resolvidas", OK, diff["resolved"])
-                + block("Mantêm-se", WARN, diff["persisting"]))
+        head = (tr("<p><b>{v}</b>: visita de {v2}/{v3}/{v4} comparada com {v5}/{v6}/{v7}.<br><span "
+                   "style='color:{MUTED}'>Só entram os controladores lidos nas duas visitas.</span></p>",
+                   v=escape(plate), v2=d1[8:10], v3=d1[5:7], v4=d1[:4], v5=d0[8:10], v6=d0[5:7], v7=d0[:4],
+                   MUTED=MUTED))
+        return (head + block(tr("Novas"), CYAN, diff["new"]) + block(tr("Resolvidas"), OK, diff["resolved"])
+                + block(tr("Mantêm-se"), WARN, diff["persisting"]))
 
     def _compare(self):
         sid = self._selected_id()
         if not sid:
-            QMessageBox.information(self, APP_NAME, "Escolha um diagnóstico da lista.")
+            QMessageBox.information(self, APP_NAME, tr("Escolha um diagnóstico da lista."))
             return
         try:
             text = self.compare_text(sid)
         except Exception as e:
-            QMessageBox.warning(self, APP_NAME, f"Não foi possível comparar: {e}")
+            QMessageBox.warning(self, APP_NAME, tr("Não foi possível comparar: {e}", e=e))
             return
         if text is None:
-            QMessageBox.information(self, APP_NAME, "Não há uma visita anterior com a mesma matrícula para comparar.")
+            QMessageBox.information(self, APP_NAME, tr("Não há uma visita anterior com a mesma matrícula para "
+                                                       "comparar."))
             return
         box = QMessageBox(self)
-        box.setWindowTitle("Comparar com a visita anterior")
+        box.setWindowTitle(tr("Comparar com a visita anterior"))
         box.setTextFormat(Qt.RichText)
         box.setText(text)
         box.exec()
 
     def _delete(self):
         sid = self._selected_id()
-        if sid and ask(self, APP_NAME, "Apagar este diagnóstico do histórico?"):
+        if sid and ask(self, APP_NAME, tr("Apagar este diagnóstico do histórico?")):
             self.history.delete_session(sid)
             self.refresh()
 

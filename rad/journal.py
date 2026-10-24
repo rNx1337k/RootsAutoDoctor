@@ -11,6 +11,7 @@ import os
 import sqlite3
 
 from .history import history_dir
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -54,9 +55,9 @@ def record(kind, info, requested, before=None, after=None, status="ok", channel=
     """Regista uma escrita. info: identificação do controlador (address, module, part, component).
     Devolve o id do registo."""
     if kind not in KINDS:
-        raise ValueError(f"Tipo de alteração desconhecido: {kind}")
+        raise ValueError(tr("Tipo de alteração desconhecido: {kind}", kind=kind))
     if status not in STATUSES:
-        raise ValueError(f"Estado de alteração inválido: {status}")
+        raise ValueError(tr("Estado de alteração inválido: {status}", status=status))
     info = info or {}
     row = (datetime.datetime.now().isoformat(timespec="seconds"), int(info.get("address", 0)),
            info.get("module") or "", (info.get("part") or "").strip(), (info.get("component") or "").strip(),
@@ -127,14 +128,17 @@ def changes_for_visit(items, simulated=False, day=None, directory=None):
 
 
 def describe(change):
-    """Texto curto para listas e relatórios, ex.: "Codificação 00002 → 04102"."""
+    """Texto curto para listas e relatórios, ex.: "Codificação: 00002 → 04102"."""
     def fmt(v):
         if v is None:
             return "?"
         return f"{v:05d}" if change["kind"] == "coding" else str(v)
-    what = "Codificação" if change["kind"] == "coding" else f"Adaptação canal {change['channel']:02d}"
     after = change["after"] if change["after"] is not None else change["requested"]
-    text = f"{what}: {fmt(change['before'])} → {fmt(after)}"
+    if change["kind"] == "coding":
+        text = tr("Codificação: {before} → {after}", before=fmt(change["before"]), after=fmt(after))
+    else:
+        text = tr("Adaptação canal {channel:02d}: {before} → {after}", channel=change["channel"],
+                  before=fmt(change["before"]), after=fmt(after))
     if change["status"] == "unknown":
-        text += " (por confirmar)"
+        text += tr(" (por confirmar)")
     return text

@@ -113,6 +113,8 @@ def install_crash_handler():
 
 def create_window():
     """Cria a aplicação Qt, o splash e a janela principal. Devolve (app, janela, splash)."""
+    from rad import i18n
+    i18n.load_from_settings()                     # antes de importar a interface: há textos traduzidos ao importar
     from PySide6.QtGui import QFont, QIcon
     from PySide6.QtWidgets import QApplication, QSplashScreen
     from rad.ui.main_window import MainWindow

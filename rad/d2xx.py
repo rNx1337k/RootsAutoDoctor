@@ -13,6 +13,7 @@ import logging
 import os
 
 from .errors import InterfaceError, KLineError
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +91,8 @@ def _start_bridge(dll):
     try:
         exe = find_python(bits)
     except Exception as e:
-        raise KLineError(f"{e} (o {os.path.basename(dll)} da interface é de {bits} bits)") from e
+        raise KLineError(tr("{e} (o {v} da interface é de {bits} bits)",
+                            e=e, v=os.path.basename(dll), bits=bits)) from e
     return BridgeProcess([exe, "-u", BRIDGE], "D2XX"), bits
 
 
@@ -107,8 +109,8 @@ class D2xxSerial:
         self.serial = port[len(PREFIX):]
         self.dll = dll or (SIM_DLL if port == SIM_PORT else find_dll())
         if not self.dll:
-            raise KLineError("Não foi encontrado o RT-USB.DLL do driver da interface. Reinstale o driver ou "
-                             "use o acesso USB directo (WinUSB).")
+            raise KLineError(tr("Não foi encontrado o RT-USB.DLL do driver da interface. Reinstale o driver ou "
+                             "use o acesso USB directo (WinUSB)."))
         self._timeout = timeout
         self._baud = baudrate
         self._break = False
@@ -118,7 +120,7 @@ class D2xxSerial:
 
     def _call(self, op, **kw):
         if self.proc is None:
-            raise InterfaceError(f"{self.port}: interface fechada")
+            raise InterfaceError(tr("{port}: interface fechada", port=self.port))
         limit = _OP_TIMEOUT.get(op, _DEFAULT_TIMEOUT)
         if op == "read":
             limit = kw.get("timeout_ms", 500) / 1000 + 3.0

@@ -17,7 +17,8 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import connstate, hexmcu, journal, vag_data
+from . import connstate, hexmcu, journal, licensing, vag_data
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class Worker(QThread):
         self.hex_info = None               # último probe do microcontrolador do clone HEX (por porta aberta)
         self._obd_pending_steps = []
         self._obd_silent = 0
+        self.licensed = True               # a janela actualiza com rad.licensing.status() ao abrir
 
     @property
     def is_busy(self):
@@ -60,9 +62,19 @@ class Worker(QThread):
     def submit(self, cmd, *args):
         self.q.put((cmd, args))
 
+    def write_allowed(self):
+        """Escrever no veículo: com licença, ou sempre no simulador (modo demonstração)."""
+        return self.licensed or is_simulated_port(self.cfg.get("port", ""))
+
     def set_live(self, mode, groups):
+        """Devolve False se o modo foi recusado (ajustes básicos em modo demonstração)."""
+        if mode == "basic" and groups and not self.write_allowed():
+            self.live_mode = None
+            self.error.emit("basic_setting", licensing.demo_block_message())
+            return False
         self.live_groups = list(groups)
         self.live_mode = mode if groups else None
+        return True
 
     def stop(self):
         self._running = False
@@ -130,7 +142,7 @@ class Worker(QThread):
                     except Exception as e:
                         self._quiet = False
                         log.warning("Leitura contínua OBD: %s", e, exc_info=True)
-                        self.log.emit(f"Erro: {e}")
+                        self.log.emit(tr("Erro: {e}", e=e))
                     finally:
                         self._quiet = False
                 continue
@@ -158,7 +170,7 @@ class Worker(QThread):
                     log.warning("Leitura contínua / keep-alive recusado: %s", e)
                 else:
                     log.exception("Erro na leitura contínua / keep-alive")
-                self.log.emit(f"Erro: {e}")
+                self.log.emit(tr("Erro: {e}", e=e))
                 # sem isto, um keep-alive recusado (resposta negativa) repetia-se em ciclo apertado
                 last = time.monotonic()
             finally:
@@ -190,11 +202,11 @@ class Worker(QThread):
 
     def _lost(self, reason):
         self.live_mode = None
-        self.log.emit(f"Ligação perdida: {reason}")
+        self.log.emit(tr("Ligação perdida: {reason}", reason=reason))
         self.session = None
         self.state.emit("disconnected", reason)
         self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU,
-                                             f"Ligação à centralina perdida: {reason}"))
+                                             tr("Ligação à centralina perdida: {reason}", reason=reason)))
 
     def _drop_port(self):
         """A interface falhou: fecha-a para que o próximo comando a volte a abrir do zero
@@ -207,10 +219,10 @@ class Worker(QThread):
                 log.warning("Erro ao fechar a interface que falhou", exc_info=True)
         self.kl = None
         self.hex_info = None
-        self.log.emit("Interface fechada depois de um erro; será reaberta no próximo comando.")
+        self.log.emit(tr("Interface fechada depois de um erro; será reaberta no próximo comando."))
         present = self._port_present()
         state = connstate.NO_DEVICE if present is False else connstate.UNREACHABLE
-        self._emit_link(connstate.LinkStatus(state, connstate.LABELS[state], fatal=True))
+        self._emit_link(connstate.LinkStatus(state, fatal=True))
 
     def _close_all(self):
         try:
@@ -233,9 +245,9 @@ class Worker(QThread):
     def _ensure_port(self):
         c = self.cfg
         if self._adapter() == "elm327":
-            raise ProtocolError("A interface escolhida é um adaptador ELM327 (OBD-II/EOBD multimarca). As funções "
+            raise ProtocolError(tr("A interface escolhida é um adaptador ELM327 (OBD-II/EOBD multimarca). As funções "
                                 "VAG por KW1281/KWP2000 precisam de um cabo KKL 409.1 ou de uma interface J2534: "
-                                "use a página OBD-II, ou escolha outra interface em Opções.")
+                                "use a página OBD-II, ou escolha outra interface em Opções."))
         self._close_obd()
         if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"] and self.kl.is_open:
             self.kl.raw_log = c["raw_log"]
@@ -243,7 +255,7 @@ class Worker(QThread):
         if self.kl:
             self.kl.close()
         if not c["port"]:
-            raise ProtocolError("Escolha a porta do cabo nas Opções")
+            raise ProtocolError(tr("Escolha a porta do cabo nas Opções"))
         if is_j2534_port(c["port"]):
             self.kl = J2534Link(c["port"], log=self._log, raw_log=c["raw_log"])
         else:
@@ -253,7 +265,7 @@ class Worker(QThread):
             self.kl.lines = saved
         self.kl.open()
         self.hex_info = None
-        self.log.emit(f"Interface {c['port']} aberta")
+        self.log.emit(tr("Interface {port} aberta", port=c['port']))
         self._emit_link(connstate.opened(c["port"]))
 
     def _hex_check(self):
@@ -262,14 +274,14 @@ class Worker(QThread):
         mcu = hexmcu.HexMcu(self.kl.ser, log=self._log)
         res = mcu.probe()
         res["kline"] = None
-        self.log.emit("Cabo HEX: " + hexmcu.describe(res))
+        self.log.emit(tr("Cabo HEX: ") + hexmcu.describe(res))
         if res["found"]:
             try:
                 res["kline"] = hexmcu.kline_test(mcu)
             except Exception:
                 log.warning("Teste da linha K pelo cabo HEX falhou", exc_info=True)
             if res["kline"] is not None:
-                self.log.emit("Cabo HEX: linha K vista pelo cabo — " + hexmcu.describe_kline(res["kline"]))
+                self.log.emit(tr("Cabo HEX: linha K vista pelo cabo — ") + hexmcu.describe_kline(res["kline"]))
         self.kl.set_baud(10400)
         self.kl.set_lines(*hexmcu.HEX_LINES)
         self.hex_info = res
@@ -297,7 +309,7 @@ class Worker(QThread):
         note = ""
         if combo != before:
             _save_lines(self.cfg["port"], combo)
-            note = f" (DTR {'on' if combo[0] else 'off'}, RTS {'on' if combo[1] else 'off'} — guardado)"
+            note = tr(" (DTR {v}, RTS {v2} — guardado)", v='on' if combo[0] else 'off', v2='on' if combo[1] else 'off')
         return True, note
 
     def _preflight(self):
@@ -310,10 +322,13 @@ class Worker(QThread):
         if not ok:
             raise ProtocolError(no_echo_text(self.cfg.get("port", ""), self.hex_info))
         if note:
-            self.log.emit("Eco da linha K OK" + note)
+            self.log.emit(tr("Eco da linha K OK") + note)
 
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):
+        if cmd in licensing.WRITE_COMMANDS and not self.write_allowed():
+            self.error.emit(cmd, licensing.demo_block_message())
+            return
         try:
             handler = Worker.__dict__.get(f"_cmd_{cmd}")
             if handler:
@@ -346,11 +361,11 @@ class Worker(QThread):
         except Exception as e:
             log.exception("Erro interno no comando %s", cmd)
             self.log.emit(traceback.format_exc())
-            self.error.emit(cmd, f"Erro interno: {e}")
+            self.error.emit(cmd, tr("Erro interno: {e}", e=e))
 
     def _session_cmd(self, cmd, args):
         if not self.session or not self.session.connected:
-            raise ProtocolError("Não há ligação ao controlador")
+            raise ProtocolError(tr("Não há ligação ao controlador"))
         res = getattr(self.session, cmd)(*args)
         if cmd in ("recode", "adaptation_save", "service_reset"):
             self._journal(cmd, args, res)
@@ -374,7 +389,7 @@ class Worker(QThread):
                                simulated=simulated)
         except Exception:
             log.exception("Não foi possível guardar o registo de alterações (%s)", cmd)
-            self.log.emit("Aviso: a alteração foi feita mas não ficou no registo de alterações.")
+            self.log.emit(tr("Aviso: a alteração foi feita mas não ficou no registo de alterações."))
 
     def _cmd_configure(self, cfg):
         changed = (cfg.get("port") != self.cfg.get("port") or cfg.get("echo") != self.cfg.get("echo")
@@ -384,7 +399,7 @@ class Worker(QThread):
         if changed and self.obd is not None:
             self._close_obd()
             self.state.emit("disconnected", None)
-            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Interface alterada nas Opções."))
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, tr("Interface alterada nas Opções.")))
         if changed and self.kl:
             if self.session:
                 self._cmd_disconnect()
@@ -406,7 +421,8 @@ class Worker(QThread):
         s = ECUSession(self.kl, self._log, self.cfg["baud"])
         info = s.connect(address, retry=True)
         self.session = s
-        self.log.emit(f"Ligado a {address:02X} — {info['part']} {info['component']}")
+        self.log.emit(tr("Ligado a {address:02X} — {part} {component}",
+                         address=address, part=info['part'], component=info['component']))
         self.state.emit("connected", info)
         self._emit_link(connstate.connected(info))
 
@@ -421,17 +437,17 @@ class Worker(QThread):
         self.state.emit("disconnected", None)
         if self.kl is not None and self.kl.is_open:
             self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU,
-                            "Controlador fechado. A interface continua aberta."))
+                            tr("Controlador fechado. A interface continua aberta.")))
         else:
-            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Sem ligação."))
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, tr("Sem ligação.")))
 
     def _cmd_test_interface(self):
         if self._adapter() == "elm327":
             return self._test_elm_adapter()
         self._ensure_port()
         ok, note = self._echo()
-        msg = ("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD." + note
-               if ok else "A porta abriu. " + no_echo_text(self.cfg.get("port", ""), self.hex_info))
+        msg = (tr("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD.") + note
+               if ok else tr("A porta abriu. ") + no_echo_text(self.cfg.get("port", ""), self.hex_info))
         self.result.emit("test_interface", {"ok": ok, "message": msg})
 
     def _cmd_hex_mode(self, mode):
@@ -441,7 +457,7 @@ class Worker(QThread):
             self._cmd_disconnect()
         self._ensure_port()
         if not getattr(self.kl, "is_hex", False):
-            raise ProtocolError("A porta escolhida não é um cabo HEX (D2XX:… ou FTDI:0403:FA2x:…)")
+            raise ProtocolError(tr("A porta escolhida não é um cabo HEX (D2XX:… ou FTDI:0403:FA2x:…)"))
         mcu = hexmcu.HexMcu(self.kl.ser, log=self._log)
         try:
             res = mcu.probe()
@@ -449,7 +465,7 @@ class Worker(QThread):
             if res["found"] and mode == "smart":
                 now = mcu.set_mode(hexmcu.MODE_SMART)
                 mcu.reset(boot=1.0)
-                msg += f"\n\nModo de arranque agora: {hexmcu.MODE_NAMES.get(now, now)}"
+                msg += tr("\n\nModo de arranque agora: {v}", v=hexmcu.MODE_NAMES.get(now, now))
                 res["mode"] = now
             ok = bool(res["found"])
         except hexmcu.HexMcuError as e:
@@ -471,21 +487,22 @@ class Worker(QThread):
         try:
             port = self.cfg.get("port")
             if not port:
-                steps.append(("Porta do cabo", False, "Nenhuma porta escolhida. Use Detectar cabo."))
+                steps.append((tr("Porta do cabo"), False, tr("Nenhuma porta escolhida. Use Detectar cabo.")))
                 return
             present = _usb_present(port)
             if present is not None:
-                steps.append(("Cabo detectado no USB", present,
-                              "O Windows vê a interface" if present else
-                              "O Windows não vê a interface: ligue o cabo ao USB (ou troque de porta/cabo USB)"))
+                steps.append((tr("Cabo detectado no USB"), present,
+                              tr("O Windows vê a interface") if present else
+                              tr("O Windows não vê a interface: ligue o cabo ao USB (ou troque de porta/cabo USB)")))
                 if not present:
                     return
             try:
                 self._ensure_port()
-                steps.append(("Abrir a interface", True, port))
+                steps.append((tr("Abrir a interface"), True, port))
             except Exception as e:
-                steps.append(("Abrir a interface", False, f"{e}. Feche outros programas que usem o cabo "
-                                                           "(VCDS, Delphi…) e confirme a porta."))
+                steps.append((tr("Abrir a interface"), False, tr("{e}. Feche outros programas que usem o cabo (VCDS, "
+                                                                 "Delphi…) e confirme a porta.",
+                                                                 e=e)))
                 return
             if not getattr(self.kl, "is_j2534", False):
                 try:
@@ -497,39 +514,42 @@ class Worker(QThread):
                         self.hex_info = {"found": False, "raw": [str(e)]}
                 h = self.hex_info
                 if h is not None:
-                    steps.append(("Adaptador (microcontrolador do cabo HEX)", bool(h.get("found")),
+                    steps.append((tr("Adaptador (microcontrolador do cabo HEX)"), bool(h.get("found")),
                                   hexmcu.describe(h)))
                     if h.get("found") and h.get("kline") is not None:
-                        steps.append(("Linha K vista pelo cabo", True, hexmcu.describe_kline(h["kline"])))
+                        steps.append((tr("Linha K vista pelo cabo"), True, hexmcu.describe_kline(h["kline"])))
                     if h.get("found"):
                         if h.get("mode") == hexmcu.MODE_DUMB:
-                            steps.append(("Modo do cabo", True, "KKL (linha K directa)"))
+                            steps.append((tr("Modo do cabo"), True, tr("KKL (linha K directa)")))
                         else:
-                            steps.append(("Modo do cabo", False,
-                                          "Modo inteligente: a linha K é controlada pelo microcontrolador do cabo "
+                            steps.append((tr("Modo do cabo"), False,
+                                          tr("Modo inteligente: a linha K é controlada pelo microcontrolador do cabo "
                                           "e o protocolo dele para falar com as centralinas ainda não está "
-                                          "implementado no Roots Auto Doctor"))
+                                          "implementado no Roots Auto Doctor")))
                 why = ("O cabo vê a linha K do carro." + note) if ok else no_echo_text(port, h)
-                steps.append(("Eco da linha K", ok, why))
+                steps.append((tr("Eco da linha K"), ok, why))
                 if not ok:
                     return
             try:
                 s = ECUSession(self.kl, self._log, self.cfg["baud"])
                 info = s.connect(address, retry=True)
-                steps.append((f"Ligação ao controlador {address:02X}", True,
-                              f"{info['protocol']} a {info['baud']} baud — {info['part']} {info['component']}"))
+                steps.append((tr("Ligação ao controlador {address:02X}", address=address), True,
+                              tr("{protocol} a {baud} baud — {part} {component}",
+                                 protocol=info['protocol'], baud=info['baud'], part=info['part'],
+                                 component=info['component'])))
                 try:
                     n = len(s.read_faults())
-                    steps.append(("Leitura de avarias", True, f"{n} avaria(s)"))
+                    steps.append((tr("Leitura de avarias"), True, tr("{n} avaria(s)", n=n)))
                 except Exception as e:
-                    steps.append(("Leitura de avarias", False, str(e)))
+                    steps.append((tr("Leitura de avarias"), False, str(e)))
                 s.disconnect()
             except NoResponse as e:
-                steps.append((f"Ligação ao controlador {address:02X}", False,
-                              f"{e}. Confirme que a ignição está ligada; experimente outro endereço (ex.: 17)."))
+                steps.append((tr("Ligação ao controlador {address:02X}", address=address), False,
+                              tr("{e}. Confirme que a ignição está ligada; experimente outro endereço (ex.: 17).",
+                                 e=e)))
             except Exception as e:
-                steps.append((f"Ligação ao controlador {address:02X}", False,
-                              f"{e}. Active o Registo detalhado e crie um pacote de suporte."))
+                steps.append((tr("Ligação ao controlador {address:02X}", address=address), False,
+                              tr("{e}. Active o Registo detalhado e crie um pacote de suporte.", e=e)))
         finally:
             self.cfg["raw_log"] = old_raw
             if self.kl:
@@ -615,8 +635,9 @@ class Worker(QThread):
                 item["status"] = "error"
                 item["error"] = str(e)
             out.append(item)
-            self.log.emit(f"Apagar avarias {addr:02X}: "
-                          f"{'ficaram ' + str(len(item['faults'])) if item['status'] == 'ok' else item['error']}")
+            self.log.emit(tr("Apagar avarias {addr:02X}: {error}",
+                             addr=addr,
+                             error='ficaram ' + str(len(item['faults'])) if item['status'] == 'ok' else item['error']))
             if not interface_error:
                 time.sleep(0.02 if self.kl.is_simulator else (1.5 if item["status"] != "ok" else 0.35))
         if interface_error:
@@ -637,7 +658,7 @@ class Worker(QThread):
 
     def _obd_lost(self, reason, interface_failed):
         self.live_mode = None
-        self.log.emit(f"Ligação OBD perdida: {reason}")
+        self.log.emit(tr("Ligação OBD perdida: {reason}", reason=reason))
         self._close_obd()
         self.result.emit("obd_lost", reason)
         if interface_failed:
@@ -645,7 +666,8 @@ class Worker(QThread):
             state = connstate.NO_DEVICE if present is False else connstate.UNREACHABLE
             self._emit_link(connstate.LinkStatus(state, reason, fatal=True))
         else:
-            self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU, f"Ligação ao veículo perdida: {reason}"))
+            self._emit_link(connstate.LinkStatus(connstate.OPEN_NO_ECU, tr("Ligação ao veículo perdida: {reason}",
+                                                                           reason=reason)))
 
     def _obd_failed(self, cmd, exc):
         """Erro num comando OBD: se a interface falhou, fecha-a; o estado detalhado diz porquê."""
@@ -660,7 +682,7 @@ class Worker(QThread):
 
     def _require_obd(self):
         if self.obd is None or not self.obd.connected:
-            raise ProtocolError("Não há ligação OBD-II ao veículo: carregue em Ligar na página OBD-II")
+            raise ProtocolError(tr("Não há ligação OBD-II ao veículo: carregue em Ligar na página OBD-II"))
         return self.obd
 
     def _cmd_obd_connect(self):
@@ -677,23 +699,26 @@ class Worker(QThread):
         self._obd_pending_steps = []
         if not port:
             self._obd_pending_steps = [("Porta da interface", False, "Nenhuma porta escolhida em Opções")]
-            raise ProtocolError("Escolha a porta do adaptador ELM327 nas Opções")
+            raise ProtocolError(tr("Escolha a porta do adaptador ELM327 nas Opções"))
         if self._adapter() != "elm327":
             self._obd_pending_steps = [("Tipo de interface", False, "Em Opções está escolhido um cabo KKL/J2534")]
-            raise ProtocolError("Em Opções, escolha \"ELM327 — OBD-II/EOBD multimarca\" como tipo de interface "
-                                "(ou o Simulador ELM327) para usar o diagnóstico OBD-II.")
+            raise ProtocolError(tr("Em Opções, escolha \"ELM327 — OBD-II/EOBD multimarca\" como tipo de interface "
+                                "(ou o Simulador ELM327) para usar o diagnóstico OBD-II."))
         present = self._port_present()
         if present is False:
             self._obd_pending_steps = [("Interface detectada", False, f"A porta {port} não existe neste momento")]
-            raise ProtocolError(f"A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o "
-                                "Bluetooth) e carregue em Actualizar nas Opções.")
+            raise ProtocolError(tr("A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o "
+                                   "Bluetooth) e carregue em Actualizar nas Opções.",
+                                   port=port))
         link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"),
                           protocol=self.cfg.get("elm_protocol") or "0")
         self.obd = ObdSession(link, self._log)
-        self._emit_link(connstate.LinkStatus(connstate.CONNECTING, f"A ligar ao veículo por OBD-II ({port})…"))
+        self._emit_link(connstate.LinkStatus(connstate.CONNECTING, tr("A ligar ao veículo por OBD-II ({port})…",
+                                                                      port=port)))
         info = self.obd.connect()
-        self.log.emit(f"OBD-II: ligado — {info['protocol']}, {len(info['ecus'])} centralina(s)"
-                      + (f", VIN {info['vin']}" if info.get("vin") else ""))
+        self.log.emit(tr("OBD-II: ligado — {protocol}, {v} centralina(s)",
+                         protocol=info['protocol'], v=len(info['ecus']))
+                      + (tr(", VIN {vin}", vin=info['vin']) if info.get("vin") else ""))
         self._emit_link(connstate.obd_connected(info))
         self.result.emit("obd_connect", info)
 
@@ -702,32 +727,33 @@ class Worker(QThread):
         from .obd.elm327 import Elm327Link
         if self.obd is not None:
             d = self.obd.link.describe()
-            self.result.emit("test_interface", {"ok": True, "message": f"Adaptador {d.get('version')} já ligado ao "
-                                                                       f"veículo ({d.get('protocol')})."})
+            self.result.emit("test_interface", {"ok": True, "message": tr("Adaptador {v} já ligado ao veículo ({v2}).",
+                                                                          v=d.get('version'), v2=d.get('protocol'))})
             return
         if self.kl is not None:
             self.kl.close()
             self.kl = None
         port = self.cfg.get("port") or ""
         if not port:
-            raise ProtocolError("Escolha a porta do adaptador ELM327 nas Opções")
+            raise ProtocolError(tr("Escolha a porta do adaptador ELM327 nas Opções"))
         link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"))
         try:
             d = link.open()
         finally:
             link.close()
         volt = d.get("voltage")
-        msg = (f"Adaptador {d.get('version')} a responder na porta {port} ({d.get('baud')} baud)."
-               + (f" Tensão na ficha OBD: {volt:.1f} V." if volt is not None else "")
-               + ("" if not d.get("warnings") else " Avisos: " + "; ".join(d["warnings"]) + ".")
-               + "\n\nIsto prova que o adaptador funciona; a ligação ao veículo testa-se na página OBD-II.")
+        msg = (tr("Adaptador {v} a responder na porta {port} ({v2} baud).",
+                  v=d.get('version'), port=port, v2=d.get('baud'))
+               + (tr(" Tensão na ficha OBD: {volt:.1f} V.", volt=volt) if volt is not None else "")
+               + ("" if not d.get("warnings") else tr(" Avisos: ") + "; ".join(d["warnings"]) + ".")
+               + tr("\n\nIsto prova que o adaptador funciona; a ligação ao veículo testa-se na página OBD-II."))
         self.result.emit("test_interface", {"ok": True, "message": msg})
 
     def _cmd_obd_disconnect(self):
         was = self.obd is not None
         self._close_obd()
         if was:
-            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, "Ligação OBD-II fechada."))
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, tr("Ligação OBD-II fechada.")))
         self.result.emit("obd_disconnect", None)
 
     def _cmd_obd_dtcs(self):
@@ -737,7 +763,7 @@ class Worker(QThread):
         """Só chega aqui depois da confirmação explícita do utilizador na interface."""
         o = self._require_obd()
         self.live_mode = None
-        self.log.emit("OBD-II: pedido de apagar avarias (modo 04) enviado por acção do utilizador")
+        self.log.emit(tr("OBD-II: pedido de apagar avarias (modo 04) enviado por acção do utilizador"))
         self.result.emit("obd_clear", o.clear_dtcs())
 
     def _cmd_obd_freeze(self):
@@ -755,8 +781,9 @@ class Worker(QThread):
             self._obd_silent += 1
             if self._obd_silent >= self.OBD_LIVE_MAX_SILENT:
                 self._obd_silent = 0
-                raise NoResponse(f"A centralina deixou de responder ({self.OBD_LIVE_MAX_SILENT} leituras seguidas "
-                                 "sem resposta): ignição desligada ou cabo solto?")
+                raise NoResponse(tr("A centralina deixou de responder ({OBD_LIVE_MAX_SILENT} leituras seguidas sem "
+                                    "resposta): ignição desligada ou cabo solto?",
+                                    OBD_LIVE_MAX_SILENT=self.OBD_LIVE_MAX_SILENT))
         else:
             self._obd_silent = 0
         self.live.emit({"mode": "obd", "values": values, "t": time.time()})

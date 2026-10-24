@@ -13,6 +13,7 @@ from ..errors import NoResponse, NotSupported, ProtocolError
 from . import dtc as dtcmod
 from . import pids as pidmod
 from .link import NegativeResponse, positive, raise_if_all_negative
+from ..i18n import tr
 
 SUPPORT_BASES = (0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0)
 MAX_PIDS_PER_REQUEST_CAN = 6          # J1979: até 6 PIDs num pedido do modo 01 em CAN
@@ -59,7 +60,7 @@ class Obd2:
                 bases_by_ecu.setdefault(r.ecu, set()).update(p for p in s if p % 0x20 == 0)
             if base == 0 and not found:
                 raise_if_all_negative(resp, 0x01)
-                raise NoResponse("Nenhuma centralina respondeu ao pedido OBD-II 01 00")
+                raise NoResponse(tr("Nenhuma centralina respondeu ao pedido OBD-II 01 00"))
         self.supported = {k: found[k] for k in sorted(found, key=_ecu_order)}
         return self.supported
 
@@ -90,9 +91,9 @@ class Obd2:
             pid = data[i]
             p = pidmod.TABLE.get(pid)
             if p is None or pid not in wanted:
-                raise InvalidResponse(f"PID 0x{pid:02X} inesperado na resposta")
+                raise InvalidResponse(tr("PID 0x{pid:02X} inesperado na resposta", pid=pid))
             if i + 1 + p.size > len(data):
-                raise InvalidResponse(f"PID 0x{pid:02X}: resposta curta")
+                raise InvalidResponse(tr("PID 0x{pid:02X}: resposta curta", pid=pid))
             out[pid] = data[i + 1:i + 1 + p.size]
             i += 1 + p.size
         return out
@@ -106,9 +107,9 @@ class Obd2:
         todo = []
         for pid in pid_list:
             if pid not in pidmod.TABLE:
-                out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": "sem definição no programa"}
+                out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": tr("sem definição no programa")}
             elif pid not in sup:
-                out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": "não suportado por esta centralina"}
+                out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": tr("não suportado por esta centralina")}
             else:
                 todo.append(pid)
         chunk = MAX_PIDS_PER_REQUEST_CAN if getattr(self.link, "is_can", False) else 1
@@ -118,14 +119,15 @@ class Obd2:
                 resp = self.link.request(bytes([0x01, *part]))
             except NoResponse:
                 for pid in part:
-                    out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": "sem resposta da centralina"}
+                    out[pid] = {"pid": pid, "name": pidmod.name(pid), "error": tr("sem resposta da centralina")}
                 continue
             mine = [r for r in positive(resp, 0x01) if r.ecu == ecu]
             if not mine:
                 neg = [r for r in resp if r.negative and r.ecu == ecu]
                 for pid in part:
                     out[pid] = {"pid": pid, "name": pidmod.name(pid),
-                                "error": (f"recusado: NRC 0x{neg[0].nrc:02X}" if neg else "sem resposta da centralina")}
+                                "error": (tr("recusado: NRC 0x{nrc:02X}", nrc=neg[0].nrc) if neg
+                                          else tr("sem resposta da centralina"))}
                 continue
             raw = {}
             for r in mine:
@@ -136,7 +138,7 @@ class Obd2:
             for pid in part:
                 p = pidmod.TABLE[pid]
                 if pid not in raw:
-                    out[pid] = {"pid": pid, "name": p.name, "error": "resposta inválida"}
+                    out[pid] = {"pid": pid, "name": p.name, "error": tr("resposta inválida")}
                     continue
                 v = p.decode(raw[pid])
                 numeric = v if isinstance(v, (int, float)) and pid not in pidmod.TEXT_PIDS else None
@@ -175,13 +177,14 @@ class Obd2:
         except NoResponse:
             if kind == "stored":
                 raise
-            raise NotSupported(f"Nenhuma centralina respondeu ao modo {service:02X} ({kind})") from None
+            raise NotSupported(tr("Nenhuma centralina respondeu ao modo {service:02X} ({kind})",
+                                  service=service, kind=kind)) from None
         if not positive(resp, service):
             try:
                 raise_if_all_negative(resp, service)
             except NegativeResponse as e:
                 raise NotSupported(str(e)) from e
-            raise NoResponse(f"Sem resposta válida ao modo {service:02X}")
+            raise NoResponse(tr("Sem resposta válida ao modo {service:02X}", service=service))
         return self._dtcs_from(resp, service)
 
     def clear_dtcs(self):
@@ -191,7 +194,7 @@ class Obd2:
         ok = [r.ecu for r in positive(resp, 0x04)]
         if not ok:
             raise_if_all_negative(resp, 0x04)
-            raise NoResponse("Nenhuma centralina confirmou o pedido de apagar avarias")
+            raise NoResponse(tr("Nenhuma centralina confirmou o pedido de apagar avarias"))
         return ok
 
     # ----------------------------------------------------------- modo 02

@@ -36,3 +36,7 @@ resultado_testes*.txt
 correr_testes.bat
 preparar_venv.txt
 autoteste*.txt
+
+# Chaves privadas de licença: nunca no repositório
+*.key
+RootsAutoDoctor_licencas/

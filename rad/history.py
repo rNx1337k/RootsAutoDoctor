@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import sqlite3
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -159,7 +160,7 @@ def update_session(sid, vehicle=None, notes=None, directory=None, meta=None):
     try:
         row = db.execute("SELECT data FROM sessions WHERE id = ?", (sid,)).fetchone()
         if row is None:
-            raise KeyError(f"sessão {sid} não encontrada")
+            raise KeyError(tr("sessão {sid} não encontrada", sid=sid))
         data = json.loads(row["data"])
         if vehicle is not None:
             data["vehicle"] = vehicle
@@ -193,7 +194,7 @@ def load_session(sid, directory=None):
     finally:
         db.close()
     if row is None:
-        raise KeyError(f"sessão {sid} não encontrada")
+        raise KeyError(tr("sessão {sid} não encontrada", sid=sid))
     return json.loads(row["data"])
 
 

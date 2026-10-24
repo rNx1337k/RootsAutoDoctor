@@ -6,19 +6,31 @@ Cada parâmetro tem a fórmula da norma. Só se pede à centralina um PID que el
 A, B, C, D = 1.º, 2.º, 3.º e 4.º bytes de dados da resposta.
 """
 
+from ..i18n import tr, tr_data
+
 
 class Pid:
-    __slots__ = ("pid", "name", "unit", "size", "fn", "lo", "hi", "short")
+    __slots__ = ("pid", "source_name", "unit", "size", "fn", "lo", "hi", "source_short")
 
     def __init__(self, pid, name, unit, size, fn, lo=None, hi=None, short=None):
-        self.pid, self.name, self.unit, self.size, self.fn = pid, name, unit, size, fn
+        self.pid, self.source_name, self.unit, self.size, self.fn = pid, name, unit, size, fn
         self.lo, self.hi = lo, hi          # gama da norma (para escalas de gráficos/instrumentos)
-        self.short = short or name
+        self.source_short = short or name
+
+    @property
+    def name(self):
+        return tr_data(self.source_name)
+
+    @property
+    def short(self):
+        return tr_data(self.source_short)
 
     def decode(self, data):
         if len(data) < self.size:
-            raise ValueError(f"PID {self.pid:02X}: esperava {self.size} byte(s), recebeu {len(data)}")
-        return self.fn(*data[:self.size])
+            raise ValueError(tr("PID {pid:02X}: esperava {size} byte(s), recebeu {n}",
+                                pid=self.pid, size=self.size, n=len(data)))
+        value = self.fn(*data[:self.size])
+        return tr_data(value) if isinstance(value, str) else value     # tipo de combustível, norma OBD
 
 
 def _pct(a):
@@ -61,7 +73,7 @@ TABLE = {p.pid: p for p in [
     Pid(0x0F, "Temperatura do ar de admissão", "°C", 1, lambda a: a - 40, -40, 215, "Temp. ar"),
     Pid(0x10, "Massa de ar (MAF)", "g/s", 2, lambda a, b: _u16(a, b) / 100, 0, 655.35, "MAF"),
     Pid(0x11, "Posição absoluta da borboleta", "%", 1, _pct, 0, 100, "Borboleta"),
-    Pid(0x1C, "Norma OBD do veículo", "", 1, lambda a: OBD_STANDARDS.get(a, f"tipo {a}")),
+    Pid(0x1C, "Norma OBD do veículo", "", 1, lambda a: OBD_STANDARDS.get(a) or tr("tipo {n}", n=a)),
     Pid(0x1F, "Tempo desde o arranque", "s", 2, _u16, 0, 65535, "Tempo motor"),
     Pid(0x21, "Distância com a luz de avaria acesa", "km", 2, _u16, 0, 65535, "Dist. c/ MIL"),
     Pid(0x22, "Pressão na rampa (relativa ao vácuo do colector)", "kPa", 2,
@@ -89,7 +101,7 @@ TABLE = {p.pid: p for p in [
     Pid(0x4C, "Actuador da borboleta comandado", "%", 1, _pct, 0, 100, "Borboleta cmd"),
     Pid(0x4D, "Tempo com a luz de avaria acesa", "min", 2, _u16, 0, 65535, "Tempo c/ MIL"),
     Pid(0x4E, "Tempo desde que as avarias foram apagadas", "min", 2, _u16, 0, 65535, "Tempo desde apagar"),
-    Pid(0x51, "Tipo de combustível", "", 1, lambda a: FUEL_TYPES.get(a, f"tipo {a}")),
+    Pid(0x51, "Tipo de combustível", "", 1, lambda a: FUEL_TYPES.get(a) or tr("tipo {n}", n=a)),
     Pid(0x5C, "Temperatura do óleo do motor", "°C", 1, lambda a: a - 40, -40, 210, "Temp. óleo"),
     Pid(0x5D, "Início da injecção", "°", 2, lambda a, b: round(_u16(a, b) / 128 - 210, 2), -210, 301.99,
         "Início injecção"),
@@ -128,19 +140,19 @@ def decode_monitor_status(a, b, c, d):
     monitors = []
     for i, name in enumerate(CONTINUOUS_MONITORS):
         sup = bool(b & (1 << i))
-        monitors.append({"name": name, "supported": sup, "complete": sup and not (b & (1 << (i + 4))),
+        monitors.append({"name": tr_data(name), "supported": sup, "complete": sup and not (b & (1 << (i + 4))),
                          "continuous": True})
     names = DIESEL_MONITORS if diesel else SPARK_MONITORS
     for i, name in enumerate(names):
         if name is None:
             continue
         sup = bool(c & (1 << i))
-        monitors.append({"name": name, "supported": sup, "complete": sup and not (d & (1 << i)),
+        monitors.append({"name": tr_data(name), "supported": sup, "complete": sup and not (d & (1 << i)),
                          "continuous": False})
-    return {"mil": bool(a & 0x80), "dtc_count": a & 0x7F, "ignition": "compressão (diesel)" if diesel else
-            "faísca (gasolina)", "monitors": monitors}
+    ignition = tr("compressão (diesel)") if diesel else tr("faísca (gasolina)")
+    return {"mil": bool(a & 0x80), "dtc_count": a & 0x7F, "ignition": ignition, "monitors": monitors}
 
 
 def name(pid):
     p = TABLE.get(pid)
-    return p.name if p else f"PID {pid:02X} (sem definição no programa)"
+    return p.name if p else tr("PID {pid:02X} (sem definição no programa)", pid=pid)

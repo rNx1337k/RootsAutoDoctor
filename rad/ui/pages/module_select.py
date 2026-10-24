@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from ... import vag_data, APP_NAME
 from ..style import BAD, BLUE, OK, WARN
 from .common import btn, page_header
+from ...i18n import tr
 
 
 class ModuleSelectPage(QWidget):
@@ -16,20 +17,20 @@ class ModuleSelectPage(QWidget):
         super().__init__()
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header("Seleccionar controlador",
-                                "Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS).",
-                                "Controladores"))
+        v.addWidget(page_header(tr("Seleccionar controlador"),
+                                tr("Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS)."),
+                                tr("Controladores")))
         row = QHBoxLayout()
         self.addr = QLineEdit()
-        self.addr.setPlaceholderText("Endereço (ex.: 01)")
+        self.addr.setPlaceholderText(tr("Endereço (ex.: 01)"))
         self.addr.setMaxLength(2)
         self.addr.setFixedWidth(170)
         self.addr.returnPressed.connect(self._go_manual)
         row.addWidget(self.addr)
-        row.addWidget(btn("Ligar!", "primary", self._go_manual))
+        row.addWidget(btn(tr("Ligar!"), "primary", self._go_manual))
         row.addSpacing(16)
         self.filter = QLineEdit()
-        self.filter.setPlaceholderText("Filtrar (ex.: motor, abs, 17)")
+        self.filter.setPlaceholderText(tr("Filtrar (ex.: motor, abs, 17)"))
         self.filter.setClearButtonEnabled(True)
         self.filter.setMaximumWidth(320)
         self.filter.textChanged.connect(self._filter)
@@ -51,7 +52,7 @@ class ModuleSelectPage(QWidget):
         self.common = common
         self.order = common + others
         for i, addr in enumerate(common + others):
-            b = btn(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}", "module",
+            b = btn(f"{addr:02X}  ·  {vag_data.module_name(addr)}", "module",
                     lambda _=False, a=addr: self.connect_req.emit(a))
             self.mod_btns[addr] = b
             self._style_btn(addr, None)
@@ -66,7 +67,7 @@ class ModuleSelectPage(QWidget):
         n = 0
         for addr in self.order:
             b = self.mod_btns[addr]
-            ok = not q or q in f"{addr:02x} {vag_data.VAG_MODULES[addr]}".lower()
+            ok = not q or q in f"{addr:02x} {vag_data.module_name(addr)} {vag_data.VAG_MODULES[addr]}".lower()
             b.setVisible(ok)
             if ok:
                 self.grid.addWidget(b, n // 3, n % 3)
@@ -81,7 +82,7 @@ class ModuleSelectPage(QWidget):
     def mark_scan(self, items):
         """Mostra nos botões o resultado do último Auto-Scan."""
         for addr, b in self.mod_btns.items():
-            b.setText(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}")
+            b.setText(f"{addr:02X}  ·  {vag_data.module_name(addr)}")
             self._style_btn(addr, None)
         for it in items:
             addr = it["address"]
@@ -89,20 +90,20 @@ class ModuleSelectPage(QWidget):
                 continue
             if it["status"] == "ok":
                 n = len(it.get("faults", []))
-                color, tag = (OK, "sem avarias") if n == 0 else (WARN, f"{n} avaria(s)")
+                color, tag = (OK, tr("sem avarias")) if n == 0 else (WARN, tr("{n} avaria(s)", n=n))
             else:
-                color, tag = BAD, "erro"
-            self.mod_btns[addr].setText(f"{addr:02X}  ·  {vag_data.VAG_MODULES[addr]}   —   {tag}")
+                color, tag = BAD, tr("erro")
+            self.mod_btns[addr].setText(f"{addr:02X}  ·  {vag_data.module_name(addr)}   —   {tag}")
             self._style_btn(addr, color)
 
     def _go_manual(self):
         try:
             a = int(self.addr.text().strip(), 16)
         except ValueError:
-            QMessageBox.warning(self, APP_NAME, "Endereço inválido. Use hexadecimal, ex.: 01, 17, 46.")
+            QMessageBox.warning(self, APP_NAME, tr("Endereço inválido. Use hexadecimal, ex.: 01, 17, 46."))
             return
         if not 0 < a < 0x80:
-            QMessageBox.warning(self, APP_NAME, "O endereço tem de estar entre 01 e 7F.")
+            QMessageBox.warning(self, APP_NAME, tr("O endereço tem de estar entre 01 e 7F."))
             return
         self.connect_req.emit(a)
 

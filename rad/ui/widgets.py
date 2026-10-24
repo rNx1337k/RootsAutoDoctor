@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QDialog, QFrame, QGraphicsDropShadowEffect, QGrap
 
 from .style import (BLUE, BLUE_SOFT, CYAN, DIM, LINE, MUTED, NIGHT, OK, RED, TEXT, VIOLET,
                     WARN)
+from ..i18n import tr, tr_data
 
 ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 
@@ -111,6 +112,16 @@ UNIT_RANGES = {
 }
 
 
+def unit_range(unit):
+    """Gama do mostrador para a unidade (as unidades podem vir traduzidas, ex.: "° APMS" → "° BTDC")."""
+    if unit in UNIT_RANGES:
+        return UNIT_RANGES[unit]
+    for key, rng in UNIT_RANGES.items():
+        if tr_data(key) == unit:
+            return rng
+    return (0.0, 0.0)
+
+
 def nice_ceil(x):
     if x <= 0:
         return 1
@@ -165,7 +176,7 @@ class GaugeCell(QWidget):
         self.setMinimumSize(170, 200)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Duplo clique para abrir o gráfico")
+        self.setToolTip(tr("Duplo clique para abrir o gráfico"))
 
     def mouseDoubleClickEvent(self, _ev):
         if self.field is not None:
@@ -204,7 +215,7 @@ class GaugeCell(QWidget):
             self.key = key
             self.hist.clear()
             self.peak = None
-            self.lo, self.hi = self.fixed_range or UNIT_RANGES.get(field["unit"], (0.0, 0.0))
+            self.lo, self.hi = self.fixed_range or unit_range(field["unit"])
         self.field = field
         v = field.get("numeric")
         if v is not None:
@@ -217,8 +228,8 @@ class GaugeCell(QWidget):
             if v < self.lo:
                 self.lo = -nice_ceil(-v * 1.2)
         self.target = self._frac(v)
-        self.setToolTip(f"fórmula {field['formula']}   a={field['a']}   b={field['b']}\n"
-                        "Duplo clique para abrir o gráfico")
+        self.setToolTip(tr("fórmula {formula}   a={a}   b={b}\nDuplo clique para abrir o gráfico",
+                           formula=field['formula'], a=field['a'], b=field['b']))
         self._kick()
 
     def _kick(self):
@@ -260,7 +271,7 @@ class GaugeCell(QWidget):
             p.drawLine(QPointF(18, 1), QPointF(w - 18, 1))
 
         p.setFont(display_font(9, False))
-        title = self.label or f"Campo {self.n}"
+        title = self.label or tr("Campo {n}", n=self.n)
         title = p.fontMetrics().elidedText(title, Qt.ElideRight, int(w - 24))
         p.setPen(QColor(TEXT if self.label else MUTED))
         p.drawText(QRectF(12, 6, w - 24, 20), int(Qt.AlignLeft | Qt.AlignVCenter), title)
@@ -350,7 +361,7 @@ class GaugeCell(QWidget):
             unit = f["unit"]
             if not big and self.peak is not None:
                 from ..vag_data import format_number
-                unit = f"{unit}   ·   máx {format_number(self.peak)}"
+                unit = tr("{unit}   ·   máx {v}", unit=unit, v=format_number(self.peak))
             p.drawText(QRectF(4, vy + 27, w - 8, 18), int(Qt.AlignCenter), unit)
 
         # histórico (sparkline com preenchimento)
@@ -527,12 +538,12 @@ class ModuleTile(QPushButton):
         if st == "ok":
             n = len(item["faults"])
             self.color = OK if n == 0 else WARN
-            self.status = "Sem avarias" if n == 0 else f"{n} avaria{'s' if n > 1 else ''}"
+            self.status = tr("Sem avarias") if n == 0 else tr("{n} avaria{v}", n=n, v='s' if n > 1 else '')
             self.part = item["info"].get("part", "")
         else:
-            self.color, self.status, self.part = RED, "Sem comunicação", item.get("error", "")[:40]
+            self.color, self.status, self.part = RED, tr("Sem comunicação"), item.get("error", "")[:40]
         self.setAccessibleName(f"{item['address']:02X} {item['module']} {self.status}")
-        self.setToolTip("Clique para ligar a este controlador")
+        self.setToolTip(tr("Clique para ligar a este controlador"))
         self.setStyleSheet("QPushButton { background: transparent; border: none; }")
         self.clicked.connect(lambda: self.picked.emit(item["address"]))
 
@@ -595,7 +606,7 @@ class ModuleTile(QPushButton):
         if hover:
             p.setPen(QColor(MUTED))
             p.setFont(QFont("Segoe UI", 8.5))
-            p.drawText(QRectF(w - 110, h - 32, 98, 22), int(Qt.AlignRight | Qt.AlignVCenter), "Abrir  →")
+            p.drawText(QRectF(w - 110, h - 32, 98, 22), int(Qt.AlignRight | Qt.AlignVCenter), tr("Abrir  →"))
         p.end()
 
 
@@ -642,7 +653,7 @@ class LiveChart(QWidget):
         if st is None:
             p.setPen(QColor(MUTED))
             p.setFont(display_font(11, False))
-            p.drawText(plot, int(Qt.AlignCenter), "À espera de dados — inicie a leitura")
+            p.drawText(plot, int(Qt.AlignCenter), tr("À espera de dados — inicie a leitura"))
             p.end()
             return
         lo, hi, _avg = st
@@ -662,7 +673,7 @@ class LiveChart(QWidget):
         span = max(t1 - t0, 1e-6)
         p.setPen(QColor(MUTED))
         p.drawText(QRectF(left, bottom + 6, 120, 18), int(Qt.AlignLeft | Qt.AlignVCenter), f"-{span:.0f} s")
-        p.drawText(QRectF(right - 120, bottom + 6, 120, 18), int(Qt.AlignRight | Qt.AlignVCenter), "agora")
+        p.drawText(QRectF(right - 120, bottom + 6, 120, 18), int(Qt.AlignRight | Qt.AlignVCenter), tr("agora"))
         path = QPainterPath()
         last = None
         for i, (t, v) in enumerate(zip(self.times, self.values)):
@@ -703,7 +714,7 @@ class ChartDialog(QDialog):
     def __init__(self, parent, group, index, title):
         super().__init__(parent)
         self.group, self.index = group, index
-        self.setWindowTitle(f"Grupo {group:03d} · campo {index} — {title}")
+        self.setWindowTitle(tr("Grupo {group:03d} · campo {index} — {title}", group=group, index=index, title=title))
         self.resize(820, 460)
         v = QVBoxLayout(self)
         v.setContentsMargins(18, 16, 18, 16)
@@ -716,9 +727,9 @@ class ChartDialog(QDialog):
         self.chart = LiveChart()
         v.addWidget(self.chart, 1)
         row = QHBoxLayout()
-        clear = QPushButton("Limpar")
+        clear = QPushButton(tr("Limpar"))
         clear.clicked.connect(self.chart.clear)
-        close = QPushButton("Fechar")
+        close = QPushButton(tr("Fechar"))
         close.clicked.connect(self.close)
         row.addWidget(clear)
         row.addStretch(1)
@@ -728,15 +739,17 @@ class ChartDialog(QDialog):
     def feed(self, t, field):
         v = field.get("numeric")
         if v is None:
-            self.stats_lbl.setText(f"Valor actual: {field['value']} {field['unit']} (não numérico)")
+            self.stats_lbl.setText(tr("Valor actual: {value} {unit} (não numérico)",
+                                      value=field['value'], unit=field['unit']))
             return
         self.chart.unit = field["unit"]
         self.chart.add(t, v)
         from ..vag_data import format_number
         mn, mx, avg = self.chart.stats()
         u = field["unit"]
-        self.stats_lbl.setText(f"Actual {field['value']} {u}     mín {format_number(mn)}     "
-                               f"máx {format_number(mx)}     média {format_number(avg)}")
+        self.stats_lbl.setText(tr("Actual {value} {u}     mín {v}     máx {v2}     média {v3}",
+                                  value=field['value'], u=u, v=format_number(mn), v2=format_number(mx),
+                                  v3=format_number(avg)))
 
 
 # ---------------------------------------------------------------- ícones
@@ -926,7 +939,7 @@ class HealthRing(QWidget):
                    "—" if self.score is None else str(int(round(self.shown))))
         p.setPen(QColor(MUTED))
         p.setFont(display_font(max(7.0, s / 15), False))
-        p.drawText(QRectF(0, s * 0.57, s, s * 0.2), int(Qt.AlignCenter), "SAÚDE")
+        p.drawText(QRectF(0, s * 0.57, s, s * 0.2), int(Qt.AlignCenter), tr("SAÚDE"))
         p.end()
 
 
@@ -1110,9 +1123,9 @@ class VehicleMap(_Animated, QWidget):
             if a is not None:
                 it = self.items[a]
                 n = len(it.get("faults", []))
-                st = ("sem comunicação" if it.get("status") != "ok" else
-                      "sem avarias" if n == 0 else f"{n} avaria(s)")
-                self.setToolTip(f"{a:02X} · {it.get('module', '')}\n{st}\nClique para ligar")
+                st = (tr("sem comunicação") if it.get("status") != "ok" else
+                      tr("sem avarias") if n == 0 else tr("{n} avaria(s)", n=n))
+                self.setToolTip(tr("{a:02X} · {v}\n{st}\nClique para ligar", a=a, v=it.get('module', ''), st=st))
             else:
                 self.setToolTip("")
             self.update()
@@ -1282,7 +1295,7 @@ class VehicleMap(_Animated, QWidget):
         # legenda
         ly = self.height() - 22
         p.setFont(QFont("Segoe UI", 8.5))
-        items = [(OK, "OK"), (WARN, "Avarias"), (RED, "Sem comunicação")]
+        items = [(OK, tr("OK")), (WARN, tr("Avarias")), (RED, tr("Sem comunicação"))]
         fm = p.fontMetrics()
         total = sum(fm.horizontalAdvance(tx) + 30 for _c, tx in items)
         lx = (self.width() - total) / 2

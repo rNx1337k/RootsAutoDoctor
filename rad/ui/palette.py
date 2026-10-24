@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, 
 from .. import fault_advice
 from .style import CYAN, LINE, MUTED
 from .widgets import alpha, nav_icon
+from ..i18n import tr, tr_data
 
 
 def _plain(s):
@@ -17,9 +18,11 @@ def _plain(s):
 
 
 class Command:
+    """title e subtitle são o texto em português do código: traduzem-se aqui. A pesquisa aceita os dois idiomas."""
     def __init__(self, title, subtitle, action, icon="bolt", keywords=""):
-        self.title, self.subtitle, self.action, self.icon = title, subtitle, action, icon
-        self.haystack = _plain(f"{title} {subtitle} {keywords}")
+        self.title, self.subtitle = tr_data(title), tr_data(subtitle)
+        self.action, self.icon = action, icon
+        self.haystack = _plain(f"{self.title} {self.subtitle} {title} {subtitle} {keywords}")
 
 
 def match(commands, query, limit=40):
@@ -70,7 +73,8 @@ class CommandPalette(QDialog):
         v.setSpacing(10)
         self.input = QLineEdit()
         self.input.setObjectName("paletteInput")
-        self.input.setPlaceholderText("Procurar páginas, controladores, acções ou avarias (ex.: 00532, turbo)…")
+        self.input.setPlaceholderText(
+            tr("Procurar páginas, controladores, acções ou avarias (ex.: 00532, turbo)…"))
         self.input.textChanged.connect(self._filter)
         self.input.installEventFilter(self)
         v.addWidget(self.input)
@@ -80,7 +84,7 @@ class CommandPalette(QDialog):
         self.list.itemClicked.connect(self._run_item)
         v.addWidget(self.list, 1)
         hint = QHBoxLayout()
-        for key, text in (("↑↓", "navegar"), ("Enter", "abrir"), ("Esc", "fechar")):
+        for key, text in (("↑↓", tr("navegar")), ("Enter", tr("abrir")), ("Esc", tr("fechar"))):
             k = QLabel(key)
             k.setObjectName("kbd")
             hint.addWidget(k)

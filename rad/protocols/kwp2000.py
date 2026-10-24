@@ -10,6 +10,7 @@ import time
 from ..errors import ProtocolError, KLineTimeout, RequestRejected, NotSupported
 from ..kline import precise_sleep
 from .. import vag_data
+from ..i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class KWP2000:
     def recv(self, timeout=1.0):
         fmt = self.kl.read_byte(timeout)
         if fmt is None:
-            raise KLineTimeout("O controlador não respondeu (timeout KWP2000)")
+            raise KLineTimeout(tr("O controlador não respondeu (timeout KWP2000)"))
         hdr = [fmt]
         rb = lambda what: self.kl.read_byte_strict(0.1, what)
         if fmt & 0xC0:
@@ -72,7 +73,7 @@ class KWP2000:
         payload = [rb("dados") for _ in range(length)]
         cs = rb("checksum")
         if (sum(hdr) + sum(payload)) & 0xFF != cs:
-            raise ProtocolError("Checksum KWP2000 inválido")
+            raise ProtocolError(tr("Checksum KWP2000 inválido"))
         self._last = time.perf_counter()
         self.log("← " + " ".join(f"{b:02X}" for b in payload))
         return payload
@@ -93,7 +94,7 @@ class KWP2000:
             if r[0] == (sid | 0x40):
                 return r
             self.log(f"! resposta ignorada (esperava {sid | 0x40:02X})")
-        raise KLineTimeout("Tempo esgotado à espera de resposta")
+        raise KLineTimeout(tr("Tempo esgotado à espera de resposta"))
 
     # --------------------------------------------------------------- sessão
     def start(self):
@@ -173,7 +174,7 @@ class KWP2000:
         return {"group": group, "fields": vag_data.decode_triplets(r[2:]), "raw": r[2:]}
 
     def _ns(self, *a, **k):
-        raise NotSupported("Função ainda não disponível em KWP2000 nesta versão")
+        raise NotSupported(tr("Função ainda não disponível em KWP2000 nesta versão"))
 
     basic_setting = adaptation_read = adaptation_test = adaptation_save = _ns
     login = recode = output_test = _ns
@@ -195,18 +196,18 @@ class KWP2000J2534(KWP2000):
     def recv(self, timeout=1.0):
         data = self.link.read_frame(timeout)
         if not data:
-            raise ProtocolError("Mensagem J2534 vazia")
+            raise ProtocolError(tr("Mensagem J2534 vazia"))
         fmt = data[0]
         hl = 3 if fmt & 0xC0 else 1
         n = fmt & 0x3F
         if n == 0:
             if len(data) <= hl:
-                raise ProtocolError("Mensagem J2534 curta")
+                raise ProtocolError(tr("Mensagem J2534 curta"))
             n = data[hl]
             hl += 1
         payload = data[hl:hl + n]
         if len(payload) < n:
-            raise ProtocolError("Mensagem J2534 incompleta")
+            raise ProtocolError(tr("Mensagem J2534 incompleta"))
         self._last = time.perf_counter()
         self.log("← " + " ".join(f"{b:02X}" for b in payload))
         return payload

@@ -17,6 +17,7 @@ import time
 
 from .errors import InterfaceError, KLineError, KLineTimeout
 from .hexmcu import HEX_LINES, is_hex_port
+from .i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -94,9 +95,9 @@ def list_serial_ports():
         ports.extend(j2534_ports())
     except Exception:
         log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
-    ports.append((SIM_PORT, "Simulador (sem carro) — para testar o programa"))
-    ports.append((SIM_J2534_PORT, "Simulador J2534 (sem carro) — testa a ligação por PassThru"))
-    ports.append((SIM_ELM_PORT, "Simulador ELM327 / OBD-II (sem carro) — testa o diagnóstico multimarca"))
+    ports.append((SIM_PORT, tr("Simulador (sem carro) — para testar o programa")))
+    ports.append((SIM_J2534_PORT, tr("Simulador J2534 (sem carro) — testa a ligação por PassThru")))
+    ports.append((SIM_ELM_PORT, tr("Simulador ELM327 / OBD-II (sem carro) — testa o diagnóstico multimarca")))
     return ports
 
 
@@ -142,7 +143,8 @@ class KLine:
                                          stopbits=1, timeout=0.5, write_timeout=1.0)
             except Exception as e:  # SerialException, PermissionError...
                 self.ser = None
-                raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}") from e
+                raise KLineError(tr("Não foi possível abrir a porta {port_name}: {e}",
+                                    port_name=self.port_name, e=e)) from e
         if not self.is_simulator:
             _timer_resolution(True)
         self.set_lines(*self.lines)
@@ -174,7 +176,7 @@ class KLine:
         except KLineError:
             raise
         except Exception as e:
-            raise InterfaceError(f"Não foi possível mudar a velocidade da porta: {e}") from e
+            raise InterfaceError(tr("Não foi possível mudar a velocidade da porta: {e}", e=e)) from e
 
     def flush(self):
         self._pushback.clear()
@@ -189,11 +191,11 @@ class KLine:
             return self._pushback.pop(0)
         self._set_timeout(timeout)
         if self.ser is None:
-            raise InterfaceError(f"{self.port_name}: a porta está fechada")
+            raise InterfaceError(tr("{port_name}: a porta está fechada", port_name=self.port_name))
         try:
             d = self.ser.read(1)
         except Exception as e:                       # cabo arrancado, driver/ponte bloqueada…
-            raise InterfaceError(f"Erro de leitura na porta: {e}") from e
+            raise InterfaceError(tr("Erro de leitura na porta: {e}", e=e)) from e
         if not d:
             return None
         if self.raw_log:
@@ -203,7 +205,7 @@ class KLine:
     def read_byte_strict(self, timeout, what="byte"):
         b = self.read_byte(timeout)
         if b is None:
-            raise KLineTimeout(f"Sem resposta do controlador ({what})")
+            raise KLineTimeout(tr("Sem resposta do controlador ({what})", what=what))
         return b
 
     def write(self, data):
@@ -211,18 +213,19 @@ class KLine:
         if self.raw_log:
             self.log("    › " + " ".join(f"{b:02X}" for b in data))
         if self.ser is None:
-            raise InterfaceError(f"{self.port_name}: a porta está fechada")
+            raise InterfaceError(tr("{port_name}: a porta está fechada", port_name=self.port_name))
         try:
             self.ser.write(data)
         except Exception as e:
-            raise InterfaceError(f"Erro de escrita na porta: {e}") from e
+            raise InterfaceError(tr("Erro de escrita na porta: {e}", e=e)) from e
         if self.echo:
             for expected in data:
                 b = self.read_byte(0.25)
                 if b is None:
-                    raise KLineTimeout("Eco não recebido — verifique o cabo e a ignição")
+                    raise KLineTimeout(tr("Eco não recebido — verifique o cabo e a ignição"))
                 if b != expected:
-                    raise KLineError(f"Colisão na linha K: enviado {expected:02X}, eco {b:02X}")
+                    raise KLineError(tr("Colisão na linha K: enviado {expected:02X}, eco {b:02X}",
+                                        expected=expected, b=b))
 
     def write_byte(self, b):
         self.write([b])
@@ -242,7 +245,7 @@ class KLine:
         except KLineError:
             raise
         except Exception as e:                       # BREAK/velocidade recusados: a porta deixou de funcionar
-            raise InterfaceError(f"Erro na porta durante o init a 5 baud: {e}") from e
+            raise InterfaceError(tr("Erro na porta durante o init a 5 baud: {e}", e=e)) from e
 
     def _five_baud_init(self, address, baud):
         """Faz o wake-up a 5 baud e lê sync + key bytes.
@@ -271,7 +274,7 @@ class KLine:
             for n, bit in enumerate(bits):
                 if self.cancelled:
                     ser.break_condition = False
-                    raise KLineError("Operação cancelada")
+                    raise KLineError(tr("Operação cancelada"))
                 ser.break_condition = (bit == 0)
                 precise_sleep(t0 + (n + 1) * 0.2 - time.perf_counter())
             ser.break_condition = False              # stop bit (nível alto) — 200 ms
@@ -299,7 +302,7 @@ class KLine:
         try:
             ser.write(bytes([inv]))
         except Exception as e:
-            raise KLineError(f"Erro de escrita: {e}") from e
+            raise KLineError(tr("Erro de escrita: {e}", e=e)) from e
         if self.echo is None:                        # detecção automática do eco
             b = self.read_byte(0.06)
             if b == inv:
@@ -313,7 +316,7 @@ class KLine:
         elif self.echo:
             b = self.read_byte(0.25)
             if b != inv:
-                raise KLineError("Eco do complemento KB2 não recebido")
+                raise KLineError(tr("Eco do complemento KB2 não recebido"))
 
         keyword = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         return {"status": "ok", "kb1": kb1, "kb2": kb2, "keyword": keyword,
@@ -361,5 +364,5 @@ class KLine:
         except KLineError:
             raise
         except Exception as e:
-            raise InterfaceError(f"Erro na porta durante o teste de eco: {e}") from e
+            raise InterfaceError(tr("Erro na porta durante o teste de eco: {e}", e=e)) from e
         return bool(d) and d[0] == 0x55

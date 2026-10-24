@@ -16,6 +16,7 @@ _TMP = tempfile.mkdtemp()
 def _app():
     os.environ["APPDATA"] = _TMP
     os.environ["RAD_SETTINGS_INI"] = os.path.join(_TMP, "settings_obd.ini")
+    os.environ["RAD_NO_UPDATE_CHECK"] = "1"
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
     return QApplication.instance() or QApplication([])

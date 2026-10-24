@@ -15,6 +15,7 @@ from .kline import is_simulated_port
 from .protocols.kw1281 import KW1281
 from .protocols.kwp2000 import KWP2000, KWP2000J2534
 from . import vag_data
+from .i18n import tr
 
 AUTO_BAUDS = (10400, 9600, 4800)
 
@@ -43,14 +44,15 @@ class ECUSession:
         try:
             kb1, kb2 = link.five_baud_init(address)
         except KLineError as e:
-            raise NoResponse(f"O controlador {address:02X} não responde pela interface J2534 ({e})") from e
+            raise NoResponse(tr("O controlador {address:02X} não responde pela interface J2534 ({e})",
+                                address=address, e=e)) from e
         kw = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         self.log(f"Sync OK — KB1={kb1:02X} KB2={kb2:02X} (keyword {kw})")
         if kw == 1281:
-            raise ConnectError("Este controlador usa KW1281, que não pode ser usado por interfaces J2534 "
-                               "(a norma não permite confirmar cada byte a tempo). Use um cabo KKL.")
+            raise ConnectError(tr("Este controlador usa KW1281, que não pode ser usado por interfaces J2534 "
+                               "(a norma não permite confirmar cada byte a tempo). Use um cabo KKL."))
         if not 2000 <= kw <= 2047:
-            raise ConnectError(f"Protocolo desconhecido (keyword {kw})")
+            raise ConnectError(tr("Protocolo desconhecido (keyword {kw})", kw=kw))
         self.proto = KWP2000J2534(link, address, self.log)
         ident = self.proto.start()
         self.connected = True
@@ -69,7 +71,7 @@ class ECUSession:
         while i < len(bauds):
             baud = bauds[i]
             if getattr(self.kl, "cancelled", False):
-                raise ConnectError("Operação cancelada")
+                raise ConnectError(tr("Operação cancelada"))
             if i or retried:
                 time.sleep(0.4 if not self.kl.is_simulator else 0)
             self.log(f"Init 5 baud → endereço {address:02X} a {baud} baud…")
@@ -83,12 +85,12 @@ class ECUSession:
                     self.log("  sem resposta — nova tentativa")
                     time.sleep(1.0 if not self.kl.is_simulator else 0)
                     continue
-                raise NoResponse(f"O controlador {address:02X} não responde "
-                                 "(verifique ignição, cabo e endereço)")
+                raise NoResponse(tr("O controlador {address:02X} não responde (verifique ignição, cabo e endereço)",
+                                    address=address))
             self.log(f"  sync inválido (0x{r['byte']:02X}) — a tentar outra velocidade")
             i += 1
         if res is None:
-            raise ConnectError("Sincronização falhou em todas as velocidades")
+            raise ConnectError(tr("Sincronização falhou em todas as velocidades"))
 
         kw = res["keyword"]
         self.log(f"Sync OK a {used_baud} baud — KB1={res['kb1']:02X} KB2={res['kb2']:02X} "
@@ -98,7 +100,7 @@ class ECUSession:
         elif 2000 <= kw <= 2047:
             self.proto = KWP2000(self.kl, address, self.log, res["address_byte"])
         else:
-            raise ConnectError(f"Protocolo desconhecido (keyword {kw})")
+            raise ConnectError(tr("Protocolo desconhecido (keyword {kw})", kw=kw))
 
         ident = self.proto.start()
         self.connected = True
@@ -115,7 +117,7 @@ class ECUSession:
 
     def _call(self, name, *args):
         if not self.connected or not self.proto:
-            raise ConnectError("Não há ligação ao controlador")
+            raise ConnectError(tr("Não há ligação ao controlador"))
         try:
             return getattr(self.proto, name)(*args)
         except ProtocolError:
@@ -142,8 +144,9 @@ class ECUSession:
         try:
             return self._call("read_faults")
         except (ProtocolError, RequestRejected) as e:
-            raise OperationUnconfirmed("O pedido de apagar avarias foi aceite, mas não foi possível voltar a "
-                                       f"ler a memória para confirmar ({e}). Volte a ligar e leia as avarias.") from e
+            raise OperationUnconfirmed(tr("O pedido de apagar avarias foi aceite, mas não foi possível voltar a ler a "
+                                          "memória para confirmar ({e}). Volte a ligar e leia as avarias.",
+                                          e=e)) from e
 
     def read_group(self, g):
         return self._call("read_group", g)
@@ -157,11 +160,13 @@ class ECUSession:
     def _check_adapt(self, r, ch, val, what):
         if r is None:
             return {"channel": ch, "value": None, "requested": val, "status": "unknown",
-                    "message": f"O controlador não devolveu o valor {what}: o resultado é desconhecido. "
-                               "Leia o canal para confirmar."}
+                    "message": tr("O controlador não devolveu o valor {what}: o resultado é desconhecido. Leia o "
+                                  "canal para confirmar.",
+                                  what=what)}
         if r.get("channel") != ch or r.get("value") != val:
-            raise RequestRejected(f"O controlador não aceitou o valor {val} no canal {ch:02d} "
-                                  f"(respondeu canal {r.get('channel')}, valor {r.get('value')}).")
+            raise RequestRejected(tr("O controlador não aceitou o valor {val} no canal {ch:02d} (respondeu canal {v}, "
+                                     "valor {v2}).",
+                                     val=val, ch=ch, v=r.get('channel'), v2=r.get('value')))
         return dict(r, requested=val, status="ok")
 
     def adaptation_test(self, ch, val):
@@ -194,16 +199,17 @@ class ECUSession:
         try:
             t = self.adaptation_test(2, 0)
         except RequestRejected as e:
-            raise RequestRejected(f"O painel não aceitou o valor 0 no canal 02 — nada foi gravado. ({e})") from e
+            raise RequestRejected(tr("O painel não aceitou o valor 0 no canal 02 — nada foi gravado. ({e})",
+                                     e=e)) from e
         if t["status"] != "ok":
-            raise OperationUnconfirmed("O painel não confirmou o valor de teste no canal 02 — nada foi gravado.")
+            raise OperationUnconfirmed(tr("O painel não confirmou o valor de teste no canal 02 — nada foi gravado."))
         return self.adaptation_save(2, 0, wsc, previous=previous)
 
     def login(self, code, wsc):
         self._call("login", code, wsc)
         return {"status": "sent",
-                "message": "Login enviado e recebido pelo controlador. O protocolo KW1281 não indica se o código "
-                           "está correcto: confirme na função que precisa do login."}
+                "message": tr("Login enviado e recebido pelo controlador. O protocolo KW1281 não indica se o código "
+                           "está correcto: confirme na função que precisa do login.")}
 
     def recode(self, coding, wsc):
         """Devolve {"info", "status", "message"}. A codificação só é dada como aceite quando a
@@ -212,14 +218,17 @@ class ECUSession:
         r = self._call("recode", coding, wsc)
         if not r or r.get("coding") is None:
             return {"info": self.info, "status": "unknown", "previous": before,
-                    "message": "O controlador não devolveu a codificação: o resultado é desconhecido. "
-                               "Feche e volte a abrir o controlador para confirmar."}
+                    "message": tr("O controlador não devolveu a codificação: o resultado é desconhecido. "
+                               "Feche e volte a abrir o controlador para confirmar.")}
         self.info.update(r)
         if r["coding"] != coding:
-            raise RequestRejected(f"O controlador recusou a codificação {coding:05d}: continua com "
-                                  f"{r['coding']:05d}" + (f" (antes: {before:05d})" if before is not None else "") + ".")
+            if before is not None:
+                raise RequestRejected(tr("O controlador recusou a codificação {coding:05d}: continua com {current:05d} "
+                                         "(antes: {before:05d}).", coding=coding, current=r["coding"], before=before))
+            raise RequestRejected(tr("O controlador recusou a codificação {coding:05d}: continua com {current:05d}.",
+                                     coding=coding, current=r["coding"]))
         return {"info": self.info, "status": "ok", "previous": before,
-                "message": f"Codificação {coding:05d} confirmada pelo controlador."}
+                "message": tr("Codificação {coding:05d} confirmada pelo controlador.", coding=coding)}
 
     def output_test(self):
         code = self._call("output_test")

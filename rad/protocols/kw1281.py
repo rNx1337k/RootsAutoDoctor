@@ -12,6 +12,7 @@ import logging
 from ..errors import ProtocolError, KLineTimeout, RequestRejected
 from ..kline import precise_sleep
 from .. import vag_data
+from ..i18n import tr
 
 log = logging.getLogger(__name__)
 
@@ -78,9 +79,9 @@ class KW1281:
         self.kl.write_byte(b)
         c = self.kl.read_byte(0.5)
         if c is None:
-            raise KLineTimeout(f"Sem complemento do byte {b:02X}")
+            raise KLineTimeout(tr("Sem complemento do byte {b:02X}", b=b))
         if c != (~b) & 0xFF:
-            raise ProtocolError(f"Complemento errado: enviado {b:02X}, recebido {c:02X}")
+            raise ProtocolError(tr("Complemento errado: enviado {b:02X}, recebido {c:02X}", b=b, c=c))
         if not self.kl.is_simulator:
             precise_sleep(0.001)
 
@@ -102,20 +103,20 @@ class KW1281:
     def recv_block(self, timeout=2.0):
         length = self.kl.read_byte(timeout)
         if length is None:
-            raise KLineTimeout("O controlador não enviou bloco (timeout)")
+            raise KLineTimeout(tr("O controlador não enviou bloco (timeout)"))
         if length < 3:
-            raise ProtocolError(f"Comprimento de bloco inválido: {length:02X}")
+            raise ProtocolError(tr("Comprimento de bloco inválido: {length:02X}", length=length))
         self._ack_byte(length)
         rest = []
         for i in range(length):
             b = self.kl.read_byte(0.5)
             if b is None:
-                raise KLineTimeout("Bloco incompleto (timeout)")
+                raise KLineTimeout(tr("Bloco incompleto (timeout)"))
             rest.append(b)
             if i < length - 1:
                 self._ack_byte(b)
         if rest[-1] != 0x03:
-            raise ProtocolError(f"Fim de bloco inválido: {rest[-1]:02X}")
+            raise ProtocolError(tr("Fim de bloco inválido: {v:02X}", v=rest[-1]))
         cnt = rest[0]
         if self.counter is not None and cnt != (self.counter + 1) & 0xFF:
             self.log(f"! contador fora de sequência (esperado {(self.counter + 1) & 0xFF:02X}, veio {cnt:02X})")
@@ -137,7 +138,7 @@ class KW1281:
             if blk.title == ACK:
                 return blocks
             if blk.title == NAK:
-                raise RequestRejected("O controlador recusou o pedido (NAK)")
+                raise RequestRejected(tr("O controlador recusou o pedido (NAK)"))
             blocks.append(blk)
             if blk.title in multi:
                 self.send_block(ACK)
@@ -155,7 +156,7 @@ class KW1281:
             blocks.append(blk)
             self.send_block(ACK)
             if len(blocks) > 16:
-                raise ProtocolError("Demasiados blocos de identificação")
+                raise ProtocolError(tr("Demasiados blocos de identificação"))
         return parse_ident(blocks)
 
     def keep_alive(self):
@@ -195,10 +196,10 @@ class KW1281:
     def _group(self, title, group, expected):
         blocks = self.request(title, [group & 0xFF], multi=())
         if not blocks:
-            raise RequestRejected(f"Grupo {group:03d} sem dados")
+            raise RequestRejected(tr("Grupo {group:03d} sem dados", group=group))
         blk = blocks[0]
         if blk.title not in expected:
-            raise RequestRejected(f"Resposta inesperada ao grupo {group:03d}: {blk}")
+            raise RequestRejected(tr("Resposta inesperada ao grupo {group:03d}: {blk}", group=group, blk=blk))
         return {"group": group, "fields": vag_data.decode_triplets(blk.data),
                 "raw": blk.data}
 
@@ -214,7 +215,7 @@ class KW1281:
             return None
         d = blocks[0].data
         if len(d) < 3:
-            raise RequestRejected("Resposta de adaptação inválida")
+            raise RequestRejected(tr("Resposta de adaptação inválida"))
         return {"channel": d[0], "value": (d[1] << 8) | d[2], "raw": d}
 
     def adaptation_read(self, channel):
@@ -238,7 +239,7 @@ class KW1281:
 
     def recode(self, coding, wsc):
         if not 0 <= coding <= 32767:
-            raise RequestRejected("A codificação tem de estar entre 00000 e 32767")
+            raise RequestRejected(tr("A codificação tem de estar entre 00000 e 32767"))
         data = [(coding >> 7) & 0xFF,
                 ((coding << 1) & 0xFF) | ((wsc >> 16) & 0x01),
                 (wsc >> 8) & 0xFF,
@@ -252,7 +253,7 @@ class KW1281:
         if not blocks:
             return None                                  # só ACK: fim da sequência
         if blocks[0].title != ACTUATOR_RESPONSE or len(blocks[0].data) < 2:
-            raise RequestRejected(f"Resposta inesperada ao teste de saídas: {blocks[0]}")
+            raise RequestRejected(tr("Resposta inesperada ao teste de saídas: {v}", v=blocks[0]))
         code = (blocks[0].data[0] << 8) | blocks[0].data[1]
         if code in (0, 0xFFFF):
             return None

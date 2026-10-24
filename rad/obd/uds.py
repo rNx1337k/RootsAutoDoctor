@@ -14,6 +14,7 @@ de documentação do fabricante e de controlos de segurança próprios.
 from ..errors import NoResponse, NotSupported
 from . import dtc as dtcmod
 from .link import NegativeResponse
+from ..i18n import tr, tr_data
 
 # Identificadores normalizados (ISO 14229-1, anexo C)
 STANDARD_DIDS = {
@@ -47,7 +48,7 @@ def _text(raw):
 class UdsClient:
     def __init__(self, link, target, log=None):
         if not getattr(link, "is_can", False):
-            raise NotSupported("UDS precisa de uma ligação CAN (ISO 15765)")
+            raise NotSupported(tr("UDS precisa de uma ligação CAN (ISO 15765)"))
         self.link = link
         self.target = target              # endereço de pedido, ex.: "7E0"
         self.log = log or (lambda m: None)
@@ -61,15 +62,16 @@ class UdsClient:
         for r in resp:
             if r.negative and r.data[1] == sid:
                 raise NegativeResponse(r.ecu, sid, r.nrc)
-        raise NoResponse(f"A centralina {self.target} não deu resposta válida ao serviço 0x{sid:02X}")
+        raise NoResponse(tr("A centralina {target} não deu resposta válida ao serviço 0x{sid:02X}",
+                            target=self.target, sid=sid))
 
     def session(self, kind=0x01):
         if kind not in SESSIONS:
-            raise ValueError("Só as sessões normal (01) e alargada (03) são permitidas")
+            raise ValueError(tr("Só as sessões normal (01) e alargada (03) são permitidas"))
         r = self._req([0x10, kind])
         if len(r) < 2 or r[1] != kind:
-            raise NoResponse("Resposta inválida ao pedido de sessão")
-        return SESSIONS[kind]
+            raise NoResponse(tr("Resposta inválida ao pedido de sessão"))
+        return tr_data(SESSIONS[kind])
 
     def tester_present(self):
         self._req([0x3E, 0x00])
@@ -77,7 +79,7 @@ class UdsClient:
     def read_did(self, did):
         r = self._req([0x22, did >> 8, did & 0xFF])
         if len(r) < 3 or (r[1] << 8 | r[2]) != did:
-            raise NoResponse(f"Resposta ao identificador {did:04X} com formato inválido")
+            raise NoResponse(tr("Resposta ao identificador {did:04X} com formato inválido", did=did))
         return r[3:]
 
     def identification(self):
@@ -92,13 +94,14 @@ class UdsClient:
                 continue
             except NoResponse:
                 continue
-            out[did] = {"name": STANDARD_DIDS.get(did, f"DID {did:04X}"), "value": _text(raw)}
+            out[did] = {"name": tr_data(STANDARD_DIDS[did]) if did in STANDARD_DIDS else f"DID {did:04X}",
+                        "value": _text(raw)}
         return out
 
     def dtc_count(self, mask=0xFF):
         r = self._req([0x19, 0x01, mask])
         if len(r) < 6:
-            raise NoResponse("Resposta inválida ao pedido de contagem de avarias")
+            raise NoResponse(tr("Resposta inválida ao pedido de contagem de avarias"))
         return (r[4] << 8) | r[5]
 
     def read_dtcs(self, mask=0x0D):
@@ -106,7 +109,7 @@ class UdsClient:
         Devolve [{"code", "ftb", "ftb_text", "status", "status_text", "desc", …}]."""
         r = self._req([0x19, 0x02, mask])
         if len(r) < 3:
-            raise NoResponse("Resposta inválida ao pedido de avarias")
+            raise NoResponse(tr("Resposta inválida ao pedido de avarias"))
         body = r[3:]
         out = []
         for i in range(0, len(body) - 3, 4):

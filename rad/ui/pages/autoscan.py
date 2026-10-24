@@ -13,6 +13,7 @@ from ... import fault_advice, vag_data, APP_NAME, VERSION
 from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import HealthRing, ModuleTile, VehicleMap, health_label, health_score
 from .common import FaultAdviceCard, lbl, btn, page_header, ask
+from ...i18n import tr
 
 
 class TileGrid(QWidget):
@@ -74,19 +75,19 @@ class AutoScanPage(QWidget):
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 20)
         v.setSpacing(12)
-        v.addWidget(page_header("Auto-Scan", "Lê a identificação e as avarias de todos os controladores. "
-                                             "Clique no mapa ou num mosaico para abrir o controlador.",
-                                "Diagnóstico completo"))
+        v.addWidget(page_header(tr("Auto-Scan"), tr("Lê a identificação e as avarias de todos os controladores. "
+                                                    "Clique no mapa ou num mosaico para abrir o controlador."),
+                                tr("Diagnóstico completo")))
         row = QHBoxLayout()
         row.setSpacing(8)
-        self.start_btn = btn("▶  Iniciar Auto-Scan", "primary", self._toggle)
+        self.start_btn = btn(tr("▶  Iniciar Auto-Scan"), "primary", self._toggle)
         self.start_btn.setMinimumHeight(40)
         row.addWidget(self.start_btn)
-        row.addWidget(btn("Relatório para o cliente", None, lambda: self.report_req.emit()))
-        row.addWidget(btn("Copiar", None, self._copy))
-        row.addWidget(btn("Guardar .txt", None, self._save))
+        row.addWidget(btn(tr("Relatório para o cliente"), None, lambda: self.report_req.emit()))
+        row.addWidget(btn(tr("Copiar"), None, self._copy))
+        row.addWidget(btn(tr("Guardar .txt"), None, self._save))
         row.addStretch(1)
-        self.clear_all_btn = btn("Apagar avarias em todos", "danger", self._clear_all)
+        self.clear_all_btn = btn(tr("Apagar avarias em todos"), "danger", self._clear_all)
         row.addWidget(self.clear_all_btn)
         v.addLayout(row)
 
@@ -99,7 +100,7 @@ class AutoScanPage(QWidget):
         lv = QVBoxLayout(left)
         lv.setContentsMargins(14, 12, 14, 14)
         lv.setSpacing(6)
-        lv.addWidget(lbl("MAPA DO VEÍCULO", "eyebrow"))
+        lv.addWidget(lbl(tr("MAPA DO VEÍCULO"), "eyebrow"))
         self.map = VehicleMap()
         self.map.picked.connect(self.connect_req.emit)
         lv.addWidget(self.map, 1)
@@ -110,8 +111,8 @@ class AutoScanPage(QWidget):
         sv = QVBoxLayout()
         sv.setSpacing(2)
         sv.addStretch(1)
-        self.summary = lbl("Pronto para ler", "h2")
-        self.health_lbl = lbl("Ligue a ignição e inicie o Auto-Scan.", "muted", wrap=True)
+        self.summary = lbl(tr("Pronto para ler"), "h2")
+        self.health_lbl = lbl(tr("Ligue a ignição e inicie o Auto-Scan."), "muted", wrap=True)
         self.severity_lbl = lbl("", "muted", wrap=True)
         sv.addWidget(self.summary)
         sv.addWidget(self.health_lbl)
@@ -154,16 +155,16 @@ class AutoScanPage(QWidget):
         self.tiles_scroll = tiles_scroll
         tiles_scroll.hide()
         right.addWidget(tiles_scroll)
-        self.empty = lbl("Ainda não há resultados. Ligue a ignição e carregue em Iniciar Auto-Scan.", "muted")
+        self.empty = lbl(tr("Ainda não há resultados. Ligue a ignição e carregue em Iniciar Auto-Scan."), "muted")
         right.addWidget(self.empty)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Endereço", "Módulo / Avaria", "Estado"])
+        self.tree.setHeaderLabels([tr("Endereço"), tr("Módulo / Avaria"), tr("Estado")])
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._show_advice)
         right.addWidget(self.tree, 3)
-        self.advice = FaultAdviceCard("Seleccione uma avaria na lista para ver as causas prováveis.")
+        self.advice = FaultAdviceCard(tr("Seleccione uma avaria na lista para ver as causas prováveis."))
         right.addWidget(self.advice)
         self.advice.hide()
         body.addLayout(right, 1)
@@ -176,25 +177,28 @@ class AutoScanPage(QWidget):
         if self.running:
             return
         if not addrs:
-            QMessageBox.information(self, APP_NAME, "Não há avarias para apagar. Faça primeiro um Auto-Scan.")
+            QMessageBox.information(self, APP_NAME, tr("Não há avarias para apagar. Faça primeiro um Auto-Scan."))
             return
         names = ", ".join(f"{a:02X}" for a in addrs)
-        if not ask(self, APP_NAME, f"Apagar a memória de avarias em {len(addrs)} controlador(es) ({names})?\n\n"
-                                   "Recomenda-se gravar ou imprimir o relatório antes."):
+        if not ask(self, APP_NAME, tr("Apagar a memória de avarias em {v} controlador(es) ({names})?\n\nRecomenda-se "
+                                      "gravar ou imprimir o relatório antes.",
+                                      v=len(addrs), names=names)):
             return
         self.clear_all_btn.setEnabled(False)
-        self.current.setText("A apagar avarias…")
+        self.current.setText(tr("A apagar avarias…"))
         self.w.submit("clear_all", addrs)
 
     def update_health(self):
         score = health_score(self.items)
         text, color = health_label(score)
         self.ring.set_score(score)
-        self.health_lbl.setText(f"Saúde do veículo: {text}" if self.items else "Nenhum controlador lido.")
+        self.health_lbl.setText(tr("Saúde do veículo: {text}",
+                                   text=text) if self.items else tr("Nenhum controlador "
+                                                                                                "lido."))
         self.health_lbl.setStyleSheet(f"color: {color}; font-weight: 600;")
         sev = fault_advice.worst_severity(self.items)
         if sev:
-            self.severity_lbl.setText(f"Avaria mais grave: {fault_advice.SEVERITY_TEXT[sev].split()[-1]}")
+            self.severity_lbl.setText(tr("Avaria mais grave: {v}", v=fault_advice.SEVERITY_TEXT[sev].split()[-1]))
             self.severity_lbl.setStyleSheet(f"color: {severity_color(sev)};")
         else:
             self.severity_lbl.setText("")
@@ -211,9 +215,9 @@ class AutoScanPage(QWidget):
         left = sum(len(r.get("faults", [])) for r in results if r["status"] == "ok")
         errs = sum(1 for r in results if r["status"] == "error")
         unknown = sum(1 for r in results if r["status"] == "unknown")
-        self.current.setText("Avarias apagadas" + (f" — {left} voltaram" if left else "")
-                             + (f" — {errs} sem comunicação" if errs else "")
-                             + (f" — {unknown} por confirmar" if unknown else ""))
+        self.current.setText(tr("Avarias apagadas") + (tr(" — {left} voltaram", left=left) if left else "")
+                             + (tr(" — {errs} sem comunicação", errs=errs) if errs else "")
+                             + (tr(" — {unknown} por confirmar", unknown=unknown) if unknown else ""))
         return left, errs, unknown
 
     def rebuild(self):
@@ -230,16 +234,17 @@ class AutoScanPage(QWidget):
     def _summarise(self, aborted=False):
         nf = sum(len(i.get("faults", [])) for i in self.items)
         sim = any((i.get("info") or {}).get("simulated") for i in self.items)
-        self.summary.setText(f"{len(self.items)} módulo(s) · {nf} avaria(s)" + ("  (interrompido)" if aborted else "")
-                             + ("  · SIMULAÇÃO" if sim else ""))
+        self.summary.setText(tr("{v} módulo(s) · {nf} avaria(s)",
+                                v=len(self.items), nf=nf) + (tr("  (interrompido)") if aborted else "")
+                             + (tr("  · SIMULAÇÃO") if sim else ""))
 
     def _toggle(self):
         if self.running:
             self.w.abort_scan = True
-            self.start_btn.setText("A parar…")
+            self.start_btn.setText(tr("A parar…"))
             return
         if self.w.is_busy:
-            self.current.setText("Aguarde — ainda a comunicar com o carro")
+            self.current.setText(tr("Aguarde — ainda a comunicar com o carro"))
             return
         self.items = []
         self.diff = None
@@ -253,13 +258,13 @@ class AutoScanPage(QWidget):
         self.advice.hide()
         self.empty.hide()
         self.ring.set_score(None)
-        self.health_lbl.setText("A ler os controladores…")
+        self.health_lbl.setText(tr("A ler os controladores…"))
         self.health_lbl.setStyleSheet("")
         self.severity_lbl.setText("")
         self.progress.setValue(0)
-        self.summary.setText("A varrer o veículo")
+        self.summary.setText(tr("A varrer o veículo"))
         self.running = True
-        self.start_btn.setText("■  Parar")
+        self.start_btn.setText(tr("■  Parar"))
         self.map.set_scanning(True)
         self.map.set_probe(self.addresses[0])
         self.w.submit("autoscan", self.addresses)
@@ -284,7 +289,7 @@ class AutoScanPage(QWidget):
         if not self.diff:
             return ""
         if any(d["address"] == address and d.get("vag") == f.get("vag") for d in self.diff["new"]):
-            return "NOVA"
+            return tr("NOVA")
         return ""
 
     def _add_tree_item(self, item):
@@ -293,20 +298,20 @@ class AutoScanPage(QWidget):
             info = item["info"]
             top.setText(1, f"{item['module']}  —  {info['part']}  {info['component']}")
             n = len(item["faults"])
-            top.setText(2, "OK" if n == 0 else f"{n} avaria(s)")
+            top.setText(2, tr("OK") if n == 0 else tr("{n} avaria(s)", n=n))
             top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
             for f in item["faults"]:
                 a = fault_advice.advice(f, item["address"])
-                state = "Intermitente" if f["intermittent"] else a["severity_text"]
+                state = tr("Intermitente") if f["intermittent"] else a["severity_text"]
                 tag = self._fault_tag(item["address"], f)
                 child = QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
                                               f"{tag}  {state}".strip()])
                 child.setForeground(2, QBrush(QColor(CYAN if tag else severity_color(a["severity"]))))
                 child.setData(0, Qt.UserRole, (item["address"], f))
-                child.setToolTip(1, "Seleccione para ver as causas prováveis")
+                child.setToolTip(1, tr("Seleccione para ver as causas prováveis"))
         else:
             top.setText(1, item["module"])
-            top.setText(2, "Erro: " + item.get("error", ""))
+            top.setText(2, tr("Erro: ") + item.get("error", ""))
             top.setForeground(2, QBrush(QColor(BAD)))
         self.tree.addTopLevelItem(top)
         top.setExpanded(True)
@@ -325,33 +330,36 @@ class AutoScanPage(QWidget):
         self.running = False
         self.map.set_scanning(False)
         self.update_health()
-        self.current.setText("Concluído" if not aborted else ("Não foi possível ler" if error else "Interrompido"))
+        self.current.setText(tr("Concluído") if not aborted
+                             else (tr("Não foi possível ler") if error else tr("Interrompido")))
         if not self.items:
-            self.empty.setText(error or "Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas Opções.")
+            self.empty.setText(error or tr("Nenhum controlador respondeu. Confirme a ignição, o cabo e a porta nas "
+                                           "Opções."))
             self.empty.setWordWrap(True)
             self.empty.show()
-        self.start_btn.setText("▶  Iniciar Auto-Scan")
+        self.start_btn.setText(tr("▶  Iniciar Auto-Scan"))
         if error and not self.items:
-            self.summary.setText("Sem comunicação")
-            self.health_lbl.setText("Veja a explicação ao lado.")
+            self.summary.setText(tr("Sem comunicação"))
+            self.health_lbl.setText(tr("Veja a explicação ao lado."))
         else:
             self._summarise(aborted)
 
     def show_compare(self, prev_date, diff):
         """Mostra o que mudou desde o último diagnóstico do mesmo veículo e marca as avarias novas."""
         self.diff = diff
-        when = f"{prev_date[8:10]}/{prev_date[5:7]}/{prev_date[0:4]}" if prev_date else "a última visita"
+        when = f"{prev_date[8:10]}/{prev_date[5:7]}/{prev_date[0:4]}" if prev_date else tr("a última visita")
         n_new, n_res, n_keep = len(diff["new"]), len(diff["resolved"]), len(diff["persisting"])
         if not (n_new or n_res or n_keep):
-            text = f"Desde {when}: sem avarias em nenhum dos diagnósticos."
+            text = tr("Desde {when}: sem avarias em nenhum dos diagnósticos.", when=when)
         else:
             parts = []
-            parts.append(f"<b style='color:{CYAN if n_new else MUTED}'>{n_new} nova(s)</b>")
-            parts.append(f"<b style='color:{OK if n_res else MUTED}'>{n_res} resolvida(s)</b>")
-            parts.append(f"<b style='color:{WARN if n_keep else MUTED}'>{n_keep} mantêm-se</b>")
-            text = f"Comparação com a visita de <b>{when}</b>:&nbsp;&nbsp;" + "&nbsp;·&nbsp;".join(parts)
+            parts.append(tr("<b style='color:{v}'>{n_new} nova(s)</b>", v=CYAN if n_new else MUTED, n_new=n_new))
+            parts.append(tr("<b style='color:{v}'>{n_res} resolvida(s)</b>", v=OK if n_res else MUTED, n_res=n_res))
+            parts.append(tr("<b style='color:{v}'>{n_keep} mantêm-se</b>", v=WARN if n_keep else MUTED, n_keep=n_keep))
+            text = tr("Comparação com a visita de <b>{when}</b>:", when=when) + "&nbsp;&nbsp;" \
+                + "&nbsp;·&nbsp;".join(parts)
             if n_res:
-                text += "<br><span style='color:%s'>Resolvidas: %s</span>" % (
+                text += tr("<br><span style='color:%s'>Resolvidas: %s</span>") % (
                     MUTED, ", ".join(f"{r['address']:02X} {r['vag']}" for r in diff["resolved"][:6]))
         self.banner_lbl.setText(text)
         self.banner.show()
@@ -362,30 +370,32 @@ class AutoScanPage(QWidget):
 
     # ------------------------------------------------------------ relatório
     def report(self):
-        lines = [f"{APP_NAME} v{VERSION} — Auto-Scan {datetime.datetime.now():%d/%m/%Y %H:%M}"]
+        lines = [tr("{APP_NAME} v{VERSION} — Auto-Scan {v:%d/%m/%Y %H:%M}",
+                    APP_NAME=APP_NAME, VERSION=VERSION, v=datetime.datetime.now())]
         if self.meta.get("interface"):
-            lines.append(f"Interface: {self.meta['interface']}")
+            lines.append(tr("Interface: {interface}", interface=self.meta['interface']))
         if self.meta.get("simulated") or any((i.get("info") or {}).get("simulated") for i in self.items):
-            lines.append("*** DADOS SIMULADOS — não correspondem a nenhum veículo real ***")
+            lines.append(tr("*** DADOS SIMULADOS — não correspondem a nenhum veículo real ***"))
         if self.meta.get("aborted"):
-            lines.append(f"Auto-Scan interrompido: {self.meta.get('scanned')} de {self.meta.get('total')} "
-                         "endereços verificados (resultado parcial)")
+            lines.append(tr("Auto-Scan interrompido: {v} de {v2} endereços verificados (resultado parcial)",
+                            v=self.meta.get('scanned'), v2=self.meta.get('total')))
         lines.append("-" * 60)
         for it in self.items:
-            lines.append(f"Endereço {it['address']:02X}: {it['module']}")
+            lines.append(tr("Endereço {address:02X}: {module}", address=it['address'], module=it['module']))
             if it["status"] == "ok":
                 info = it["info"]
-                lines.append(f"   Peça: {info['part']}   Componente: {info['component']}")
+                lines.append(tr("   Peça: {part}   Componente: {component}",
+                                part=info['part'], component=info['component']))
                 if info.get("coding") is not None:
                     wsc = f"{info['wsc']:05d}" if info.get("wsc") is not None else "—"
-                    lines.append(f"   Codificação: {info['coding']:05d}   WSC: {wsc}")
+                    lines.append(tr("   Codificação: {coding:05d}   WSC: {wsc}", coding=info['coding'], wsc=wsc))
                 fl = it["faults"]
-                lines.append(f"   {len(fl)} avaria(s)")
+                lines.append(tr("   {v} avaria(s)", v=len(fl)))
                 for f in fl:
                     lines.append(f"   {f['vag']} - {f['desc']}")
                     lines.append(f"      {f['elab_code']:02d} - {f['elab']}{' - Intermitente' if f['intermittent'] else ''}")
             else:
-                lines.append(f"   Erro: {it.get('error', '')}")
+                lines.append(tr("   Erro: {v}", v=it.get('error', '')))
             lines.append("-" * 60)
         return "\n".join(lines)
 
@@ -394,9 +404,9 @@ class AutoScanPage(QWidget):
 
     def _save(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Guardar relatório",
+            self, tr("Guardar relatório"),
             os.path.join(os.path.expanduser("~"), f"AutoScan_{datetime.datetime.now():%Y%m%d_%H%M}.txt"),
-            "Texto (*.txt)")
+            tr("Texto (*.txt)"))
         if path:
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(self.report())

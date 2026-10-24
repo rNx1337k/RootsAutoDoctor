@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.7.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.8.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.13-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -40,6 +40,11 @@ It is designed for workshops: scan the car, review the results and hand the cust
 - **Customer reports** in PDF or web format, branded with your workshop logo, with probable causes and the
   coding/adaptation changes made during the visit
 - **Workshop display size** (Options → Display): enlarge the whole interface up to 150% to read it from the car
+- **Portuguese and English** interface (Options → Display → Language), including fault descriptions, the
+  diagnostic assistant and the customer report
+- **Per-workshop licence** with offline activation; without a licence the app runs in demo mode (reads
+  everything, never writes to a real car). See [docs/LICENSING.md](docs/LICENSING.md)
+- **Update check** against the GitHub releases (optional, never blocks offline PCs)
 - **Diagnostic history** searchable by plate or customer
 - **Cable detection and connection check** to identify drivers, latency and wiring problems
 - **OBD-II / EOBD for any make** (ELM327): ECUs, VIN, MIL and readiness monitors, stored / pending /
@@ -60,7 +65,10 @@ It is designed for workshops: scan the car, review the results and hand the cust
   **Detect cable** links to the official page)
 - Self-test of an installation (no car needed):
   `"C:\Program Files\Roots Auto Doctor\RootsAutoDoctor.exe" --selftest "%USERPROFILE%\Desktop\autoteste.txt"`
-- History, logs and the workshop logo are kept in `%APPDATA%\RootsAutoDoctor` (uninstalling keeps them)
+- History, logs, the change journal, the licence and the workshop logo are kept in `%APPDATA%\RootsAutoDoctor`
+  (uninstalling keeps them)
+- **Licence:** send the PC ID shown in **Options → Licence** to your supplier and paste the key you receive (no
+  internet needed). Without a licence the app runs in demo mode
 
 To try the app without a car, click **Open simulator** on the home screen.
 
@@ -127,6 +135,12 @@ portable 32/64-bit Python used by the HEX-USB / J2534 bridges (`runtime/`) and s
 | `run.bat` | Run the app from source |
 | `run_tests.bat` | Run the test suite (simulator-based, no car needed) |
 | `build_release.bat` | Build the compiled app, self-test it and create the Windows installer ([Inno Setup 6](https://jrsoftware.org/isdl.php)) |
+| `python tools/i18n_check.py` | List interface texts that still have no English translation |
+| `python tools/license_tool.py` | Create the licence keys (vendor only, see [docs/LICENSING.md](docs/LICENSING.md)) |
+
+**Translations:** interface text is written in Portuguese and wrapped in `tr("…")` (`rad/i18n.py`); the English
+catalogue is `rad/i18n_en.py`. A test fails if any text is missing from the catalogue or if a translation does not
+keep the same `{placeholders}` and HTML tags.
 
 Logs and crash reports are stored in `%APPDATA%\RootsAutoDoctor\registos`.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
