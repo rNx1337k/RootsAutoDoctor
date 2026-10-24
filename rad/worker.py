@@ -17,7 +17,7 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import connstate, hexmcu, vag_data
+from . import connstate, hexmcu, journal, vag_data
 
 log = logging.getLogger(__name__)
 
@@ -352,7 +352,29 @@ class Worker(QThread):
         if not self.session or not self.session.connected:
             raise ProtocolError("Não há ligação ao controlador")
         res = getattr(self.session, cmd)(*args)
+        if cmd in ("recode", "adaptation_save", "service_reset"):
+            self._journal(cmd, args, res)
         self.result.emit(cmd, res)
+
+    def _journal(self, cmd, args, res):
+        """Regista no registo de alterações uma escrita confirmada ou com resultado desconhecido. Uma falha
+        ao gravar o registo não pode esconder o resultado da escrita no controlador."""
+        if not res or res.get("status") not in journal.STATUSES:
+            return
+        try:
+            info = self.session.info or {}
+            simulated = is_simulated_port(self.cfg.get("port", ""))
+            if cmd == "recode":
+                journal.record("coding", info, requested=args[0], before=res.get("previous"),
+                               after=info.get("coding") if res["status"] == "ok" else None,
+                               status=res["status"], simulated=simulated)
+            else:
+                journal.record("adaptation", info, requested=res.get("requested"), before=res.get("previous"),
+                               after=res.get("value"), status=res["status"], channel=res.get("channel"),
+                               simulated=simulated)
+        except Exception:
+            log.exception("Não foi possível guardar o registo de alterações (%s)", cmd)
+            self.log.emit("Aviso: a alteração foi feita mas não ficou no registo de alterações.")
 
     def _cmd_configure(self, cfg):
         changed = (cfg.get("port") != self.cfg.get("port") or cfg.get("echo") != self.cfg.get("echo")

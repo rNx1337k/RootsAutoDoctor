@@ -626,6 +626,7 @@ class MainWindow(QMainWindow):
         elif cmd in ("adaptation_read", "adaptation_test", "adaptation_save", "service_reset"):
             self.module.show_adaptation(cmd, data)
             if cmd in ("adaptation_save", "service_reset"):
+                self.module.refresh_changes()
                 if data.get("status") == "ok":
                     self.toast.show_msg("Revisão reposta — confirmado pelo painel" if cmd == "service_reset"
                                         else "Adaptação gravada — confirmada pelo controlador")

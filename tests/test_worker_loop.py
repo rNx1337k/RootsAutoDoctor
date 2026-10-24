@@ -77,3 +77,35 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("OK", name)
+
+
+def test_confirmed_writes_go_to_the_change_journal_and_rejected_ones_do_not():
+    from rad import journal
+    d = tempfile.mkdtemp()
+    journal.DIRECTORY = d
+    try:
+        w, ev = _worker()
+        w._dispatch("connect", (0x01,))
+        part = w.session.info["part"]
+        before = w.session.info["coding"]
+        w._dispatch("recode", (4102, 12345))
+        w._dispatch("adaptation_save", (1, 140, 12345))
+        rows = journal.list_changes(directory=d)
+        assert [r["kind"] for r in rows] == ["adaptation", "coding"]
+        assert rows[1]["before"] == before and rows[1]["after"] == 4102 and rows[1]["simulated"] == 1
+        assert rows[0]["channel"] == 1 and rows[0]["after"] == 140
+        assert journal.original_value(0x01, part, "coding", simulated=True, directory=d) == before
+        w._close_all()
+
+        w, ev = _worker()
+        w._dispatch("connect", (0x01,))
+
+        def refused(coding, wsc):
+            raise RequestRejected(f"O controlador recusou a codificação {coding:05d}")
+        w.session.recode = refused
+        w._dispatch("recode", (10002, 54321))
+        assert any(c == "recode" for c, _m in ev["error"])
+        assert len(journal.list_changes(directory=d)) == 2          # a recusa não foi registada
+        w._close_all()
+    finally:
+        journal.DIRECTORY = None

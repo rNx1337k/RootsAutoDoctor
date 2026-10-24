@@ -9,7 +9,8 @@ Uma recusa explícita, ou um valor devolvido diferente do pedido, levanta Reques
 Nunca se apresenta o envio de um comando como prova de que a centralina o executou."""
 import time
 
-from .errors import ProtocolError, ConnectError, NoResponse, KLineError, OperationUnconfirmed, RequestRejected
+from .errors import (ProtocolError, ConnectError, NoResponse, KLineError, NotSupported, OperationUnconfirmed,
+                     RequestRejected)
 from .kline import is_simulated_port
 from .protocols.kw1281 import KW1281
 from .protocols.kwp2000 import KWP2000, KWP2000J2534
@@ -166,19 +167,37 @@ class ECUSession:
     def adaptation_test(self, ch, val):
         return self._check_adapt(self._call("adaptation_test", ch, val), ch, val, "em teste")
 
-    def adaptation_save(self, ch, val, wsc):
-        return self._check_adapt(self._call("adaptation_save", ch, val, wsc), ch, val, "gravado")
+    def _previous_adaptation(self, ch):
+        """Valor do canal antes de gravar, para o registo de alterações. O canal 00 (repor tudo) não tem
+        um valor próprio; uma recusa da leitura não impede a gravação (fica "valor anterior desconhecido")."""
+        if ch == 0:
+            return None
+        try:
+            r = self.adaptation_read(ch)
+        except (RequestRejected, NotSupported):
+            return None
+        return r.get("value") if r and r.get("channel") == ch else None
+
+    def adaptation_save(self, ch, val, wsc, previous=None):
+        """Devolve o resultado da gravação com "previous" = valor do canal antes de gravar (ou None).
+        Quem já leu o valor antes de um teste passa-o em previous, para não ler o valor em teste."""
+        if previous is None:
+            previous = self._previous_adaptation(ch)
+        r = self._check_adapt(self._call("adaptation_save", ch, val, wsc), ch, val, "gravado")
+        r["previous"] = previous
+        return r
 
     def service_reset(self, wsc):
         """Repõe o indicador de revisão nos painéis Golf IV / Bora / Passat B5 / Octavia I (canal 02 = 0).
         Só grava se o teste do valor 0 for confirmado pelo painel."""
+        previous = self._previous_adaptation(2)       # antes do teste: depois dele o painel pode mostrar o 0
         try:
             t = self.adaptation_test(2, 0)
         except RequestRejected as e:
             raise RequestRejected(f"O painel não aceitou o valor 0 no canal 02 — nada foi gravado. ({e})") from e
         if t["status"] != "ok":
             raise OperationUnconfirmed("O painel não confirmou o valor de teste no canal 02 — nada foi gravado.")
-        return self.adaptation_save(2, 0, wsc)
+        return self.adaptation_save(2, 0, wsc, previous=previous)
 
     def login(self, code, wsc):
         self._call("login", code, wsc)
@@ -192,14 +211,14 @@ class ECUSession:
         before = self.info.get("coding") if self.info else None
         r = self._call("recode", coding, wsc)
         if not r or r.get("coding") is None:
-            return {"info": self.info, "status": "unknown",
+            return {"info": self.info, "status": "unknown", "previous": before,
                     "message": "O controlador não devolveu a codificação: o resultado é desconhecido. "
                                "Feche e volte a abrir o controlador para confirmar."}
         self.info.update(r)
         if r["coding"] != coding:
             raise RequestRejected(f"O controlador recusou a codificação {coding:05d}: continua com "
                                   f"{r['coding']:05d}" + (f" (antes: {before:05d})" if before is not None else "") + ".")
-        return {"info": self.info, "status": "ok",
+        return {"info": self.info, "status": "ok", "previous": before,
                 "message": f"Codificação {coding:05d} confirmada pelo controlador."}
 
     def output_test(self):

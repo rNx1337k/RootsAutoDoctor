@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.5.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.6.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows-0E1526?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/python-3.13-0E1526?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -35,6 +35,8 @@ It is designed for workshops: scan the car, review the results and hand the cust
 - **Live data** on gauges and charts, up to three measuring groups at once, with CSV logging
 - **Guided tests** for 1.9 TDI engines: injector balance, boost pressure and mass air flow
 - **Workshop functions**: basic settings, adaptation, coding, login, output tests and service reset
+- **Change journal**: every coding and adaptation written to a module is logged with its previous value, so the
+  original can be restored in two clicks (always with confirmation and workshop code)
 - **Customer reports** in PDF or web format, branded with your workshop logo, with probable causes
 - **Diagnostic history** searchable by plate or customer
 - **Cable detection and connection check** to identify drivers, latency and wiring problems

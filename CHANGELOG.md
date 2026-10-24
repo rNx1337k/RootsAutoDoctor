@@ -3,6 +3,20 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — 2026-10-24
+### Added
+- **Change journal** (`rad/journal.py`, `alteracoes.db` next to the history): every coding and adaptation written
+  to a module (including the service reset) is logged with the value it had before, the value the module
+  returned, date and whether it came from the simulator. Only writes confirmed by the module or with an unknown
+  result are logged; refused writes changed nothing and are not
+- Module page: **Changes** tab listing the writes for that module (address + VAG part number), the original coding
+  and "Prepare previous value", which fills the coding or adaptation tab with the old value. Nothing is written
+  until it is confirmed there, with the workshop code
+- Tests: `test_journal`, plus journal coverage in `test_worker_loop` and `test_ui`
+### Changed
+- Saving an adaptation reads the channel first to record its previous value (except channel 00); a refused read
+  does not block the save. The service reset reads channel 02 before testing the value 0
+
 ## [1.5.1] — 2026-10-23
 ### Fixed
 - Interface errors (bridges, FTDI/USB, serial port, K-line) now keep the original exception as their cause, so

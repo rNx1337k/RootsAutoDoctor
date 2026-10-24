@@ -136,6 +136,42 @@ def test_full_flow_with_simulator():
     assert os.path.exists(os.environ["RAD_SETTINGS_INI"])
 
 
+def test_changes_tab_records_writes_and_prepares_the_previous_value():
+    app, w = _window()
+    try:
+        w.connect_module(0x01)
+        assert _wait(app, lambda: w.nav_btns["module"].isEnabled()), "não ligou ao motor"
+        m = w.module
+        before = m.info["coding"]
+        start = m.chg_table.rowCount()
+        w.worker.submit("recode", 4102, 12345)
+        assert _wait(app, lambda: m.chg_table.rowCount() == start + 1), "codificação não ficou no registo"
+        assert m.info["coding"] == 4102
+        w.worker.submit("adaptation_save", 1, 140, 12345)
+        assert _wait(app, lambda: m.chg_table.rowCount() == start + 2), "adaptação não ficou no registo"
+        assert m.chg_table.item(0, 1).text().startswith("Adaptação") and m.chg_table.item(0, 3).text() == "140"
+        assert m.chg_table.item(1, 2).text() == f"{before:05d}"
+        assert m.chg_original.text() == f"{before:05d}" and m.chg_original_btn.isEnabled()
+
+        # repor: só prepara o valor, não grava
+        m.tabs.setCurrentIndex(m.CHANGES_TAB)
+        m.chg_table.selectRow(1)
+        app.processEvents()
+        assert m.chg_restore_btn.isEnabled()
+        m._prepare_selected_change()
+        assert m.tabs.currentIndex() == 5 and m.cod_new.text() == f"{before:05d}"
+        assert m.info["coding"] == 4102
+        m.tabs.setCurrentIndex(m.CHANGES_TAB)
+        m.chg_table.selectRow(0)
+        m._prepare_selected_change()
+        assert m.tabs.currentIndex() == 4 and m.ad_channel.value() == 1 and m.ad_new.value() == 128
+        w.worker.submit("disconnect")
+        assert _wait(app, lambda: not w.nav_btns["module"].isEnabled())
+    finally:
+        w.close()
+        app.processEvents()
+
+
 def test_failed_connect_and_repeated_clicks():
     app, w = _window()
     from PySide6.QtWidgets import QMessageBox

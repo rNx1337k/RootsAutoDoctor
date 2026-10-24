@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ... import fault_advice, guided, vag_data, APP_NAME
+from ... import fault_advice, guided, journal, vag_data, APP_NAME
 from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import ChartDialog
 from .common import FaultAdviceCard, lbl, btn, card, ask, GroupCard
@@ -54,6 +54,7 @@ class ModulePage(QWidget):
         self.tabs.addTab(self._build_outputs(), "Saídas")
         self.tabs.addTab(self._scrolled(self._build_guided()), "Testes TDI")
         self.GUIDED_TAB = self.tabs.count() - 1
+        self.CHANGES_TAB = self.tabs.addTab(self._build_changes(), "Alterações")
         self.charts = []
         for g in self.groups + [self.basic_group]:
             g.open_chart.connect(self._open_chart)
@@ -293,8 +294,8 @@ class ModulePage(QWidget):
         g.addWidget(btn("Codificar!", "danger", self._recode), 3, 1)
         g.setColumnStretch(2, 1)
         v.addWidget(c)
-        v.addWidget(lbl("Aponte a codificação actual antes de alterar. Uma codificação errada pode "
-                        "desactivar funções ou acender avisos — pode sempre voltar à anterior.",
+        v.addWidget(lbl("Uma codificação errada pode desactivar funções ou acender avisos. Cada codificação "
+                        "gravada fica no separador Alterações, com o valor anterior, para poder voltar atrás.",
                         "muted", wrap=True))
         v.addStretch(1)
         return w
@@ -365,6 +366,7 @@ class ModulePage(QWidget):
         for i in (3, 4, 5, 6, 7):
             self.tabs.setTabEnabled(i, kw)
         self.tabs.setTabEnabled(self.GUIDED_TAB, guided.available_for(info))
+        self.refresh_changes()
         self.quick.setVisible(kw and info["address"] == 0x17)
         for c in self.charts:
             c.close()
@@ -694,6 +696,127 @@ class ModulePage(QWidget):
         self.csv_file = None
         self.csv_writer = None
         self.csv_btn.setText("⏺  Gravar CSV")
+
+    # ---------------------------------------------------------- alterações
+    def _build_changes(self):
+        w, v = self._pad()
+        v.addWidget(lbl("Codificações e adaptações gravadas neste controlador (identificado pelo endereço e pelo "
+                        "nº de peça), com o valor que lá estava antes. Para voltar atrás, escolha uma linha: o "
+                        "valor anterior é preparado no separador certo e só é gravado depois de o confirmar.",
+                        "muted", wrap=True))
+        c = card()
+        cl = QHBoxLayout(c)
+        cl.setContentsMargins(20, 14, 20, 14)
+        cl.setSpacing(14)
+        cv = QVBoxLayout()
+        cv.setSpacing(2)
+        cv.addWidget(lbl("Codificação original", "cellName"))
+        self.chg_original = lbl("—", "value")
+        cv.addWidget(self.chg_original)
+        cl.addLayout(cv)
+        cl.addStretch(1)
+        self.chg_original_btn = btn("Preparar codificação original", None, self._prepare_original_coding)
+        self.chg_original_btn.setEnabled(False)
+        cl.addWidget(self.chg_original_btn, 0, Qt.AlignVCenter)
+        v.addWidget(c)
+        self.chg_table = QTableWidget(0, 5)
+        self.chg_table.setHorizontalHeaderLabels(["Data", "Alteração", "Antes", "Depois", "Estado"])
+        hh = self.chg_table.horizontalHeader()
+        hh.setSectionResizeMode(1, QHeaderView.Stretch)
+        for col in (0, 2, 3, 4):
+            hh.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self.chg_table.verticalHeader().setVisible(False)
+        self.chg_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.chg_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.chg_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.chg_table.setAlternatingRowColors(True)
+        self.chg_table.itemSelectionChanged.connect(self._change_selected)
+        v.addWidget(self.chg_table, 1)
+        row = QHBoxLayout()
+        self.chg_restore_btn = btn("Preparar valor anterior", "primary", self._prepare_selected_change)
+        self.chg_restore_btn.setEnabled(False)
+        row.addWidget(self.chg_restore_btn)
+        row.addWidget(btn("Actualizar", None, self.refresh_changes))
+        row.addStretch(1)
+        self.chg_count = lbl("", "muted")
+        row.addWidget(self.chg_count)
+        v.addLayout(row)
+        self.changes = []
+        return w
+
+    @staticmethod
+    def _change_value(change, value):
+        if value is None:
+            return "?"
+        return f"{value:05d}" if change["kind"] == "coding" else str(value)
+
+    def refresh_changes(self):
+        """Lê o registo de alterações deste controlador. Simulador e carro real não se misturam."""
+        self.changes = []
+        self.chg_table.setRowCount(0)
+        self.chg_restore_btn.setEnabled(False)
+        self.chg_original.setText("—")
+        self.chg_original_btn.setEnabled(False)
+        if not self.info:
+            self.chg_count.setText("")
+            return
+        sim = bool(self.info.get("simulated"))
+        try:
+            self.changes = journal.list_changes(address=self.info["address"], part=self.info.get("part") or "",
+                                                simulated=sim)
+            original = journal.original_value(self.info["address"], self.info.get("part") or "", "coding",
+                                              simulated=sim)
+        except Exception as e:                       # registo ilegível: a página continua a funcionar
+            self.chg_count.setText(f"Não foi possível ler o registo de alterações: {e}")
+            return
+        if original is not None:
+            self.chg_original.setText(f"{original:05d}")
+            self.chg_original_btn.setEnabled(self.tabs.isTabEnabled(5))
+        self.chg_count.setText(f"{len(self.changes)} alteração(ões)" if self.changes else "Sem alterações registadas")
+        for ch in self.changes:
+            r = self.chg_table.rowCount()
+            self.chg_table.insertRow(r)
+            date = ch["date"].replace("T", " ")[:16]
+            what = "Codificação" if ch["kind"] == "coding" else f"Adaptação — canal {ch['channel']:02d}"
+            after = ch["after"] if ch["after"] is not None else ch["requested"]
+            status = "Confirmada" if ch["status"] == "ok" else "Por confirmar"
+            for col, text in enumerate([date, what, self._change_value(ch, ch["before"]),
+                                        self._change_value(ch, after), status]):
+                it = QTableWidgetItem(text)
+                if col == 4:
+                    it.setForeground(QBrush(QColor(OK if ch["status"] == "ok" else WARN)))
+                self.chg_table.setItem(r, col, it)
+
+    def _change_selected(self):
+        r = self.chg_table.currentRow()
+        ok = 0 <= r < len(self.changes) and self.changes[r]["before"] is not None
+        tab = 5 if ok and self.changes[r]["kind"] == "coding" else 4
+        self.chg_restore_btn.setEnabled(ok and self.tabs.isTabEnabled(tab))
+
+    def _prepare_selected_change(self):
+        r = self.chg_table.currentRow()
+        if 0 <= r < len(self.changes):
+            self.prepare_restore(self.changes[r])
+
+    def _prepare_original_coding(self):
+        t = self.chg_original.text()
+        if t.isdigit():
+            self.prepare_restore({"kind": "coding", "channel": None, "before": int(t)})
+
+    def prepare_restore(self, change):
+        """Preenche o valor anterior no separador de codificação ou adaptação. Não grava nada: a gravação
+        continua a passar pela confirmação e pelo código de oficina desse separador."""
+        if change.get("before") is None:
+            return
+        if change["kind"] == "coding":
+            self.cod_new.setText(f"{change['before']:05d}")
+            self.tabs.setCurrentIndex(5)
+            self.cod_new.setFocus()
+        else:
+            self.ad_channel.setValue(change["channel"])
+            self.ad_new.setValue(change["before"])
+            self.tabs.setCurrentIndex(4)
+            self.ad_new.setFocus()
 
     # -------------------------------------------------- adaptação/codificação
     def show_adaptation(self, cmd, r):
