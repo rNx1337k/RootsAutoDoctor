@@ -82,8 +82,6 @@ def _open_serial(port, baud):
 
 
 class Elm327Link:
-    is_can = False
-
     def __init__(self, port, log=None, raw_log=False, protocol="0", serial_factory=None,
                  timeout=4.0, search_timeout=20.0):
         self.port_name = port
@@ -327,7 +325,7 @@ class Elm327Link:
             raise NotSupported("Pedidos dirigidos a uma centralina só estão disponíveis em CAN nesta versão")
         self._set_header(target)
         cmd = bytes(payload).hex().upper()
-        for attempt in range(4):
+        for _attempt in range(4):
             lines = self._command(cmd, timeout=timeout or self.timeout)
             self._raise_errors(lines, cmd)
             resp = self._parse(lines)

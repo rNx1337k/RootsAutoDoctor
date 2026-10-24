@@ -42,7 +42,7 @@ class ECUSession:
         try:
             kb1, kb2 = link.five_baud_init(address)
         except KLineError as e:
-            raise NoResponse(f"O controlador {address:02X} não responde pela interface J2534 ({e})")
+            raise NoResponse(f"O controlador {address:02X} não responde pela interface J2534 ({e})") from e
         kw = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         self.log(f"Sync OK — KB1={kb1:02X} KB2={kb2:02X} (keyword {kw})")
         if kw == 1281:

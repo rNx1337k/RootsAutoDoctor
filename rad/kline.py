@@ -142,7 +142,7 @@ class KLine:
                                          stopbits=1, timeout=0.5, write_timeout=1.0)
             except Exception as e:  # SerialException, PermissionError...
                 self.ser = None
-                raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}")
+                raise KLineError(f"Não foi possível abrir a porta {self.port_name}: {e}") from e
         if not self.is_simulator:
             _timer_resolution(True)
         self.set_lines(*self.lines)
@@ -299,7 +299,7 @@ class KLine:
         try:
             ser.write(bytes([inv]))
         except Exception as e:
-            raise KLineError(f"Erro de escrita: {e}")
+            raise KLineError(f"Erro de escrita: {e}") from e
         if self.echo is None:                        # detecção automática do eco
             b = self.read_byte(0.06)
             if b == inv:

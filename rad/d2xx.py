@@ -90,7 +90,7 @@ def _start_bridge(dll):
     try:
         exe = find_python(bits)
     except Exception as e:
-        raise KLineError(f"{e} (o {os.path.basename(dll)} da interface é de {bits} bits)")
+        raise KLineError(f"{e} (o {os.path.basename(dll)} da interface é de {bits} bits)") from e
     return BridgeProcess([exe, "-u", BRIDGE], "D2XX"), bits
 
 

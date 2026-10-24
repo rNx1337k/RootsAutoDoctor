@@ -3,6 +3,12 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] — 2026-10-23
+### Fixed
+- Interface errors (bridges, FTDI/USB, serial port, K-line) now keep the original exception as their cause, so
+  crash logs and support packages show the underlying driver/OS error
+- ELM327: removed a class attribute `is_can` that was shadowed by the property of the same name
+
 ## [1.5.0] — 2026-10-22
 ### Added
 - **OBD-II / EOBD for any make** through an ELM327 adapter (`rad/obd/`): ECUs and supported PIDs, VIN, calibration

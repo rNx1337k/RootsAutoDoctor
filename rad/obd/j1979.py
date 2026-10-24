@@ -175,7 +175,7 @@ class Obd2:
         except NoResponse:
             if kind == "stored":
                 raise
-            raise NotSupported(f"Nenhuma centralina respondeu ao modo {service:02X} ({kind})")
+            raise NotSupported(f"Nenhuma centralina respondeu ao modo {service:02X} ({kind})") from None
         if not positive(resp, service):
             try:
                 raise_if_all_negative(resp, service)

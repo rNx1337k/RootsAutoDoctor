@@ -55,7 +55,7 @@ def parse_port(port):
         _, vid, pid, serial = port.split(":", 3)
         return int(vid, 16), int(pid, 16), (serial or None)
     except ValueError:
-        raise KLineError(f"Porta USB inválida: {port}")
+        raise KLineError(f"Porta USB inválida: {port}") from None
 
 
 class DependencyMissing(KLineError):
@@ -68,7 +68,7 @@ def _backend():
     try:
         import usb.backend.libusb1  # noqa: F401
     except ImportError:
-        raise DependencyMissing("Falta o pyusb. Instale com: pip install pyftdi libusb-package")
+        raise DependencyMissing("Falta o pyusb. Instale com: pip install pyftdi libusb-package") from None
     be = None
     try:
         import libusb_package
@@ -131,7 +131,7 @@ def _open_ftdi(vid, pid, serial):
     try:
         from pyftdi.ftdi import Ftdi
     except ImportError:
-        raise DependencyMissing("Falta o pyftdi. Instale com: pip install pyftdi libusb-package")
+        raise DependencyMissing("Falta o pyftdi. Instale com: pip install pyftdi libusb-package") from None
     dev = Ftdi()
     dev.open(vid, pid, serial=serial)
     return dev
