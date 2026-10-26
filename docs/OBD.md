@@ -50,7 +50,7 @@ Adding a new interface means implementing one `request()` method: the OBD-II and
 worker commands and the UI are reused unchanged. A raw CAN adapter (SLCAN, SocketCAN…) only needs a `CanBus`
 driver — ISO-TP is already done and tested.
 
-## Status (see docs/COBERTURA.md)
+## Status (see [COVERAGE.md](COVERAGE.md))
 
 - Tested against the simulated ELM327 and a simulated raw CAN bus; adapter faults (not an ELM327, adapter stops
   answering, ignition off, low voltage) are covered by tests.

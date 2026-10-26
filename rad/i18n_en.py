@@ -853,7 +853,7 @@ EN = {
     "Compatibilidade de interfaces e protocolos":
         "Interface and protocol compatibility",
     "Fonte: rad/coverage.py · também em docs/COBERTURA.md":
-        "Source: rad/coverage.py · also in docs/COBERTURA.md",
+        "Source: rad/coverage.py · also in docs/COVERAGE.md",
     "Módulos":
         "Modules",
     "Tipo":

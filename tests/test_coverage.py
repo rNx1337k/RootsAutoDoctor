@@ -11,9 +11,20 @@ from rad import coverage  # noqa: E402
 
 
 def test_document_is_generated_from_the_matrix():
-    with open(os.path.join(ROOT, "docs", "COBERTURA.md"), encoding="utf-8") as fh:
-        doc = fh.read().replace("\r\n", "\n")
-    assert doc == coverage.markdown(), "docs/COBERTURA.md desactualizado: gerar de novo a partir de rad/coverage.py"
+    for lang, name in coverage.DOCUMENTS.items():
+        with open(os.path.join(ROOT, "docs", name), encoding="utf-8") as fh:
+            doc = fh.read().replace("\r\n", "\n")
+        assert doc == coverage.markdown(lang), f"docs/{name} desactualizado: gerar de novo a partir de rad/coverage.py"
+
+
+def test_english_document_has_no_untranslated_text():
+    # Todos os textos da matriz têm de estar no catálogo inglês; se faltar algum, o COVERAGE.md sai em português.
+    from rad.i18n_en import EN
+    texts = {n for _k, n in coverage.STAGES} | {v[0] for v in coverage.LEVELS.values()}
+    for e in coverage.MATRIX:
+        texts |= {e["interface"], e["protocol"], e["services"], e["limits"]}
+    missing = sorted(t for t in texts if t != "—" and t not in EN)
+    assert not missing, missing
 
 
 def test_cited_tests_exist():

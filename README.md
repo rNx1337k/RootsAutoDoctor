@@ -34,7 +34,8 @@ It is designed for workshops: scan the car, review the results and hand the cust
 - **Fault codes** in VAG 5-digit and OBD-II format, with fault type and status
 - **Live data** on gauges and charts, up to three measuring groups at once, with CSV logging
 - **Guided tests** for 1.9 TDI engines: injector balance, boost pressure and mass air flow
-- **Workshop functions**: basic settings, adaptation, coding, login, output tests and service reset
+- **Workshop functions**: basic settings, adaptation, coding, login, output tests and service reset on KW1281
+  modules (KWP2000 modules are read-only for now — see [Compatibility](#compatibility))
 - **Change journal**: every coding and adaptation written to a module is logged with its previous value, so the
   original can be restored in two clicks (always with confirmation and workshop code)
 - **Customer reports** in PDF or web format, branded with your workshop logo, with probable causes and the
@@ -51,7 +52,7 @@ It is designed for workshops: scan the car, review the results and hand the cust
   permanent faults, clearing with confirmation and re-read, freeze frame, live data limited to the PIDs each ECU
   declares, and read-only UDS identification and fault status on CAN
 - **Connection centre** on the home screen showing the real link state: cable seen ≠ interface open ≠ ECU answering
-- **Compatibility matrix** (Options → Compatibility, [docs/COBERTURA.md](docs/COBERTURA.md)) with the level of
+- **Compatibility matrix** (Options → Compatibility, [docs/COVERAGE.md](docs/COVERAGE.md)) with the level of
   evidence for every interface and protocol
 - **Built-in simulators** (K-line, J2534, ELM327) to use every feature without a car
 
@@ -108,13 +109,14 @@ For FTDI cables, setting the latency timer to 1 ms in Device Manager makes live 
 | Login (sent; KW1281 does not report whether the code is correct) and output tests | ✓ | Planned |
 
 OBD-II / EOBD and UDS (ELM327): see [docs/OBD.md](docs/OBD.md). The full matrix, with the evidence for each
-stage (detection, initialisation, ECU communication, interpretation), is in [docs/COBERTURA.md](docs/COBERTURA.md).
+stage (detection, initialisation, ECU communication, interpretation), is in [docs/COVERAGE.md](docs/COVERAGE.md).
 **No interface has yet been confirmed on a vehicle with this app**: K-line fault decoding is validated against a
 real ECU response captured over USB; everything else is tested against the simulators.
 
 All functions are tested against the built-in simulator. Results from the simulator are always labelled as
-simulated — in the sidebar, the history and the reports. See [docs/AUDITORIA.md](docs/AUDITORIA.md) for what has
-and has not been verified on a vehicle.
+simulated — in the sidebar, the history and the reports. What has and has not been verified on a vehicle is
+tracked in [docs/COVERAGE.md](docs/COVERAGE.md); [docs/AUDITORIA.md](docs/AUDITORIA.md) is the technical audit of
+v1.2.0 that started this work.
 
 ## Development
 

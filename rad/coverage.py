@@ -1,7 +1,8 @@
 """Matriz de compatibilidade: o que cada interface consegue fazer com cada protocolo, e com que prova.
 
-É a fonte única para a página "Compatibilidade" da aplicação e para docs/COBERTURA.md (gerado a partir daqui;
-um teste confirma que o documento está actualizado e que os testes citados existem).
+É a fonte única para a página "Compatibilidade" da aplicação, para docs/COBERTURA.md e para a versão inglesa
+docs/COVERAGE.md (gerados a partir daqui; um teste confirma que os documentos estão actualizados e que os testes
+citados existem).
 
 Níveis de prova, do mais forte para o mais fraco — nunca se sobe de nível sem a prova correspondente:
 """
@@ -148,28 +149,58 @@ def level_text(level):
     return LEVELS[level][0]
 
 
-def markdown():
-    """Texto de docs/COBERTURA.md."""
+DOCUMENTS = {"pt": "COBERTURA.md", "en": "COVERAGE.md"}
+
+_DOC_TEXT = {
+    "pt": {
+        "title": "# Cobertura de interfaces e protocolos",
+        "generated": "Gerado a partir de `rad/coverage.py` (não editar à mão). Níveis de prova: ",
+        "stages": "Detectar o cabo no USB ≠ abrir a interface ≠ comunicar com uma centralina ≠ interpretar bem a "
+                  "resposta. Cada etapa tem o seu próprio nível.",
+        "columns": ("Interface", "Protocolo", "Serviços", "Limitações", "Testes"),
+        "footer": "**Nenhuma combinação está confirmada em hardware real com comunicação a uma centralina.** O que "
+                  "está confirmado em hardware é a parte do cabo HEX que não depende do carro (USB, abertura, "
+                  "microcontrolador).",
+    },
+    "en": {
+        "title": "# Interface and protocol coverage",
+        "generated": "Generated from `rad/coverage.py` (do not edit by hand). Evidence levels: ",
+        "stages": "Seeing the cable on USB ≠ opening the interface ≠ talking to an ECU ≠ interpreting the answer "
+                  "correctly. Each stage has its own level.",
+        "columns": ("Interface", "Protocol", "Services", "Limitations", "Tests"),
+        "footer": "**No combination is confirmed on real hardware communicating with an ECU.** What is confirmed on "
+                  "hardware is the part of the HEX cable that does not depend on the car (USB, opening, "
+                  "microcontroller).",
+    },
+}
+
+
+def markdown(lang="pt"):
+    """Texto de docs/COBERTURA.md (lang="pt") ou docs/COVERAGE.md (lang="en", para o GitHub).
+    A versão inglesa usa as traduções do catálogo (rad/i18n_en.py), as mesmas da página Compatibilidade."""
+    if lang == "en":
+        from .i18n_en import EN
+        t = lambda s: EN.get(s, s)  # noqa: E731
+    else:
+        t = lambda s: s  # noqa: E731
+    text = _DOC_TEXT[lang]
+    c_iface, c_proto, c_serv, c_lim, c_tests = text["columns"]
     out = [
-        "# Cobertura de interfaces e protocolos",
+        text["title"],
         "",
-        "Gerado a partir de `rad/coverage.py` (não editar à mão). Níveis de prova: "
-        + "; ".join(f"**{v[0]}**" for v in LEVELS.values()) + ".",
+        text["generated"] + "; ".join(f"**{t(v[0])}**" for v in LEVELS.values()) + ".",
         "",
-        "Detectar o cabo no USB ≠ abrir a interface ≠ comunicar com uma centralina ≠ interpretar bem a resposta. "
-        "Cada etapa tem o seu próprio nível.",
+        text["stages"],
         "",
-        "| Interface | Protocolo | " + " | ".join(n for _k, n in STAGES) + " | Serviços | Limitações | Testes |",
+        f"| {c_iface} | {c_proto} | " + " | ".join(t(n) for _k, n in STAGES) + f" | {c_serv} | {c_lim} | {c_tests} |",
         "|---|---|" + "---|" * len(STAGES) + "---|---|---|",
     ]
     for e in MATRIX:
-        tests = ", ".join(f"`{t}`" for t in e["tests"]) or "—"
-        out.append(f"| {e['interface']} | {e['protocol']} | "
-                   + " | ".join(level_text(e[k]) for k, _n in STAGES)
-                   + f" | {e['services']} | {e['limits']} | {tests} |")
+        tests = ", ".join(f"`{x}`" for x in e["tests"]) or "—"
+        out.append(f"| {t(e['interface'])} | {t(e['protocol'])} | "
+                   + " | ".join(t(level_text(e[k])) for k, _n in STAGES)
+                   + f" | {t(e['services'])} | {t(e['limits'])} | {tests} |")
     out.append("")
-    out.append("**Nenhuma combinação está confirmada em hardware real com comunicação a uma centralina.** O que está "
-               "confirmado em hardware é a parte do cabo HEX que não depende do carro (USB, abertura, "
-               "microcontrolador).")
+    out.append(text["footer"])
     out.append("")
     return "\n".join(out)

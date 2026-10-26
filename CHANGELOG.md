@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
   returns a short severity label (`severity_short`), so "not assessed" shows as "—"
 - Customer report: "1 avarias" when exactly one fault was found
 
+## [1.7.0] — 2026-10-24
 ### Added
 - Customer report: **"Interventions on the modules"** section listing the codings and adaptations written during
   the visit (same day, only the modules read in that visit, never mixing simulator and real car), with the

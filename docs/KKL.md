@@ -1,72 +1,73 @@
-# Cabo KKL 409.1 (FTDI) no Roots Auto Doctor
+# KKL 409.1 cable (FTDI) with Roots Auto Doctor
 
-Via de diagnóstico independente, sem software proprietário: um cabo **KKL 409.1** com chip **FTDI**
-(ou CH340) aparece como porta COM normal e o Roots Auto Doctor fala diretamente com a linha K
-(KW1281 e KWP2000). É o caminho recomendado para validar leituras reais em VAG até ~2005.
+An independent diagnostic path with no proprietary software: a **KKL 409.1** cable with an **FTDI** chip
+(or CH340) shows up as a normal COM port and Roots Auto Doctor talks to the K-line directly
+(KW1281 and KWP2000). It is the recommended way to validate real readings on VAG cars up to ~2005.
 
-## O que já está implementado (auditado a 2026-10-21)
+## What is already implemented (audited on 2026-10-21)
 
-Auditoria do percurso completo no código, não pelo README:
+Audit of the full path in the code, not in the README:
 
-| Etapa | Onde | Estado |
+| Stage | Where | Status |
 |---|---|---|
-| Deteção de portas COM + chip (FTDI/CH340) e Latency Timer | `rad/cable.py`, `rad/kline.py:list_serial_ports` | Implementado |
-| Abrir/fechar a porta série, baud, BREAK, DTR/RTS, timeouts | `rad/kline.py` (pyserial) | Implementado |
-| Init a 5 baud (temporização absoluta por BREAK), deteção de eco, procura de DTR/RTS | `rad/kline.py:_five_baud_init`, `find_lines` | Implementado |
-| Erros de porta → mensagem concreta (não "Erro de ligação" genérico) | `rad/kline.py` → `KLineError`/`InterfaceError` | Implementado |
-| Estados de ligação (sem interface / inacessível / aberta sem centralina / ligado / erro) | `rad/connstate.py` + `rad/worker.py` | Implementado |
-| KW1281: identificação, avarias, grupos, ajuste básico, adaptação, login, codificação, teste de saídas | `rad/protocols/kw1281.py` | Implementado |
-| KWP2000 (linha K e J2534): identificação, avarias, grupos | `rad/protocols/kwp2000.py` | Implementado (leitura) |
-| KWP2000 escrita (adaptação, codificação, login, saídas) | `rad/protocols/kwp2000.py` | **Não implementado** (`NotSupported`) — por desenho |
-| Comunicação fora da UI (thread), keep-alive, desconexões, fecho forçado | `rad/worker.py` | Implementado |
+| COM port + chip detection (FTDI/CH340) and Latency Timer | `rad/cable.py`, `rad/kline.py:list_serial_ports` | Implemented |
+| Opening/closing the serial port, baud rate, BREAK, DTR/RTS, timeouts | `rad/kline.py` (pyserial) | Implemented |
+| 5-baud init (absolute timing with BREAK), echo detection, DTR/RTS search | `rad/kline.py:_five_baud_init`, `find_lines` | Implemented |
+| Port errors → a specific message (not a generic "Connection error") | `rad/kline.py` → `KLineError`/`InterfaceError` | Implemented |
+| Connection states (no interface / inaccessible / open with no ECU / connected / error) | `rad/connstate.py` + `rad/worker.py` | Implemented |
+| KW1281: identification, faults, groups, basic settings, adaptation, login, coding, output tests | `rad/protocols/kw1281.py` | Implemented |
+| KWP2000 (K-line and J2534): identification, faults, groups | `rad/protocols/kwp2000.py` | Implemented (read-only) |
+| KWP2000 writing (adaptation, coding, login, outputs) | `rad/protocols/kwp2000.py` | **Not implemented** (`NotSupported`) — by design |
+| Communication outside the UI (thread), keep-alive, disconnections, forced close | `rad/worker.py` | Implemented |
 
-**Conclusão da auditoria:** o suporte KKL está completo ao nível do código e testado contra o simulador e
-contra uma **resposta real de centralina** (ver abaixo). Falta só a validação física num carro com o cabo KKL
-— que precisa do hardware.
+**Audit conclusion:** KKL support is complete at code level and tested against the simulator and against a
+**real ECU response** (see below). Only the physical validation on a car with the KKL cable is missing — which
+needs the hardware.
 
-## Prova com dados reais (sem carro)
+## Evidence from real data (no car)
 
-`tests/test_capture_replay.py` usa a resposta KW1281 em claro de um **Audi A3 8L 1.9 TDI** ("EDC SG 1536"),
-gravada por USBPcap a 21/10/2026. O VCDS mostrou no mesmo instante 5 avarias; o `read_faults()` do Roots Auto
-Doctor, sobre os mesmos bytes, devolve exatamente as mesmas:
+`tests/test_capture_replay.py` uses the plain KW1281 response from an **Audi A3 8L 1.9 TDI** ("EDC SG 1536"),
+recorded with USBPcap on 21/10/2026. VCDS showed 5 faults at the same moment; Roots Auto Doctor's
+`read_faults()`, on the same bytes, returns exactly the same ones:
 
-| Bytes da centralina | Roots Auto Doctor | VCDS (fotografia) |
+| ECU bytes | Roots Auto Doctor | VCDS (photo) |
 |---|---|---|
-| `44 90 A3` | 17552 · 35 · intermitente | 17552 P1144 35-10 |
-| `46 8E A3` | 18062 · 35 · intermitente | 18062 P1654 35-10 |
-| `46 7B A3` | 18043 · 35 · intermitente | 18043 P1635 35-10 |
-| `46 7C 23` | 18044 · 35 · estático | 18044 P1636 35-00 |
-| `46 7D A3` | 18045 · 35 · intermitente | 18045 P1637 35-10 |
+| `44 90 A3` | 17552 · 35 · intermittent | 17552 P1144 35-10 |
+| `46 8E A3` | 18062 · 35 · intermittent | 18062 P1654 35-10 |
+| `46 7B A3` | 18043 · 35 · intermittent | 18043 P1635 35-10 |
+| `46 7C 23` | 18044 · 35 · static | 18044 P1636 35-00 |
+| `46 7D A3` | 18045 · 35 · intermittent | 18045 P1637 35-10 |
 
-Estes bytes são a resposta da própria centralina (bloco KW1281 0xFC), igual à que um cabo KKL entrega. Não
-têm nada do protocolo proprietário do cabo HEX. A origem é sempre identificada como **simulação** quando
-repetida pelo emulador — nunca apresentada como leitura ao vivo.
+These bytes are the ECU's own response (KW1281 block 0xFC), the same a KKL cable delivers. They contain nothing
+from the HEX cable's proprietary protocol. When replayed by the emulator the source is always labelled
+**simulation** — never presented as a live reading.
 
-## Validação no carro (quando tiveres o cabo KKL)
+## On-car validation (once you have the KKL cable)
 
-1. Liga o cabo à porta USB. Em **Opções → Detectar cabo**, confirma que aparece como porta COM (FTDI/CH340).
-   Para FTDI, põe o Latency Timer a 1 ms (Gestor de Dispositivos → Portas (COM) → Propriedades → Avançadas).
-2. Em **Opções**, escolhe essa porta e liga **Registo detalhado** (guarda todos os bytes para o pacote de suporte).
-3. Cabo na ficha OBD, **ignição ligada, motor desligado**.
-4. **Opções → Diagnóstico da ligação** com o endereço `01`:
-   - Deves ver: cabo na COM → porta aberta → **eco da linha K OK** → ligação ao 01 → identificação.
-   - Sem eco com a ignição ligada: experimenta Velocidade = 9600 / 10400 em Opções; confirma a ficha OBD.
-5. **01-Motor → ler avarias.** Neste carro de referência, devem aparecer as 5 avarias da tabela acima.
-   Compara com a fotografia do VCDS: têm de ser os mesmos códigos e o mesmo estado (35-10 / 35-00).
-6. Lê a identificação (deve conter "EDC" e "1536") e o grupo de medição 001.
-7. No fim: **Opções → Pacote de suporte** e guarda o zip. Envia-o com o resultado de cada passo.
+1. Plug the cable into a USB port. In **Options → Detect cable**, check that it shows up as a COM port
+   (FTDI/CH340). For FTDI, set the Latency Timer to 1 ms (Device Manager → Ports (COM & LPT) → Properties →
+   Advanced).
+2. In **Options**, pick that port and turn on the **Detailed log** (it keeps every byte for the support package).
+3. Cable in the OBD socket, **ignition on, engine off**.
+4. **Options → Connection check** with address `01`:
+   - You should see: cable on the COM port → port open → **K-line echo OK** → connection to 01 → identification.
+   - No echo with the ignition on: try Baud rate = 9600 / 10400 in Options; check the OBD socket.
+5. **01-Engine → read faults.** On this reference car the 5 faults in the table above should appear.
+   Compare with the VCDS photo: the codes and the status (35-10 / 35-00) must be the same.
+6. Read the identification (it should contain "EDC" and "1536") and measuring group 001.
+7. At the end: **Options → Support package** and save the zip. Send it with the result of each step.
 
-Nesta fase, só leitura: não apagues avarias nem uses codificação/adaptação até a leitura estar confirmada.
+At this stage, read only: do not clear faults or use coding/adaptation until reading is confirmed.
 
-## O que falta validar com hardware
+## What still needs validating with hardware
 
-- Eco da linha K, init a 5 baud e KW1281/KWP2000 com uma centralina real através do cabo KKL (até aqui, só
-  simulador e a resposta gravada acima).
-- Fórmulas de medição raras (`rad/vag_data.py`) e o byte de estado das avarias em KWP2000 (a tabela é a do
-  KW1281; confirmar num carro KWP2000 com avarias conhecidas).
+- K-line echo, 5-baud init and KW1281/KWP2000 with a real ECU through the KKL cable (so far only the simulator
+  and the recorded response above).
+- Rare measuring formulas (`rad/vag_data.py`) and the KWP2000 fault status byte (it uses the KW1281 table;
+  confirm on a KWP2000 car with known faults).
 
-## Próxima tarefa recomendada
+## Recommended next task
 
-Obter um cabo KKL 409.1 com FTDI e correr a secção "Validação no carro" neste Audi A3 8L. Com as 5 avarias
-confirmadas pelo programa, a leitura de diagnóstico fica provada com hardware real — o passo que falta para a
-Fase 1 fechar e para o programa poder ser apresentado a oficinas.
+Get a KKL 409.1 cable with FTDI and run the "On-car validation" section on this Audi A3 8L. With the 5 faults
+confirmed by the app, diagnostic reading is proven on real hardware — the step still missing to close Phase 1
+and to present the app to workshops.
