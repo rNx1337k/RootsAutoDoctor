@@ -120,7 +120,7 @@ class MainWindow(QMainWindow):
         cv = QVBoxLayout(conn)
         cv.setContentsMargins(12, 10, 12, 10)
         cv.setSpacing(4)
-        self.conn_lbl = lbl(tr("Sem ligação"), "h2")
+        self.conn_lbl = lbl(tr("Sem ligação"), "h2", wrap=True)
         self.conn_sub = lbl("", "muted")
         self.conn_sub.setWordWrap(True)
         self.pulse = PulseIndicator()

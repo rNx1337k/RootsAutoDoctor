@@ -89,6 +89,8 @@ portable 32/64-bit Python used by the bridges (`runtime/`) and starts the app.
 | `run_tests.bat` | Run the test suite (simulator-based, no car needed) |
 | `build_release.bat` | Build the compiled app, check it, self-test it, and create the installer and the portable zip |
 | `python tools/i18n_check.py` | List interface texts that still have no English translation |
+| `tools\screenshots.bat` | Regenerate the README screenshots (`docs/screenshots/`) with the simulator |
+| `python tools/make_brand.py` | Regenerate the logo, icon and banner from the SVG source |
 | `python tools/license_tool.py` | Create licence keys (vendor only, see [LICENSING.md](LICENSING.md)) |
 
 ## Building a release

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.10.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.10.1-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1526?style=flat-square&logo=windows" alt="Windows 10 | 11">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
   <img src="https://img.shields.io/badge/license-proprietary-0E1526?style=flat-square" alt="License">
@@ -34,6 +34,20 @@
 - **Portuguese and English**
 - **Built-in simulator** to try every function without a car
 - **Automatic updates** — new versions download in the background and install when you close the program
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01_home_en.png" alt="Home screen" width="100%">
+</p>
+
+| Auto-Scan with vehicle map | Fault codes with diagnostic assistant |
+|---|---|
+| <img src="docs/screenshots/02_autoscan_en.png" alt="Auto-Scan"> | <img src="docs/screenshots/03_faults_en.png" alt="Fault codes"> |
+| **Live data on gauges** | **Any make (OBD)** |
+| <img src="docs/screenshots/04_live_data_en.png" alt="Live data"> | <img src="docs/screenshots/05_obd_en.png" alt="OBD — all makes"> |
+
+<sub>Screens taken with the built-in simulator.</sub>
 
 ## Vehicles
 

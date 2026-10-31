@@ -106,14 +106,21 @@ class FaultAdviceCard(QFrame):
         self.system = lbl("", "pill")
         self.system.setStyleSheet(pill_style(MUTED))
         self.system.hide()
-        head.addWidget(self.system, 0, Qt.AlignTop)
-        head.addWidget(self.sev, 0, Qt.AlignTop)
         v.addLayout(head)
+        # as etiquetas (sistema, gravidade) ficam numa linha própria: num cartão estreito não apertam o título
+        tags = QHBoxLayout()
+        tags.setContentsMargins(44, 0, 0, 2)
+        tags.setSpacing(8)
+        tags.addWidget(self.system)
+        tags.addWidget(self.sev)
+        tags.addStretch(1)
+        v.addLayout(tags)
         self.body = lbl("", None, wrap=True)
         self.body.setTextFormat(Qt.RichText)
         self.body.setTextInteractionFlags(Qt.TextSelectableByMouse)
         v.addWidget(self.body)
         self.body.hide()
+        v.addStretch(1)
         self.empty_text = empty_text
 
     def clear(self):

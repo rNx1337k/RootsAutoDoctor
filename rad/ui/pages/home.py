@@ -135,7 +135,7 @@ class HomePage(QWidget):
         ]
         for i, (key, icon, title, sub) in enumerate(tiles):
             b = btn("", "tile", lambda _=False, k=key: self.go.emit(k))
-            b.setMinimumHeight(150)
+            b.setMinimumHeight(124)
             lay = QHBoxLayout(b)
             lay.setContentsMargins(18, 16, 18, 16)
             lay.setSpacing(14)

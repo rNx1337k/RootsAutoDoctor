@@ -14,7 +14,7 @@ from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import HealthRing, ModuleTile, VehicleMap, health_label, health_score
 from .common import FaultAdviceCard, lbl, btn, page_header, ask
 from ...errors import client_text
-from ...i18n import tr
+from ...i18n import tr, tr_data
 from ...kline import port_label
 
 
@@ -200,7 +200,7 @@ class AutoScanPage(QWidget):
         self.health_lbl.setStyleSheet(f"color: {color}; font-weight: 600;")
         sev = fault_advice.worst_severity(self.items)
         if sev:
-            self.severity_lbl.setText(tr("Avaria mais grave: {v}", v=fault_advice.SEVERITY_TEXT[sev].split()[-1]))
+            self.severity_lbl.setText(tr("Avaria mais grave: {v}", v=tr_data(fault_advice.SEVERITY_SHORT[sev]).lower()))
             self.severity_lbl.setStyleSheet(f"color: {severity_color(sev)};")
         else:
             self.severity_lbl.setText("")

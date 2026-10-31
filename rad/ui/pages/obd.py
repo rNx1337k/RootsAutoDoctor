@@ -18,7 +18,7 @@ from ...obd import pids as pidmod
 from ..style import BAD, CYAN, MUTED, OK, WARN, pill_style
 from ..widgets import IconBadge, LiveChart
 from .common import FaultAdviceCard, btn, card, lbl, page_header
-from ...i18n import tr
+from ...i18n import tr, tr_data
 
 MAX_LIVE = 10                     # parâmetros em simultâneo (cada um é um pedido ao veículo)
 KIND_COLORS = {"memorizada": BAD, "pendente": WARN, "permanente": "#B98CFF"}
@@ -528,7 +528,7 @@ class ObdPage(QWidget):
         for r, f in enumerate(rows):
             fault = self._as_fault(f)
             self.fault_table.setItem(r, 0, _item(f["code"], data=fault))
-            self.fault_table.setItem(r, 1, _item(f["kind"], KIND_COLORS.get(f["kind"])))
+            self.fault_table.setItem(r, 1, _item(tr_data(f["kind"]), KIND_COLORS.get(f["kind"])))
             self.fault_table.setItem(r, 2, _item(f["ecu"]))
             desc = f["desc"] or tr("Sem descrição na base instalada — {category}", category=f['category'])
             self.fault_table.setItem(r, 3, _item(desc, None if f["desc"] else MUTED))

@@ -3218,6 +3218,8 @@ EN = {
         "warning indicator requested",
     "pendente":
         "pending",
+    "memorizada":
+        "stored",
     "propulsão híbrida":
         "hybrid propulsion",
     "sem informação adicional":

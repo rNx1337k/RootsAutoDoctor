@@ -3,6 +3,16 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.10.1] — 2026-10-31
+### Changed
+- **New brand**: logo, program icon, splash and README banner redrawn (`tools/make_brand.py` generates every size
+  from one SVG); the old `make_logo.py` / `make_banner.py` were removed
+- Home screen: more compact shortcut tiles
+- README: screenshots section
+### Added
+- `tools/screenshots.py` / `tools/screenshots.bat`: generate the README screenshots with the simulator in a
+  temporary profile (Portuguese and English)
+
 ## [1.10.0] — 2026-10-31
 ### Added
 - **VAG over CAN (~2004 to ~2012)** with the OBD adapter (`rad/vagcan/`): VW TP 2.0 transport (channel setup on
