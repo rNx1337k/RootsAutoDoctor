@@ -124,6 +124,16 @@ MATRIX = [
         "tests": ["test_obd"],
     },
     {
+        "interface": "Adaptador ELM327 / OBDLink em modo CAN cru (ATCAF0)",
+        "protocol": "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 a ~2012",
+        "detect": SIM, "init": SIM, "ecu": SIM, "interpret": SIM,
+        "services": "Canal TP2.0 (abertura, parâmetros, ACK, teste do canal, fecho), identificação, avarias "
+                    "(ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG",
+        "limits": "Sem validação num carro nem num adaptador físico. Só leitura (escrita por CAN ainda não "
+                  "implementada). Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.",
+        "tests": ["test_vagcan"],
+    },
+    {
         "interface": "Adaptador CAN cru (tramas CAN; ex.: SLCAN, SocketCAN)",
         "protocol": "ISO-TP (ISO 15765-2) + OBD-II / UDS",
         "detect": NONE, "init": NONE, "ecu": SIM, "interpret": SIM,

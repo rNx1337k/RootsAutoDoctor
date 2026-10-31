@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.9.0-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.10.0-4F8DFF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1526?style=flat-square&logo=windows" alt="Windows 10 | 11">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
   <img src="https://img.shields.io/badge/license-proprietary-0E1526?style=flat-square" alt="License">
@@ -39,13 +39,16 @@
 
 | | |
 |---|---|
-| **VW, Audi, Seat, Škoda** | Full diagnostics on models up to around 2005 — e.g. Golf IV, Bora, Passat B5, Audi A3 8L, A4 B5/B6, Seat Leon 1M, Škoda Octavia I |
+| **VW, Audi, Seat, Škoda up to ~2005** | Full diagnostics — e.g. Golf IV, Bora, Passat B5, Audi A3 8L, A4 B5/B6, Seat Leon 1M, Škoda Octavia I |
+| **VW, Audi, Seat, Škoda from ~2004** *(new, beta)* | Identification, fault codes and measuring values of every module, Auto-Scan — e.g. Golf V/VI, Audi A3 8P, Passat B6, Octavia II |
 | **Any make** | Fault codes, warning light, readiness and live data on cars with OBD diagnostics (petrol from 2001, diesel from 2004 in the EU) |
 
 ## What you need
 
 - A PC with **Windows 10 or Windows 11 (64-bit)**
-- The diagnostic cable for the VW Group, or an OBD adapter (USB or Bluetooth) for other makes
+- For VW Group cars up to ~2005: the VAG diagnostic cable
+- For VW Group cars from ~2004 and for any other make: an OBD adapter (USB or Bluetooth; OBDLink recommended
+  for the VW Group)
 
 **Nothing else to install.** Roots Auto Doctor brings everything it needs and works without an internet
 connection.

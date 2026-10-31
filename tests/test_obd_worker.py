@@ -138,7 +138,7 @@ def test_obd_live_polling_and_vag_functions_refused_on_elm():
         w.set_live(None, [])
         w.submit("connect", 0x01)                               # função VAG com um ELM327 escolhido
         assert _wait(lambda: bool(errors), 5)
-        assert errors[0][0] == "connect" and "adaptador OBD" in errors[0][1]
+        assert errors[0][0] == "connect" and "Simulador VAG" in errors[0][1]
     finally:
         w.stop()
 

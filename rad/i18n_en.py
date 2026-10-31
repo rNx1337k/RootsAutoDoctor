@@ -3322,8 +3322,6 @@ EN = {
         "OBD adapter (all makes)",
     "Adaptador OBD · {port}":
         "OBD adapter · {port}",
-    "Adaptador OBD — todas as marcas":
-        "OBD adapter — all makes",
     "Adaptador ligado ao PC":
         "Adapter connected to the PC",
     "Ainda não há nenhuma versão publicada.":
@@ -3346,8 +3344,6 @@ EN = {
         "USB cable",
     "Cabo VAG":
         "VAG cable",
-    "Cabo VAG — Grupo VW (VW, Audi, Seat, Škoda)":
-        "VAG cable — VW Group (VW, Audi, Seat, Škoda)",
     "Cabo de diagnóstico USB":
         "USB diagnostic cable",
     "Cabo encontrado e pronto":
@@ -3432,8 +3428,6 @@ EN = {
         "There was an error communicating with the vehicle. Try again; if it continues, create a Support package in Options and send it.",
     "Identificação detalhada da centralina (números de peça e de software) e avarias com o tipo de falha. Disponível nos veículos mais recentes.":
         "Detailed control unit identification (part and software numbers) and faults with their failure type. Available on more recent vehicles.",
-    "Informação, avarias, valores de medição, adaptação e codificação de cada módulo.":
-        "Information, faults, measuring values, adaptation and coding for each module.",
     "Interface de diagnóstico":
         "Diagnostic interface",
     "Ler identificação detalhada da centralina seleccionada":
@@ -3454,8 +3448,6 @@ EN = {
         "Connection to the vehicle closed.",
     "Ligue o PC à internet com o cabo ligado e aguarde um minuto (o Windows prepara-o sozinho), ou volte a instalar o Roots Auto Doctor. Depois carregue outra vez em Detectar cabo.":
         "Connect the PC to the internet with the cable plugged in and wait a minute (Windows prepares it by itself), or reinstall Roots Auto Doctor. Then click Detect cable again.",
-    "Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\nCabo VAG: para os módulos do Grupo VW (VW, Audi, Seat, Škoda). Adaptador OBD (USB ou Bluetooth): para avarias e dados de qualquer marca na página OBD — todas as marcas.":
-        "Plug the cable into the PC and click Detect cable: the program finds it and selects the port by itself. Then, with the cable in the car and the ignition on, click Test connection.\n\nVAG cable: for the VW Group modules (VW, Audi, Seat, Škoda). OBD adapter (USB or Bluetooth): for faults and data of any make on the OBD — all makes page.",
     "Ligue o cabo ao carro com a ignição ligada.\n\nMódulo a testar (01 = motor, 17 = painel):":
         "Connect the cable to the car with the ignition on.\n\nModule to test (01 = engine, 17 = instruments):",
     "Ligue o cabo à ficha de diagnóstico do carro e ao PC, e ligue a ignição.":
@@ -3502,10 +3494,6 @@ EN = {
         "The cable is not communicating with the car. Check that it is firmly plugged into the diagnostic socket and that the ignition is on. If it continues, this cable may not be compatible: create a Support package in Options and send it.",
     "O cabo vê a linha K do carro.":
         "The cable sees the car's K-line.",
-    "O equipamento escolhido em Opções é um adaptador OBD (todas as marcas).\n\nOs controladores e o Auto-Scan do Grupo VW precisam do cabo VAG. Com o adaptador OBD, use a página OBD — todas as marcas.":
-        "The equipment selected in Options is an OBD adapter (all makes).\n\nThe VW Group modules and the Auto-Scan need the VAG cable. With the OBD adapter, use the OBD — all makes page.",
-    "O equipamento escolhido em Opções é um adaptador OBD. Os controladores do Grupo VW precisam do cabo VAG: use a página OBD — todas as marcas, ou escolha o cabo VAG em Opções.":
-        "The equipment selected in Options is an OBD adapter. The VW Group modules need the VAG cable: use the OBD — all makes page, or choose the VAG cable in Options.",
     "O equipamento na porta {port_name} não é um adaptador OBD compatível.":
         "The equipment on port {port_name} is not a compatible OBD adapter.",
     "O módulo não respondeu. Confirme que a ignição está ligada e tente de novo.":
@@ -3600,4 +3588,30 @@ EN = {
         "Version {version} downloaded: it installs when you close the program",
     "Versão {version} pronta":
         "Version {version} ready",
+    "Adaptador ELM327 / OBDLink em modo CAN cru (ATCAF0)":
+        "ELM327 / OBDLink adapter in raw CAN mode (ATCAF0)",
+    "Adaptador OBD — VAG desde ~2004 e todas as marcas":
+        "OBD adapter — VAG from ~2004 and all makes",
+    "Cabo VAG — VW, Audi, Seat, Škoda até ~2005":
+        "VAG cable — VW, Audi, Seat, Škoda up to ~2005",
+    "Canal TP2.0 (abertura, parâmetros, ACK, teste do canal, fecho), identificação, avarias (ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG":
+        "TP2.0 channel (setup, parameters, ACK, channel test, disconnect), identification, faults (read/clear), measuring blocks; Auto-Scan over the VAG addresses",
+    "Informação, avarias e valores de medição de cada módulo; adaptação e codificação nos modelos até ~2005.":
+        "Information, faults and measuring values for each module; adaptation and coding on models up to ~2005.",
+    "Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\nCabo VAG: para os VW, Audi, Seat e Škoda até ~2005. Adaptador OBD (USB ou Bluetooth): para os VAG de ~2004 em diante (Controladores e Auto-Scan) e para avarias e dados de qualquer marca na página OBD — todas as marcas. Para os VAG mais recentes recomenda-se um adaptador OBDLink.":
+        "Plug the cable into the PC and click Detect cable: the program finds it and selects the port by itself. Then, with the cable in the car and the ignition on, click Test connection.\n\nVAG cable: for VW, Audi, Seat and Škoda up to ~2005. OBD adapter (USB or Bluetooth): for VAG from ~2004 onwards (Modules and Auto-Scan) and for faults and data of any make on the OBD — all makes page. For newer VAG cars an OBDLink adapter is recommended.",
+    "O Simulador OBD só tem o diagnóstico de todas as marcas.\n\nPara experimentar os controladores e o Auto-Scan do Grupo VW, escolha em Opções o Simulador VAG ou o Simulador VAG por CAN.":
+        "The OBD simulator only has all-makes diagnostics.\n\nTo try the VW Group modules and the Auto-Scan, choose the VAG simulator or the VAG CAN simulator in Options.",
+    "O controlador {address:02X} deixou de responder":
+        "Module {address:02X} stopped responding",
+    "O controlador {address:02X} não respondeu":
+        "Module {address:02X} did not answer",
+    "O simulador OBD só tem o diagnóstico de todas as marcas. Para experimentar os controladores VAG, escolha em Opções o Simulador VAG ou o Simulador VAG por CAN.":
+        "The OBD simulator only has all-makes diagnostics. To try the VAG modules, choose the VAG simulator or the VAG CAN simulator in Options.",
+    "Sem validação num carro nem num adaptador físico. Só leitura (escrita por CAN ainda não implementada). Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.":
+        "Not validated on a car or a physical adapter. Read-only (writing over CAN not implemented yet). Cheap ELM327 clones may be too slow for TP2.0 ACKs; OBDLink is recommended.",
+    "Simulador VAG por CAN (2004 em diante) — experimentar sem carro":
+        "VAG CAN simulator (2004 onwards) — try without a car",
+    "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 a ~2012":
+        "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 to ~2012",
 }

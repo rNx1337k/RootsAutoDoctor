@@ -98,7 +98,7 @@ def test_obd_page_end_to_end_with_simulator():
         # funções VAG com o ELM327 escolhido: explicadas, não executadas
         shown.clear()
         w.connect_module(0x01)
-        assert shown and "adaptador OBD" in shown[0] and w.stack.currentWidget() is w.obd
+        assert shown and "Simulador OBD" in shown[0] and w.stack.currentWidget() is w.obd
 
         # compatibilidade
         assert "HEX-USB+CAN" in coverage_html() and "Bloqueado" in coverage_html()

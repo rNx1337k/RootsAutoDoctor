@@ -57,8 +57,8 @@ class OptionsPage(QWidget):
         f.setContentsMargins(20, 18, 20, 18)
         f.setVerticalSpacing(12)
         self.adapter = QComboBox()
-        for t, d in [(tr("Cabo VAG — Grupo VW (VW, Audi, Seat, Škoda)"), "kline"),
-                     (tr("Adaptador OBD — todas as marcas"), "elm327")]:
+        for t, d in [(tr("Cabo VAG — VW, Audi, Seat, Škoda até ~2005"), "kline"),
+                     (tr("Adaptador OBD — VAG desde ~2004 e todas as marcas"), "elm327")]:
             self.adapter.addItem(t, d)
         self.adapter.currentIndexChanged.connect(self._adapter_changed)
         f.addRow(lbl(tr("Equipamento"), "muted"), self.adapter)
@@ -217,8 +217,9 @@ class OptionsPage(QWidget):
         v.addWidget(lbl(
             tr("Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. "
                "Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\n"
-               "Cabo VAG: para os módulos do Grupo VW (VW, Audi, Seat, Škoda). Adaptador OBD (USB ou Bluetooth): "
-               "para avarias e dados de qualquer marca na página OBD — todas as marcas."),
+               "Cabo VAG: para os VW, Audi, Seat e Škoda até ~2005. Adaptador OBD (USB ou Bluetooth): para os "
+               "VAG de ~2004 em diante (Controladores e Auto-Scan) e para avarias e dados de qualquer marca na "
+               "página OBD — todas as marcas. Para os VAG mais recentes recomenda-se um adaptador OBDLink."),
             "muted", wrap=True))
         v.addStretch(1)
         self._detecting = False

@@ -3,6 +3,21 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — 2026-10-31
+### Added
+- **VAG over CAN (~2004 to ~2012)** with the OBD adapter (`rad/vagcan/`): VW TP 2.0 transport (channel setup on
+  0x200, parameters, segmentation with ACK, channel test, disconnect) carrying KWP2000; identification, fault
+  codes (read/clear), measuring blocks and Auto-Scan through the usual Modules and Auto-Scan pages
+- ELM327 / OBDLink raw CAN mode (`ATCAF0`, `ATSH`, `ATCRA`, `ATMA`) as a CAN bus for TP2.0
+- **VAG CAN simulator** (port "VAG CAN simulator"): engine, ABS/ESP, Climatronic, airbag, instruments and gateway
+- Tests: `test_vagcan` (protocol frames, segmentation, absent module, missing ACK, Auto-Scan, ELM raw CAN,
+  worker); compatibility matrix entry
+### Changed
+- With the OBD adapter selected, Modules and Auto-Scan now talk to VAG modules over CAN instead of being refused
+- Equipment names in Options: "VAG cable — up to ~2005" and "OBD adapter — VAG from ~2004 and all makes"
+### Not yet
+- Writing over CAN (coding, adaptation, basic settings) and UDS-only modules (newer VAG); no validation on a car
+
 ## [1.9.0] — 2026-10-31
 ### Changed
 - **Customer-facing language everywhere**: screens, dialogs, error messages, cable detection, the connection

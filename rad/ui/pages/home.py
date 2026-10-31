@@ -124,7 +124,8 @@ class HomePage(QWidget):
         grid.setSpacing(14)
         tiles = [
             ("modules", "modules", tr("Controladores VAG"),
-             tr("Informação, avarias, valores de medição, adaptação e codificação de cada módulo.")),
+             tr("Informação, avarias e valores de medição de cada módulo; adaptação e codificação nos modelos até "
+                "~2005.")),
             ("autoscan", "autoscan", tr("Auto-Scan com mapa do veículo"),
              tr("Ler todos os controladores VAG e ver no carro onde estão as avarias.")),
             ("obd", "obd", tr("OBD — todas as marcas"),

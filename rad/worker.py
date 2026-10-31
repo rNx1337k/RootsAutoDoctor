@@ -13,6 +13,7 @@ import traceback
 from PySide6.QtCore import QThread, Signal
 
 from .kline import KLine, is_elm_sim_port, is_simulated_port, port_label
+from .vagcan import is_vagcan_sim_port
 from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
@@ -242,12 +243,20 @@ class Worker(QThread):
             return "elm327"
         return self.cfg.get("adapter") or "kline"
 
+    def _vag_can(self):
+        """Os controladores VAG falam por CAN (TP2.0) através do adaptador OBD, ou com o simulador VAG por CAN."""
+        port = self.cfg.get("port") or ""
+        return is_vagcan_sim_port(port) or (self._adapter() == "elm327" and not is_elm_sim_port(port))
+
+    def _no_echo_link(self):
+        """Interfaces sem eco da linha K para testar (J2534 e CAN)."""
+        return getattr(self.kl, "is_j2534", False) or getattr(self.kl, "is_vagcan", False)
+
     def _ensure_port(self):
         c = self.cfg
-        if self._adapter() == "elm327":
-            raise ProtocolError(tr("O equipamento escolhido em Opções é um adaptador OBD. Os controladores do Grupo "
-                                   "VW precisam do cabo VAG: use a página OBD — todas as marcas, ou escolha o cabo "
-                                   "VAG em Opções."))
+        if is_elm_sim_port(c.get("port") or ""):
+            raise ProtocolError(tr("O simulador OBD só tem o diagnóstico de todas as marcas. Para experimentar os "
+                                   "controladores VAG, escolha em Opções o Simulador VAG ou o Simulador VAG por CAN."))
         self._close_obd()
         if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"] and self.kl.is_open:
             self.kl.raw_log = c["raw_log"]
@@ -256,12 +265,15 @@ class Worker(QThread):
             self.kl.close()
         if not c["port"]:
             raise ProtocolError(tr("Escolha a porta do cabo nas Opções"))
-        if is_j2534_port(c["port"]):
+        if self._vag_can():
+            from .vagcan.link import VagCanLink
+            self.kl = VagCanLink(c["port"], echo=c["echo"], log=self._log, raw_log=c["raw_log"])
+        elif is_j2534_port(c["port"]):
             self.kl = J2534Link(c["port"], log=self._log, raw_log=c["raw_log"])
         else:
             self.kl = KLine(c["port"], echo=c["echo"], log=self._log, raw_log=c["raw_log"])
         saved = _saved_lines(c["port"])
-        if saved and not getattr(self.kl, "is_j2534", False):
+        if saved and not self._no_echo_link():
             self.kl.lines = saved
         self.kl.open()
         self.hex_info = None
@@ -292,6 +304,8 @@ class Worker(QThread):
         No clone HEX, se continuar sem eco, pergunta ao microcontrolador do cabo o que se passa."""
         if getattr(self.kl, "is_j2534", False):
             return self.kl.echo_test(), ""
+        if getattr(self.kl, "is_vagcan", False):
+            return True, ""                      # CAN: não há eco; o adaptador já respondeu ao abrir
         ok, note = self._echo_lines()
         if ok or not getattr(self.kl, "is_hex", False) or self.kl.is_simulator:
             return ok, note
@@ -316,7 +330,7 @@ class Worker(QThread):
         """Antes de falar com o carro, confirma o eco da linha K (0,3 s; até 1,5 s se tiver de procurar o
         DTR/RTS). Sem isto, sem carro ou sem ignição cada endereço demora 3 s a falhar e o Auto-Scan
         ficava mais de um minuto parado a dizer só "não responde"."""
-        if getattr(self.kl, "is_j2534", False) or self.cfg.get("echo") == "off":
+        if self._no_echo_link() or self.cfg.get("echo") == "off":
             return
         ok, note = self._echo()
         if not ok:
@@ -512,7 +526,7 @@ class Worker(QThread):
                               + tr("Não foi possível abrir o cabo. Feche outros programas de diagnóstico que o "
                                    "possam estar a usar e confirme a porta do cabo em Opções.")))
                 return
-            if not getattr(self.kl, "is_j2534", False):
+            if not self._no_echo_link():
                 try:
                     ok, note = self._echo()
                 except Exception as e:

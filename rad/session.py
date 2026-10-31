@@ -62,8 +62,29 @@ class ECUSession:
                      "baud": 10400, "echo": None, **ident, **_interface_info(link)}
         return self.info
 
+    def _connect_can(self, address, retry=False):
+        """VAG por CAN: canal TP2.0 com KWP2000 por dentro (rad/vagcan)."""
+        from .vagcan.kwp import VagCanKWP
+        for attempt in range(2 if retry else 1):
+            self.proto = VagCanKWP(self.kl.bus, address, self.log)
+            self.proto.channel.raw_log = self.kl.raw_log
+            try:
+                ident = self.proto.start()
+                break
+            except NoResponse:
+                self.proto = None
+                if attempt or not retry:
+                    raise
+                time.sleep(0.3 if not self.kl.is_simulator else 0)
+        self.connected = True
+        self.info = {"address": address, "module": vag_data.module_name(address), "protocol": "KWP2000 (CAN TP2.0)",
+                     "baud": 500000, "echo": None, **ident, **_interface_info(self.kl)}
+        return self.info
+
     def connect(self, address, retry=False):
         """retry=True: se nada responder, tenta mais uma vez (centralinas que demoram a acordar)."""
+        if getattr(self.kl, "is_vagcan", False):
+            return self._connect_can(address, retry)
         if getattr(self.kl, "is_j2534", False):
             return self._connect_j2534(address)
         bauds = list(AUTO_BAUDS if self.baud_setting == "auto" else (int(self.baud_setting),))

@@ -428,7 +428,7 @@ class MainWindow(QMainWindow):
             self.export_report("auto")
             return
         if key == "autoscan_start":
-            if self._elm_selected():
+            if self._obd_sim_selected():
                 self._explain_elm()
                 return
             self.show_page("autoscan")
@@ -462,11 +462,15 @@ class MainWindow(QMainWindow):
         c = self.options.config()
         return c.get("adapter") == "elm327" or is_elm_sim_port(c.get("port") or "")
 
+    def _obd_sim_selected(self):
+        """O simulador OBD só imita o diagnóstico de todas as marcas (não tem controladores VAG)."""
+        return is_elm_sim_port(self.options.config().get("port") or "")
+
     def _explain_elm(self):
         QMessageBox.information(self, APP_NAME, tr(
-            "O equipamento escolhido em Opções é um adaptador OBD (todas as marcas).\n\n"
-            "Os controladores e o Auto-Scan do Grupo VW precisam do cabo VAG. Com o adaptador OBD, "
-            "use a página OBD — todas as marcas."))
+            "O Simulador OBD só tem o diagnóstico de todas as marcas.\n\n"
+            "Para experimentar os controladores e o Auto-Scan do Grupo VW, escolha em Opções o Simulador VAG "
+            "ou o Simulador VAG por CAN."))
         self.show_page("obd")
 
     def _obd_connect(self):
@@ -509,7 +513,7 @@ class MainWindow(QMainWindow):
             self.toast.show_msg(tr("Opções guardadas"))
 
     def connect_module(self, address):
-        if self._elm_selected():
+        if self._obd_sim_selected():
             self._explain_elm()
             return
         if not self.options.config()["port"]:

@@ -10,6 +10,9 @@ Python 3.13 (64-bit) with PySide6 (Qt). All communication with the car runs in a
 and **KWP2000** (`rad/protocols/`), through a KKL cable (`rad/kline.py`), an FTDI chip without a COM port
 (`rad/ftdi_direct.py`, `rad/d2xx.py`) or a **J2534** PassThru interface (`rad/j2534.py`). Any make is read with
 **OBD-II / EOBD** through an **ELM327** adapter, plus read-only **UDS** identification on CAN (`rad/obd/`).
+VAG cars from ~2004 are reached over CAN with **VW TP 2.0** carrying KWP2000 (`rad/vagcan/`): the same ELM327 /
+OBDLink adapter in raw CAN mode (`elmcan.py`), a TP2.0 channel per module (`tp20.py`) and the K-line KWP2000
+decoding reused on top (`kwp.py`); `simbus.py` simulates the modules (port `VAGCAN:SIMULADOR`).
 32-bit drivers (RT-USB.DLL, many J2534 DLLs) are loaded by a bridge process running on a portable 32/64-bit
 Python shipped in `runtime/` (`rad/bridge.py`, `rad/*_bridge.py`).
 
