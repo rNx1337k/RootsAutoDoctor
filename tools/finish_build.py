@@ -4,12 +4,14 @@ tem de abrir à primeira em qualquer PC com Windows 10/11 de 64 bits, sem instal
     python tools\\finish_build.py check    <pasta>          completa e verifica a pasta compilada
     python tools\\finish_build.py portable <pasta> <versão> cria dist\\RootsAutoDoctor_<versão>_portatil.zip
     python tools\\finish_build.py sandbox  <pasta>          cria build\\teste_pc_limpo.wsb (Windows Sandbox)
+    python tools\\finish_build.py sign     <setup.exe> <versão> cria <setup.exe>.sig (actualizações automáticas)
 
 check: copia para a pasta as DLL do Visual C++ (vcruntime/msvcp) que o Python e o Qt usam, se o compilador não
 as tiver posto lá (num PC limpo não existem e o programa não abria), e confirma que estão lá todos os ficheiros
 de que o programa precisa. Sai com código 1 se faltar alguma coisa.
 """
 import glob
+import json
 import os
 import shutil
 import sys
@@ -157,13 +159,40 @@ def sandbox(dist, log=print):
     return path
 
 
+def sign(setup, version, secret=None, log=print):
+    """Assina o instalador para as actualizações automáticas: cria <setup>.sig ao lado. Sem a chave privada
+    (tools/update_key.py genkey) não assina e avisa: os clientes recebem só o aviso de versão nova."""
+    sys.path.insert(0, ROOT)
+    from rad import autoupdate
+    import update_key
+    secret = secret or update_key.read_secret()
+    if secret is None:
+        log(f"AVISO: sem chave de actualizações ({update_key.key_path()}): o instalador não foi assinado e os "
+            "programas instalados não se vão actualizar sozinhos com esta versão (só avisam).")
+        return None
+    sig = autoupdate.make_signature(secret, setup, version)
+    if not autoupdate.verify_file(setup, sig, version, autoupdate.ed25519.public_key(secret)):
+        raise RuntimeError("A assinatura criada não se verifica")
+    path = setup + ".sig"
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(sig, fh, indent=1)
+    log(f"Instalador assinado: {path}")
+    return path
+
+
 def main(argv):
-    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox"):
+    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign"):
         print(__doc__)
         return 2
     cmd, dist = argv[0], argv[1]
     if cmd == "check":
         return 0 if check(dist) else 1
+    if cmd == "sign":
+        if len(argv) < 3:
+            print("Falta a versão.")
+            return 2
+        sign(dist, argv[2])
+        return 0
     if cmd == "portable":
         if len(argv) < 3:
             print("Falta a versão.")

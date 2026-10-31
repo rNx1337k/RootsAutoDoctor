@@ -8,11 +8,14 @@ REM  4) cria a versao portatil (zip) e o instalador com Inno Setup (https://jrso
 REM  Resultado: dist\Setup_RootsAutoDoctor_<versao>.exe e dist\RootsAutoDoctor_<versao>_portatil.zip
 REM  Os dois levam tudo (Python, Qt, Visual C++, pontes): no PC da oficina nao e preciso instalar nada.
 REM  Driver dos cabos FTDI (opcional): ver installer\drivers\LEIA-ME.txt
+REM  Actualizacoes automaticas: uma vez, "python tools\update_key.py genkey"; depois cada instalador sai
+REM  assinado (Setup_...exe.sig) - publique os dois na Release do GitHub.
 REM ============================================================
 cd /d "%~dp0"
 if not exist .venv\Scripts\python.exe (echo Corra primeiro o run.bat uma vez. & pause & exit /b 1)
 set PY=.venv\Scripts\python.exe
 for /f "delims=" %%v in ('%PY% -c "import rad; print(rad.VERSION)"') do set VER=%%v
+%PY% -c "from rad.update_pubkey import UPDATE_PUBLIC_KEY as K; import sys; sys.exit(0 if K else 1)" || echo AVISO: actualizacoes automaticas desligadas nesta versao (falta "python tools\update_key.py genkey").
 echo A preparar o Python portatil para as pontes D2XX/J2534...
 %PY% tools\get_runtime.py
 if errorlevel 1 (echo Nao foi possivel preparar a pasta runtime. & pause & exit /b 1)
@@ -67,8 +70,11 @@ if not exist %ISCC% (
 )
 %ISCC% /DAppVersion=%VER% installer\RootsAutoDoctor.iss
 if errorlevel 1 (echo A criacao do instalador falhou. & pause & exit /b 1)
+%PY% tools\finish_build.py sign dist\Setup_RootsAutoDoctor_%VER%.exe %VER%
+if errorlevel 1 (echo Nao foi possivel assinar o instalador. & pause & exit /b 1)
 echo.
 echo Instalador pronto em dist\Setup_RootsAutoDoctor_%VER%.exe
+if exist dist\Setup_RootsAutoDoctor_%VER%.exe.sig echo Assinatura em dist\Setup_RootsAutoDoctor_%VER%.exe.sig - publique-a na Release junto com o instalador.
 echo Versao portatil pronta em dist\RootsAutoDoctor_%VER%_portatil.zip
 echo Teste num Windows limpo (opcional): abra build\teste_pc_limpo.wsb
 pause

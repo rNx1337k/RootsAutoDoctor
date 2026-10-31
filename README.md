@@ -33,6 +33,7 @@
 - **Large display mode** to read the screen from inside the car
 - **Portuguese and English**
 - **Built-in simulator** to try every function without a car
+- **Automatic updates** — new versions download in the background and install when you close the program
 
 ## Vehicles
 
@@ -82,6 +83,13 @@ only the program's logs — no customer data.
 
 Diagnostics, settings, the licence and the workshop logo are kept on the PC and are not removed when the program
 is uninstalled or updated.
+
+## Updates
+
+The installed version keeps itself up to date: when a new version is published, it downloads in the background
+and installs when you close the program. Only versions signed by the publisher are installed. The portable
+version shows a notice with a link to the new version. Automatic updates can be switched off in
+**Options → Updates**.
 
 ## Status
 

@@ -111,6 +111,17 @@ recognised on an offline PC; cables that already work are not touched.
 enabled, open it: a fresh Windows (no Python, no Visual C++, no drivers) starts with the compiled app and runs the
 self-test; the result is saved in `build\pc_limpo\autoteste.txt`.
 
+**Automatic updates:** once, run `python tools\update_key.py genkey`. It writes the public key to
+`rad/update_pubkey.py` (commit it) and keeps the private key outside the repository
+(`%USERPROFILE%\RootsAutoDoctor_licencas\update.key`; back it up). From then on `build_release.bat` signs each
+installer (`Setup_RootsAutoDoctor_<version>.exe.sig`: Ed25519 over the version and the installer's SHA-256).
+To release, create a GitHub Release with tag `v<version>` and attach the installer, its `.sig` and the portable
+zip. Installed copies (`rad/autoupdate.py`) see the release at start-up, download the installer in the
+background, check the signature, and run it silently (`/VERYSILENT`) when the program closes; the next start
+shows "Updated to version …". A file that fails the check is deleted and never runs. The portable version and
+source runs only show a notice. The installer installs for the current user by default, so updates need no
+administrator prompt; for an all-users install Windows asks once per update.
+
 **SmartScreen:** without a code-signing certificate, Windows shows "Windows protected your PC" the first time the
 installer or the program is opened (More info → Run anyway). Signing the installer and the `.exe` removes this.
 

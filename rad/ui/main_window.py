@@ -3,7 +3,9 @@ import datetime
 import logging
 import os
 
-from PySide6.QtCore import QSize, Qt, QUrl
+import threading
+
+from PySide6.QtCore import QSize, Qt, QUrl, Signal
 from PySide6.QtGui import (QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QPixmap, QShortcut,
                            QTextDocument)
 from PySide6.QtWidgets import (
@@ -11,7 +13,8 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, applog, connstate, history, journal, licensing, report, technician_mode, vag_data
+from .. import (APP_NAME, VERSION, applog, autoupdate, connstate, history, journal, licensing, report,
+               technician_mode, vag_data)
 from ..errors import client_text
 from ..settings import app_settings
 from ..kline import is_elm_sim_port, is_simulated_port, port_label
@@ -28,6 +31,8 @@ log = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
+    update_downloaded = Signal(object)        # resultado da descarga da versão nova (vem de uma thread à parte)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{APP_NAME}")
@@ -224,6 +229,9 @@ class MainWindow(QMainWindow):
         self.apply_license()
         self.apply_config(self.options.config(), quiet=True)
         self.show_page("home")
+        self._downloading = False
+        self.update_downloaded.connect(self._update_downloaded)
+        self._after_update()
         if self.options.auto_update_enabled() and not os.environ.get("RAD_NO_UPDATE_CHECK"):
             from PySide6.QtCore import QTimer
             QTimer.singleShot(5000, self.options.check_updates)     # depois de a janela abrir
@@ -278,14 +286,66 @@ class MainWindow(QMainWindow):
         self.demo_badge.setVisible(not self.license["licensed"])
         self.options.show_license(self.license)
 
+    def _after_update(self):
+        """Primeiro arranque depois de uma actualização automática: avisa e limpa a pasta de descargas."""
+        try:
+            version = autoupdate.after_start()
+        except Exception:
+            log.warning("Verificação pós-actualização falhou", exc_info=True)
+            return
+        if version:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1500, lambda: self.toast.show_msg(tr("Actualizado para a versão {version}",
+                                                                   version=version)))
+
     def on_update_found(self, info):
         self.update_info = info
+        if self.options.auto_update_enabled() and autoupdate.can_self_update() and info.get("signature"):
+            self._download_update(info)
+            return
         self.update_btn.setText(tr("Nova versão {version} disponível", version=info['version']))
         self.update_btn.setToolTip(tr("Abre a página da versão nova no navegador."))
         self.update_btn.show()
         self.toast.show_msg(tr("Está disponível a versão {version}", version=info['version']))
 
+    def _download_update(self, info):
+        """Descarrega a versão nova em segundo plano; instala-se quando o programa fechar."""
+        if self._downloading:
+            return
+        self._downloading = True
+
+        def run():
+            try:
+                res = autoupdate.download(info)
+            except Exception as e:                      # UpdateError ou outro: nunca derrubar o programa
+                log.warning("Actualização automática: %s", e)
+                res = e
+            try:
+                self.update_downloaded.emit(res)
+            except RuntimeError:                       # a janela já foi fechada
+                pass
+        threading.Thread(target=run, daemon=True, name="actualizacao").start()
+
+    def _update_downloaded(self, res):
+        self._downloading = False
+        info = self.update_info or {}
+        if isinstance(res, Exception):                 # falhou: fica o aviso normal, com a página de download
+            self.update_btn.setText(tr("Nova versão {version} disponível", version=info.get('version', '?')))
+            self.update_btn.setToolTip(tr("Abre a página da versão nova no navegador."))
+            self.update_btn.show()
+            return
+        self.update_btn.setText(tr("Versão {version} pronta", version=res['version']))
+        self.update_btn.setToolTip(tr("Instala-se sozinha quando fechar o programa."))
+        self.update_btn.show()
+        self.toast.show_msg(tr("Versão {version} descarregada: instala-se quando fechar o programa",
+                               version=res['version']))
+
     def _open_update(self):
+        if autoupdate.pending():
+            QMessageBox.information(self, APP_NAME, tr("A versão nova já foi descarregada e verificada. Instala-se "
+                                                       "sozinha quando fechar o programa; os diagnósticos, a "
+                                                       "licença e as definições ficam guardados."))
+            return
         info = self.update_info or {}
         notes = info.get("notes", "")
         text = (tr("Versão instalada: {VERSION}\nVersão nova: {v}\n\n", VERSION=VERSION, v=info.get('version', '?'))
@@ -862,4 +922,9 @@ class MainWindow(QMainWindow):
         self.obd.stop_live()
         self.worker.submit("disconnect")
         self.worker.stop()
+        if autoupdate.can_self_update():
+            try:
+                autoupdate.install_pending()           # corre o instalador em silêncio depois de fechar
+            except Exception:
+                log.exception("Não foi possível instalar a actualização ao fechar")
         super().closeEvent(ev)

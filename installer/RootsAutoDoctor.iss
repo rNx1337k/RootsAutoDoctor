@@ -31,7 +31,10 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-PrivilegesRequiredOverridesAllowed=dialog
+; Por omissão instala só para o utilizador actual (sem pedir administrador): assim as actualizações automáticas
+; correm em silêncio. "Para todos os utilizadores" continua disponível na primeira página (e instala o driver FTDI).
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog commandline
 ; Fecha o programa se estiver aberto durante uma actualização.
 CloseApplications=yes
 SetupLogging=yes

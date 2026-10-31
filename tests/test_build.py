@@ -1,6 +1,7 @@
 """Build de venda (tools/finish_build.py): a pasta compilada tem de levar tudo o que um PC limpo não tem
 (runtime do Visual C++, plugin do Qt, pontes, Python portátil) e a versão portátil abre-se sem instalar nada.
 Corre sem compilar nada: usa uma pasta compilada falsa."""
+import json
 import os
 import sys
 import tempfile
@@ -63,3 +64,16 @@ def test_portable_zip_has_one_folder_with_the_program_and_instructions():
     assert "Roots Auto Doctor/RootsAutoDoctor.exe" in names
     assert all(n.startswith("Roots Auto Doctor/") for n in names)
     assert "9.9.9" in readme and "Executar mesmo assim" in readme and "Run anyway" in readme
+
+
+def test_installer_signature_for_automatic_updates():
+    from rad import autoupdate, ed25519
+    secret = bytes(range(1, 33))
+    setup = os.path.join(tempfile.mkdtemp(), "Setup_RootsAutoDoctor_9.9.9.exe")
+    with open(setup, "wb") as fh:
+        fh.write(b"MZ instalador")
+    path = finish_build.sign(setup, "9.9.9", secret=secret, log=lambda m: None)
+    assert path == setup + ".sig"
+    with open(path, encoding="utf-8") as fh:
+        sig = json.load(fh)
+    assert autoupdate.verify_file(setup, sig, "9.9.9", ed25519.public_key(secret))

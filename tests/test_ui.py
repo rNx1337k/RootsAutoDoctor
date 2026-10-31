@@ -202,7 +202,8 @@ def test_license_demo_mode_and_update_notice():
         w.options._activate_license()
         app.processEvents()
         assert w.worker.licensed and not w.demo_badge.isVisibleTo(w)
-        assert "Oficina Teste" in w.options.lic_state.text() and w.options.lic_remove_btn.isVisibleTo(w)
+        # o botão está numa página que não é a actual: verifica-se o estado que show_license() lhe deu
+        assert "Oficina Teste" in w.options.lic_state.text() and not w.options.lic_remove_btn.isHidden()
 
         w.options.update_done.emit({"available": True, "version": "9.9.9", "url": "https://example.com",
                                     "download": None, "notes": ""}, False)

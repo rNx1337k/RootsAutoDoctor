@@ -1266,16 +1266,12 @@ EN = {
         "To buy or renew, send this PC's ID to your supplier. Activation does not need internet. Without a licence the program reads everything but does not write to real cars (coding, adaptation, basic settings, clearing faults, output tests).",
     "Actualizações":
         "Updates",
-    "Procurar uma versão nova ao abrir o programa (precisa de internet)":
-        "Check for a new version when the program opens (needs internet)",
     "Procurar agora":
         "Check now",
     "Versão instalada: {VERSION}":
         "Installed version: {VERSION}",
     "Versão":
         "Version",
-    "O programa só avisa e abre a página da versão nova: o instalador corre-se à mão. Sem internet não acontece nada.":
-        "The program only notifies you and opens the new version's page: the installer is run by hand. Without internet nothing happens.",
     "Ecrã":
         "Display",
     "Grande (115%)":
@@ -3582,4 +3578,26 @@ EN = {
         "{v:.1f} V — low: weak battery, ignition off or poor contact in the socket",
     "{v} centralina(s)":
         "{v} control unit(s)",
+    "A versão nova já foi descarregada e verificada. Instala-se sozinha quando fechar o programa; os diagnósticos, a licença e as definições ficam guardados.":
+        "The new version has already been downloaded and verified. It installs itself when you close the program; diagnostics, the licence and settings are kept.",
+    "A versão {version} descarregada não passou na verificação de segurança e foi apagada.":
+        "The downloaded version {version} failed the security check and was deleted.",
+    "A versão {version} não tem instalador assinado: actualize à mão.":
+        "Version {version} has no signed installer: update manually.",
+    "Actualizado para a versão {version}":
+        "Updated to version {version}",
+    "Actualizar automaticamente (precisa de internet)":
+        "Update automatically (needs internet)",
+    "Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e instala-a quando o fechar; os diagnósticos, a licença e as definições ficam guardados. Na versão portátil só avisa. Sem internet não acontece nada.":
+        "When it opens, the program looks for a new version. If there is one, it downloads it while you work and installs it when you close the program; diagnostics, the licence and settings are kept. The portable version only notifies. Without internet nothing happens.",
+    "Instala-se sozinha quando fechar o programa.":
+        "It installs itself when you close the program.",
+    "Já tem a versão mais recente ({VERSION}).":
+        "You already have the latest version ({VERSION}).",
+    "Não foi possível descarregar a versão {version}.":
+        "Version {version} could not be downloaded.",
+    "Versão {version} descarregada: instala-se quando fechar o programa":
+        "Version {version} downloaded: it installs when you close the program",
+    "Versão {version} pronta":
+        "Version {version} ready",
 }

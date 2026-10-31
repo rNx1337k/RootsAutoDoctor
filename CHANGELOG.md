@@ -19,6 +19,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
   speed, K-line echo, OBD protocol, HEX cable mode, detailed log and logs folder moved to technician mode
 - README rewritten as a product page for workshops; the technical content moved to `docs/DEVELOPMENT.md`
 ### Added
+- **Automatic updates** (`rad/autoupdate.py`): the installed version downloads a new GitHub release in the
+  background, checks the installer's Ed25519 signature (`tools/update_key.py`, `Setup_…exe.sig` created by
+  `build_release.bat`) and installs it silently when the program closes; the next start shows "Updated to
+  version …". Files that fail the check are deleted; after three failed installs it falls back to the notice.
+  Portable and source runs only notify
+- Installer installs for the current user by default (no administrator prompt for updates); "all users" is
+  still available
 - **Technician mode** (`--tecnico` or `RAD_TECNICO=1`): communication log (Ctrl+L), advanced interface options
   and the raw technical messages, for development and support only
 - **Portable version**: `build_release.bat` also creates `dist\RootsAutoDoctor_<version>_portatil.zip`

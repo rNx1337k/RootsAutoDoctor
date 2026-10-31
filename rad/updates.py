@@ -1,10 +1,11 @@
 """Verificação de actualizações no GitHub.
 
-Só verifica e avisa: não descarrega nem instala nada sozinho (o instalador corre-se à mão, como sempre).
-Funciona sem internet: falha em silêncio no arranque e explica o erro quando se procura à mão.
+Diz se há uma versão nova. A descarga e a instalação automáticas (versão instalada, com assinatura válida)
+estão em rad/autoupdate.py. Funciona sem internet: falha em silêncio no arranque e explica o erro quando se
+procura à mão.
 
-Usa a última release publicada do repositório (com o instalador como anexo); se não houver releases,
-usa a tag de versão mais alta."""
+Usa a última release publicada do repositório (com o instalador e a sua assinatura .sig como anexos); se não
+houver releases, usa a tag de versão mais alta."""
 import json
 import logging
 import re
@@ -54,10 +55,11 @@ def latest(opener=None):
             rel = _get_json(API + "/releases/latest", opener)
             version = rel.get("tag_name", "")
             if parse_version(version):
-                exe = next((a.get("browser_download_url") for a in rel.get("assets") or []
-                            if str(a.get("name", "")).lower().endswith(".exe")), None)
+                assets = {str(a.get("name", "")): a.get("browser_download_url") for a in rel.get("assets") or []}
+                exe_name = next((n for n in assets if n.lower().endswith(".exe")), None)
                 return {"version": version.lstrip("v"), "url": rel.get("html_url") or RELEASES_PAGE,
-                        "download": exe, "notes": (rel.get("body") or "").strip()}
+                        "download": assets.get(exe_name), "signature": assets.get(f"{exe_name}.sig"),
+                        "notes": (rel.get("body") or "").strip()}
         except urllib.error.HTTPError as e:
             if e.code != 404:            # 404 = o repositório ainda não tem releases: usa as tags
                 raise
@@ -66,7 +68,8 @@ def latest(opener=None):
         if not versions:
             raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
         best = max(versions, key=parse_version)
-        return {"version": best.lstrip("v"), "url": f"{RELEASES_PAGE}/tag/{best}", "download": None, "notes": ""}
+        return {"version": best.lstrip("v"), "url": f"{RELEASES_PAGE}/tag/{best}", "download": None,
+                "signature": None, "notes": ""}
     except UpdateError:
         raise
     except urllib.error.HTTPError as e:

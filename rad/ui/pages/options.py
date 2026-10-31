@@ -175,7 +175,7 @@ class OptionsPage(QWidget):
         uf.setContentsMargins(20, 18, 20, 18)
         uf.setVerticalSpacing(10)
         uf.addRow(lbl(tr("Actualizações"), "h2"))
-        self.upd_auto = QCheckBox(tr("Procurar uma versão nova ao abrir o programa (precisa de internet)"))
+        self.upd_auto = QCheckBox(tr("Actualizar automaticamente (precisa de internet)"))
         self.upd_auto.toggled.connect(lambda on: self.settings.setValue("updates/auto", "true" if on else "false"))
         uf.addRow(lbl(tr("Automático"), "muted"), self.upd_auto)
         urow = QHBoxLayout()
@@ -184,8 +184,9 @@ class OptionsPage(QWidget):
         self.upd_lbl = lbl(tr("Versão instalada: {VERSION}", VERSION=VERSION), "muted", wrap=True)
         urow.addWidget(self.upd_lbl, 1)
         uf.addRow(lbl(tr("Versão"), "muted"), urow)
-        uf.addRow(lbl(tr("O programa só avisa e abre a página da versão nova: o instalador corre-se à mão. Sem "
-                         "internet não acontece nada."), "muted", wrap=True))
+        uf.addRow(lbl(tr("Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e "
+                         "instala-a quando o fechar; os diagnósticos, a licença e as definições ficam guardados. Na "
+                         "versão portátil só avisa. Sem internet não acontece nada."), "muted", wrap=True))
         v.addWidget(uc)
 
         sc = card()
