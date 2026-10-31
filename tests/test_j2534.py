@@ -38,7 +38,7 @@ def test_kw1281_refused_and_absent_module():
             ECUSession(link).connect(0x01)
             assert False
         except ConnectError as e:
-            assert "KW1281" in str(e)
+            assert "cabo VAG" in str(e)
         try:
             ECUSession(link).connect(0x45)
             assert False

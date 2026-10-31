@@ -51,10 +51,10 @@ FUNCTIONAL_HEADER = {"1": "616AF1", "2": "686AF1", "3": "686AF1", "4": "C133F1",
 
 # Respostas de erro do ELM327 → (excepção, explicação para o utilizador)
 ERRORS = {
-    "UNABLE TO CONNECT": (NoResponse, "O adaptador não encontrou nenhum protocolo OBD-II: confirme que a ignição "
-                                      "está ligada e que o veículo tem OBD-II/EOBD (gasolina ≥ 2001, gasóleo ≥ 2004 "
-                                      "na UE). Centralinas VAG antigas só por KW1281 precisam de um cabo KKL."),
-    "NO DATA": (NoResponse, "A centralina não respondeu a este pedido (NO DATA)."),
+    "UNABLE TO CONNECT": (NoResponse, "O veículo não respondeu: confirme que a ignição está ligada e que o veículo "
+                                      "tem diagnóstico OBD (gasolina desde 2001, gasóleo desde 2004 na UE). Os VW, "
+                                      "Audi, Seat e Škoda mais antigos precisam do cabo VAG."),
+    "NO DATA": (NoResponse, "A centralina não respondeu a este pedido."),
     "CAN ERROR": (NoResponse, "Erro no barramento CAN: sem actividade CAN na ficha, velocidade errada ou o "
                               "veículo não usa CAN neste protocolo."),
     "BUS ERROR": (NoResponse, "Erro no barramento (sinal inválido na ficha OBD): confirme o encaixe do cabo."),
@@ -180,7 +180,8 @@ class Elm327Link:
         if lines and lines[-1] == "?":
             msg = tr("O adaptador não suporta o comando {cmd}", cmd=cmd)
             if required:
-                raise NotSupported(msg + tr(" — não é um ELM327 compatível."))
+                self.log(f"ELM327: {msg} — adaptador incompatível")
+                raise NotSupported(tr("Este adaptador OBD não é compatível com o Roots Auto Doctor."))
             self.warnings.append(msg)
             self.log(f"ELM327: {msg} (ignorado)")
             return lines
@@ -215,12 +216,12 @@ class Elm327Link:
             if self.is_simulator:
                 break
         if self.ser is None:
+            self.log(f"ELM327: nenhum adaptador respondeu em {self.port_name} (velocidades tentadas: "
+                     f"{', '.join(map(str, tried)) or '—'}; último erro: {last_err})")
             raise AdapterNotResponding(
-                tr("A porta {port_name} abriu, mas nenhum adaptador ELM327 respondeu (velocidades tentadas: {v}). "
-                   "Confirme que é um ELM327, que o Bluetooth está emparelhado e que nenhum outro programa está a "
-                   "usar a porta.",
-                   port_name=self.port_name, v=', '.join(map(str, tried)) or '—')
-                + (tr(" Detalhe: {last_err}", last_err=last_err) if last_err else ""))
+                tr("A porta {port_name} abriu, mas o adaptador OBD não respondeu. Confirme que o adaptador está "
+                   "ligado ao PC (ou que o Bluetooth está emparelhado) e que nenhum outro programa o está a usar.",
+                   port_name=self.port_name))
         self._init_adapter()
         return self.describe()
 
@@ -242,7 +243,8 @@ class Elm327Link:
             lines = self._command("ATI")
             ident = next((l for l in lines if "ELM" in l.upper()), None)
         if ident is None:
-            raise AdapterNotResponding(tr("O dispositivo na porta {port_name} não se identificou como ELM327.",
+            self.log(f"ELM327: o dispositivo em {self.port_name} não se identificou como ELM327 ({lines})")
+            raise AdapterNotResponding(tr("O equipamento na porta {port_name} não é um adaptador OBD compatível.",
                                           port_name=self.port_name))
         self.version = ident.strip()
         self._at("ATE0")
@@ -293,10 +295,10 @@ class Elm327Link:
         self.proto = num
         self.header = None
         if num == "A":
-            raise NotSupported(tr("O veículo respondeu em SAE J1939 (pesados): não suportado nesta versão."))
+            raise NotSupported(tr("Este veículo usa o diagnóstico dos pesados, que ainda não é suportado."))
         resp = self._parse(lines)
         if not resp:
-            raise NoResponse(tr("O adaptador indicou um protocolo, mas nenhuma centralina deu uma resposta válida."))
+            raise NoResponse(tr("O adaptador ligou-se ao veículo, mas nenhuma centralina respondeu correctamente."))
         self.log(f"ELM327: protocolo {self.protocol}")
         return resp
 
@@ -305,13 +307,15 @@ class Elm327Link:
         for l in lines:
             key = l.upper().strip()
             if key.startswith("BUS INIT") and "ERROR" in key:
-                raise NoResponse(tr("A inicialização da linha K falhou (BUS INIT: ERROR): ignição desligada, "
-                                 "centralina sem OBD-II na linha K, ou protocolo errado."))
+                self.log(f"ELM327: BUS INIT: ERROR [{cmd}]")
+                raise NoResponse(tr("O veículo não respondeu. Confirme que a ignição está ligada e que o veículo tem "
+                                    "diagnóstico OBD."))
             for k, (exc, text) in ERRORS.items():
                 if key == k or (k != "?" and key.startswith(k)):
                     if exc is NoResponse and has_data:
                         continue                     # outra centralina respondeu
-                    raise exc(f"{text} [{cmd}]")
+                    self.log(f"ELM327: {k} [{cmd}]")
+                    raise exc(text)
 
     @staticmethod
     def _looks_like_data(line):

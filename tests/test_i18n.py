@@ -80,7 +80,7 @@ def test_switching_to_english_changes_what_the_user_sees():
         adv = fault_advice.advice(f, 0x01)
         assert adv["severity_text"].endswith("severity") and adv["severity_short"] in ("High", "Medium", "Low")
         assert all(c in EN.values() for c in adv["causes"])
-        assert connstate.LinkStatus(connstate.NO_DEVICE).message == "No interface"
+        assert connstate.LinkStatus(connstate.NO_DEVICE).message == "No cable"
         assert pids.name(0x0C) == "Engine speed" and pids.TABLE[0x51].decode(bytes([4])) == "Diesel"
         assert dtc.describe("P0101")["desc"] == "Air mass meter — range/performance"
         assert vag_data.decode_value(4, 10, 150)["unit"] == "° BTDC"

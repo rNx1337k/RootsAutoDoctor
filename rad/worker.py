@@ -12,12 +12,12 @@ import traceback
 
 from PySide6.QtCore import QThread, Signal
 
-from .kline import KLine, is_elm_sim_port, is_simulated_port
+from .kline import KLine, is_elm_sim_port, is_simulated_port, port_label
 from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import connstate, hexmcu, journal, licensing, vag_data
+from . import connstate, hexmcu, journal, licensing, technician_mode, vag_data
 from .i18n import tr
 
 log = logging.getLogger(__name__)
@@ -245,9 +245,9 @@ class Worker(QThread):
     def _ensure_port(self):
         c = self.cfg
         if self._adapter() == "elm327":
-            raise ProtocolError(tr("A interface escolhida é um adaptador ELM327 (OBD-II/EOBD multimarca). As funções "
-                                "VAG por KW1281/KWP2000 precisam de um cabo KKL 409.1 ou de uma interface J2534: "
-                                "use a página OBD-II, ou escolha outra interface em Opções."))
+            raise ProtocolError(tr("O equipamento escolhido em Opções é um adaptador OBD. Os controladores do Grupo "
+                                   "VW precisam do cabo VAG: use a página OBD — todas as marcas, ou escolha o cabo "
+                                   "VAG em Opções."))
         self._close_obd()
         if self.kl and self.kl.port_name == c["port"] and self.kl.echo_mode == c["echo"] and self.kl.is_open:
             self.kl.raw_log = c["raw_log"]
@@ -320,6 +320,7 @@ class Worker(QThread):
             return
         ok, note = self._echo()
         if not ok:
+            log.warning("Sem eco: %s", no_echo_text(self.cfg.get("port", ""), self.hex_info, True))
             raise ProtocolError(no_echo_text(self.cfg.get("port", ""), self.hex_info))
         if note:
             self.log.emit(tr("Eco da linha K OK") + note)
@@ -446,8 +447,12 @@ class Worker(QThread):
             return self._test_elm_adapter()
         self._ensure_port()
         ok, note = self._echo()
-        msg = (tr("Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD.") + note
-               if ok else tr("A porta abriu. ") + no_echo_text(self.cfg.get("port", ""), self.hex_info))
+        if ok:
+            log.info("Testar ligação: porta aberta e eco da linha K OK%s", note)
+            msg = tr("O cabo está pronto e a comunicar com o carro.")
+        else:
+            log.warning("Testar ligação: %s", no_echo_text(self.cfg.get("port", ""), self.hex_info, True))
+            msg = no_echo_text(self.cfg.get("port", ""), self.hex_info)
         self.result.emit("test_interface", {"ok": ok, "message": msg})
 
     def _cmd_hex_mode(self, mode):
@@ -484,6 +489,7 @@ class Worker(QThread):
             self._cmd_disconnect()
         old_raw = self.cfg.get("raw_log")
         self.cfg["raw_log"] = True
+        technical = technician_mode()
         try:
             port = self.cfg.get("port")
             if not port:
@@ -491,18 +497,20 @@ class Worker(QThread):
                 return
             present = _usb_present(port)
             if present is not None:
-                steps.append((tr("Cabo detectado no USB"), present,
-                              tr("O Windows vê a interface") if present else
-                              tr("O Windows não vê a interface: ligue o cabo ao USB (ou troque de porta/cabo USB)")))
+                steps.append((tr("Cabo ligado ao PC"), present,
+                              tr("O PC encontra o cabo.") if present else
+                              tr("O PC não encontra o cabo: volte a ligá-lo ao USB (ou experimente outra porta USB).")))
                 if not present:
                     return
             try:
                 self._ensure_port()
-                steps.append((tr("Abrir a interface"), True, port))
+                steps.append((tr("Abrir o cabo"), True, port if technical else port_label(port)))
             except Exception as e:
-                steps.append((tr("Abrir a interface"), False, tr("{e}. Feche outros programas que usem o cabo (VCDS, "
-                                                                 "Delphi…) e confirme a porta.",
-                                                                 e=e)))
+                log.warning("Diagnóstico da ligação: não abriu %s: %s", port, e)
+                steps.append((tr("Abrir o cabo"), False,
+                              (f"{e}. " if technical else "")
+                              + tr("Não foi possível abrir o cabo. Feche outros programas de diagnóstico que o "
+                                   "possam estar a usar e confirme a porta do cabo em Opções.")))
                 return
             if not getattr(self.kl, "is_j2534", False):
                 try:
@@ -513,7 +521,7 @@ class Worker(QThread):
                     if self.hex_info is None and getattr(self.kl, "is_hex", False):
                         self.hex_info = {"found": False, "raw": [str(e)]}
                 h = self.hex_info
-                if h is not None:
+                if h is not None and technical:
                     steps.append((tr("Adaptador (microcontrolador do cabo HEX)"), bool(h.get("found")),
                                   hexmcu.describe(h)))
                     if h.get("found") and h.get("kline") is not None:
@@ -526,17 +534,22 @@ class Worker(QThread):
                                           tr("Modo inteligente: a linha K é controlada pelo microcontrolador do cabo "
                                           "e o protocolo dele para falar com as centralinas ainda não está "
                                           "implementado no Roots Auto Doctor")))
-                why = ("O cabo vê a linha K do carro." + note) if ok else no_echo_text(port, h)
-                steps.append((tr("Eco da linha K"), ok, why))
+                if technical:
+                    why = (tr("O cabo vê a linha K do carro.") + note) if ok else no_echo_text(port, h, True)
+                    steps.append((tr("Eco da linha K"), ok, why))
+                else:
+                    steps.append((tr("Cabo ligado ao carro"), ok,
+                                  tr("O cabo está a comunicar com o carro.") if ok else no_echo_text(port, h)))
                 if not ok:
                     return
             try:
                 s = ECUSession(self.kl, self._log, self.cfg["baud"])
                 info = s.connect(address, retry=True)
+                ident = f"{info['part']} {info['component']}".strip()
                 steps.append((tr("Ligação ao controlador {address:02X}", address=address), True,
                               tr("{protocol} a {baud} baud — {part} {component}",
                                  protocol=info['protocol'], baud=info['baud'], part=info['part'],
-                                 component=info['component'])))
+                                 component=info['component']) if technical else ident))
                 try:
                     n = len(s.read_faults())
                     steps.append((tr("Leitura de avarias"), True, tr("{n} avaria(s)", n=n)))
@@ -549,7 +562,7 @@ class Worker(QThread):
                                  e=e)))
             except Exception as e:
                 steps.append((tr("Ligação ao controlador {address:02X}", address=address), False,
-                              tr("{e}. Active o Registo detalhado e crie um pacote de suporte.", e=e)))
+                              tr("{e}. Se continuar, crie um Pacote de suporte em Opções e envie-o.", e=e)))
         finally:
             self.cfg["raw_log"] = old_raw
             if self.kl:
@@ -682,7 +695,7 @@ class Worker(QThread):
 
     def _require_obd(self):
         if self.obd is None or not self.obd.connected:
-            raise ProtocolError(tr("Não há ligação OBD-II ao veículo: carregue em Ligar na página OBD-II"))
+            raise ProtocolError(tr("Não há ligação ao veículo: carregue em Ligar na página OBD — todas as marcas."))
         return self.obd
 
     def _cmd_obd_connect(self):
@@ -698,23 +711,23 @@ class Worker(QThread):
         port = self.cfg.get("port") or ""
         self._obd_pending_steps = []
         if not port:
-            self._obd_pending_steps = [("Porta da interface", False, "Nenhuma porta escolhida em Opções")]
-            raise ProtocolError(tr("Escolha a porta do adaptador ELM327 nas Opções"))
+            self._obd_pending_steps = [(tr("Porta do adaptador"), False, tr("Nenhuma porta escolhida em Opções"))]
+            raise ProtocolError(tr("Escolha a porta do adaptador OBD em Opções."))
         if self._adapter() != "elm327":
-            self._obd_pending_steps = [("Tipo de interface", False, "Em Opções está escolhido um cabo KKL/J2534")]
-            raise ProtocolError(tr("Em Opções, escolha \"ELM327 — OBD-II/EOBD multimarca\" como tipo de interface "
-                                "(ou o Simulador ELM327) para usar o diagnóstico OBD-II."))
+            self._obd_pending_steps = [(tr("Equipamento"), False, tr("Em Opções está escolhido o cabo VAG"))]
+            raise ProtocolError(tr("Em Opções, escolha \"Adaptador OBD — todas as marcas\" em Equipamento "
+                                   "(ou o Simulador OBD) para usar esta página."))
         present = self._port_present()
         if present is False:
-            self._obd_pending_steps = [("Interface detectada", False, f"A porta {port} não existe neste momento")]
+            self._obd_pending_steps = [(tr("Adaptador ligado ao PC"), False,
+                                        tr("A porta {port} não existe neste momento", port=port))]
             raise ProtocolError(tr("A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o "
                                    "Bluetooth) e carregue em Actualizar nas Opções.",
                                    port=port))
         link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"),
                           protocol=self.cfg.get("elm_protocol") or "0")
         self.obd = ObdSession(link, self._log)
-        self._emit_link(connstate.LinkStatus(connstate.CONNECTING, tr("A ligar ao veículo por OBD-II ({port})…",
-                                                                      port=port)))
+        self._emit_link(connstate.LinkStatus(connstate.CONNECTING, tr("A ligar ao veículo por OBD…")))
         info = self.obd.connect()
         self.log.emit(tr("OBD-II: ligado — {protocol}, {v} centralina(s)",
                          protocol=info['protocol'], v=len(info['ecus']))
@@ -727,33 +740,35 @@ class Worker(QThread):
         from .obd.elm327 import Elm327Link
         if self.obd is not None:
             d = self.obd.link.describe()
-            self.result.emit("test_interface", {"ok": True, "message": tr("Adaptador {v} já ligado ao veículo ({v2}).",
-                                                                          v=d.get('version'), v2=d.get('protocol'))})
+            log.info("Testar ligação: adaptador %s já ligado (%s)", d.get('version'), d.get('protocol'))
+            self.result.emit("test_interface", {"ok": True, "message": tr("O adaptador OBD já está ligado ao "
+                                                                          "veículo.")})
             return
         if self.kl is not None:
             self.kl.close()
             self.kl = None
         port = self.cfg.get("port") or ""
         if not port:
-            raise ProtocolError(tr("Escolha a porta do adaptador ELM327 nas Opções"))
+            raise ProtocolError(tr("Escolha a porta do adaptador OBD em Opções."))
         link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"))
         try:
             d = link.open()
         finally:
             link.close()
         volt = d.get("voltage")
-        msg = (tr("Adaptador {v} a responder na porta {port} ({v2} baud).",
-                  v=d.get('version'), port=port, v2=d.get('baud'))
-               + (tr(" Tensão na ficha OBD: {volt:.1f} V.", volt=volt) if volt is not None else "")
-               + ("" if not d.get("warnings") else tr(" Avisos: ") + "; ".join(d["warnings"]) + ".")
-               + tr("\n\nIsto prova que o adaptador funciona; a ligação ao veículo testa-se na página OBD-II."))
+        log.info("Testar ligação: adaptador %s em %s (%s baud), avisos: %s", d.get('version'), port, d.get('baud'),
+                 d.get("warnings"))
+        msg = (tr("O adaptador OBD está a responder.")
+               + (tr(" Tensão da bateria na ficha de diagnóstico: {volt:.1f} V.", volt=volt)
+                  if volt is not None else "")
+               + tr("\n\nA ligação ao veículo faz-se na página OBD — todas as marcas."))
         self.result.emit("test_interface", {"ok": True, "message": msg})
 
     def _cmd_obd_disconnect(self):
         was = self.obd is not None
         self._close_obd()
         if was:
-            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, tr("Ligação OBD-II fechada.")))
+            self._emit_link(connstate.LinkStatus(connstate.NO_DEVICE, tr("Ligação ao veículo fechada.")))
         self.result.emit("obd_disconnect", None)
 
     def _cmd_obd_dtcs(self):
@@ -802,8 +817,19 @@ class Worker(QThread):
         self.live.emit(out)
 
 
-def no_echo_text(port, hex_info=None):
-    """Explicação para quando o byte enviado não volta da linha K."""
+def no_echo_text(port, hex_info=None, technical=None):
+    """Explicação para quando o byte enviado não volta da linha K. Para o cliente é uma frase de oficina; o
+    detalhe técnico (modo técnico, registo) diz o que o cabo respondeu."""
+    if not (technician_mode() if technical is None else technical):
+        if hex_info and hex_info.get("found") and hex_info.get("mode") != hexmcu.MODE_DUMB:
+            return tr("Este cabo está num modo que o Roots Auto Doctor ainda não consegue usar. Crie um Pacote de "
+                      "suporte em Opções e envie-o.")
+        if not hex_info and port.startswith(("FTDI:", "D2XX:")):
+            return tr("O cabo não está a comunicar com o carro. Confirme que está bem encaixado na ficha de "
+                      "diagnóstico e que a ignição está ligada. Se continuar, este cabo pode não ser compatível: "
+                      "crie um Pacote de suporte em Opções e envie-o.")
+        return tr("O cabo não está a comunicar com o carro. Confirme que está bem encaixado na ficha de "
+                  "diagnóstico e que a ignição está ligada.")
     if hex_info and hex_info.get("found"):
         kl = hex_info.get("kline")
         if hex_info.get("mode") != hexmcu.MODE_DUMB:

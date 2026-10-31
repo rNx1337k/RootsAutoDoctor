@@ -13,7 +13,9 @@ from ... import fault_advice, vag_data, APP_NAME, VERSION
 from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import HealthRing, ModuleTile, VehicleMap, health_label, health_score
 from .common import FaultAdviceCard, lbl, btn, page_header, ask
+from ...errors import client_text
 from ...i18n import tr
+from ...kline import port_label
 
 
 class TileGrid(QWidget):
@@ -311,7 +313,7 @@ class AutoScanPage(QWidget):
                 child.setToolTip(1, tr("Seleccione para ver as causas prováveis"))
         else:
             top.setText(1, item["module"])
-            top.setText(2, tr("Erro: ") + item.get("error", ""))
+            top.setText(2, tr("Erro: ") + client_text(item.get("error", "")))
             top.setForeground(2, QBrush(QColor(BAD)))
         self.tree.addTopLevelItem(top)
         top.setExpanded(True)
@@ -373,11 +375,11 @@ class AutoScanPage(QWidget):
         lines = [tr("{APP_NAME} v{VERSION} — Auto-Scan {v:%d/%m/%Y %H:%M}",
                     APP_NAME=APP_NAME, VERSION=VERSION, v=datetime.datetime.now())]
         if self.meta.get("interface"):
-            lines.append(tr("Interface: {interface}", interface=self.meta['interface']))
+            lines.append(tr("Interface: {interface}", interface=port_label(self.meta['interface'])))
         if self.meta.get("simulated") or any((i.get("info") or {}).get("simulated") for i in self.items):
             lines.append(tr("*** DADOS SIMULADOS — não correspondem a nenhum veículo real ***"))
         if self.meta.get("aborted"):
-            lines.append(tr("Auto-Scan interrompido: {v} de {v2} endereços verificados (resultado parcial)",
+            lines.append(tr("Auto-Scan interrompido: {v} de {v2} controladores verificados (resultado parcial)",
                             v=self.meta.get('scanned'), v2=self.meta.get('total')))
         lines.append("-" * 60)
         for it in self.items:
@@ -395,7 +397,7 @@ class AutoScanPage(QWidget):
                     lines.append(f"   {f['vag']} - {f['desc']}")
                     lines.append(f"      {f['elab_code']:02d} - {f['elab']}{' - Intermitente' if f['intermittent'] else ''}")
             else:
-                lines.append(tr("   Erro: {v}", v=it.get('error', '')))
+                lines.append(tr("   Erro: {v}", v=client_text(it.get('error', ''))))
             lines.append("-" * 60)
         return "\n".join(lines)
 

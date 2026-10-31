@@ -263,14 +263,15 @@ def test_failed_connect_and_repeated_clicks():
         assert w.toast.last[0].startswith("Aguarde")
         assert _wait(app, lambda: shown and not w.worker.is_busy)
         app.processEvents()
-        assert "Sem eco" in shown[0] and len(shown) == 1
+        assert "ignição" in shown[0] and len(shown) == 1
+        assert "eco" not in shown[0].lower().split()           # sem termos técnicos para o cliente
         assert "perdida" not in w.toast.last[0]        # nunca esteve ligado: não se "perdeu"
         assert not w.reconnect_btn.isVisible() and w.conn_lbl.text() == "Sem ligação"
         # Auto-Scan sem eco: pára logo e explica na página
         w._home_go("autoscan_start")
         assert _wait(app, lambda: not w.scan.running and not w.worker.is_busy)
         app.processEvents()
-        assert "Sem eco" in w.scan.empty.text() and not w.scan.empty.isHidden()
+        assert "ignição" in w.scan.empty.text() and not w.scan.empty.isHidden()
         assert w.scan.tiles_scroll.isHidden()
     finally:
         QMessageBox.warning = old

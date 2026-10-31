@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ... import fault_advice, guided, journal, vag_data, APP_NAME
+from ... import fault_advice, guided, journal, technician_mode, vag_data, APP_NAME
 from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import ChartDialog
 from .common import FaultAdviceCard, lbl, btn, card, ask, GroupCard
@@ -106,22 +106,26 @@ class ModulePage(QWidget):
             top.addWidget(c, stretch)
         v.addLayout(top)
 
-        # detalhes técnicos
+        # detalhes do controlador (protocolo, velocidade e dados brutos só no modo técnico)
+        technical = technician_mode()
         c = card()
         g = QGridLayout(c)
         g.setContentsMargins(20, 16, 20, 16)
         g.setHorizontalSpacing(24)
         g.setVerticalSpacing(8)
-        details = [("address", tr("Endereço")), ("module", tr("Módulo")), ("protocol", tr("Protocolo")),
-                   ("baud", tr("Velocidade")), ("extra", tr("Info extra"))]
+        details = [("address", tr("Endereço")), ("module", tr("Módulo"))]
+        if technical:
+            details += [("protocol", tr("Protocolo")), ("baud", tr("Velocidade"))]
+        details.append(("extra", tr("Info extra")))
         for i, (key, name) in enumerate(details):
             r, col = i // 3, (i % 3) * 2
             g.addWidget(lbl(name, "muted"), r, col)
             g.addWidget(value_label(key), r, col + 1)
-        g.addWidget(lbl(tr("Dados brutos"), "muted"), 2, 0)
-        raw = value_label("raw")
-        raw.setStyleSheet("font-family: Consolas, monospace; color: #6A7BA0; font-size: 8.5pt;")
-        g.addWidget(raw, 2, 1, 1, 5)
+        if technical:
+            g.addWidget(lbl(tr("Dados brutos"), "muted"), 2, 0)
+            raw = value_label("raw")
+            raw.setStyleSheet("font-family: Consolas, monospace; color: #6A7BA0; font-size: 8.5pt;")
+            g.addWidget(raw, 2, 1, 1, 5)
         for col in (1, 3, 5):
             g.setColumnStretch(col, 1)
         v.addWidget(c)
@@ -352,9 +356,12 @@ class ModulePage(QWidget):
     def set_info(self, info):
         self.info = info
         self.title.setText(f"{info['address']:02X} — {info['module']}")
-        self.subtitle.setText(tr("{part}   {component}   ·   {protocol} @ {baud} baud",
-                                 part=info['part'], component=info['component'], protocol=info['protocol'],
-                                 baud=info['baud']))
+        if technician_mode():
+            self.subtitle.setText(tr("{part}   {component}   ·   {protocol} @ {baud} baud",
+                                     part=info['part'], component=info['component'], protocol=info['protocol'],
+                                     baud=info['baud']))
+        else:
+            self.subtitle.setText(f"{info['part']}   {info['component']}".strip())
         vals = dict(info)
         vals["address"] = f"{info['address']:02X}"
         vals["baud"] = tr("{baud} baud", baud=info['baud'])
@@ -605,7 +612,8 @@ class ModulePage(QWidget):
                  tr("Codificação: {v}", v=self.info_lbls['coding'].text())]
         if i.get("wsc") is not None:
             lines.append(tr("WSC: {wsc:05d}", wsc=i['wsc']))
-        lines.append(tr("Protocolo: {protocol} @ {baud} baud", protocol=i['protocol'], baud=i['baud']))
+        if technician_mode():
+            lines.append(tr("Protocolo: {protocol} @ {baud} baud", protocol=i['protocol'], baud=i['baud']))
         QGuiApplication.clipboard().setText("\n".join(lines))
 
     # ------------------------------------------------------- medição viva

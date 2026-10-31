@@ -38,6 +38,7 @@ def splash_pixmap():
     from PySide6.QtCore import QPointF, QRectF, Qt
     from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPen, QPixmap, QRadialGradient
     from PySide6.QtWidgets import QApplication
+    from rad.i18n import tr
     from rad.ui.style import BLUE, CYAN, MUTED, NIGHT, RED
     from rad.ui.widgets import display_font, logo_pixmap
     dpr = QApplication.primaryScreen().devicePixelRatio() if QApplication.primaryScreen() else 1.0
@@ -72,14 +73,14 @@ def splash_pixmap():
     p.drawPixmap(44, 72, logo_pixmap(170, dpr))
     p.setPen(QColor(CYAN))
     p.setFont(QFont("Bahnschrift", 9, QFont.DemiBold))
-    p.drawText(QRectF(244, 92, 400, 20), int(Qt.AlignLeft | Qt.AlignVCenter), f"VERSÃO {VERSION}")
+    p.drawText(QRectF(244, 92, 400, 20), int(Qt.AlignLeft | Qt.AlignVCenter), tr("VERSÃO {VERSION}", VERSION=VERSION))
     p.setPen(QColor("white"))
     p.setFont(display_font(30))
     p.drawText(QRectF(242, 110, 420, 54), int(Qt.AlignLeft | Qt.AlignVCenter), "Roots Auto Doctor")
     p.setPen(QColor(MUTED))
     p.setFont(QFont("Segoe UI", 10))
     p.drawText(QRectF(244, 164, 420, 24), int(Qt.AlignLeft | Qt.AlignVCenter),
-               "Diagnóstico VAG · KW1281 / KWP2000")
+               tr("Diagnóstico automóvel profissional"))
     line = QLinearGradient(244, 0, 380, 0)
     line.setColorAt(0, QColor(RED))
     line.setColorAt(1, QColor(255, 59, 78, 0))
@@ -87,7 +88,7 @@ def splash_pixmap():
     p.drawLine(244, 204, 380, 204)
     p.setPen(QColor(BLUE))
     p.setFont(QFont("Segoe UI", 9))
-    p.drawText(QRectF(244, 214, 400, 22), int(Qt.AlignLeft | Qt.AlignVCenter), "a iniciar…")
+    p.drawText(QRectF(244, 214, 400, 22), int(Qt.AlignLeft | Qt.AlignVCenter), tr("a iniciar…"))
     p.end()
     return pm
 

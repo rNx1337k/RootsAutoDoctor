@@ -66,6 +66,35 @@ def run():
             s.disconnect()
     check("OBD-II / ELM327 (simulador)", obd_sim)
 
+    def qt_gui():
+        """O que falha primeiro num PC acabado de instalar: as DLL do Qt / do Visual C++ e o plugin do Windows.
+        Cria a aplicação (sem abrir janelas) e grava um PDF de teste, como o relatório para o cliente."""
+        import tempfile
+        from PySide6.QtCore import qVersion
+        from PySide6.QtGui import QPageSize, QTextDocument
+        from PySide6.QtPrintSupport import QPrinter
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(["RootsAutoDoctor", "--selftest"])
+        doc = QTextDocument()
+        doc.setHtml(f"<h1>{APP_NAME}</h1><p>auto-teste</p>")
+        path = os.path.join(tempfile.gettempdir(), f"rad_autoteste_{os.getpid()}.pdf")
+        printer = QPrinter(QPrinter.HighResolution)
+        printer.setOutputFormat(QPrinter.PdfFormat)
+        printer.setPageSize(QPageSize(QPageSize.A4))
+        printer.setOutputFileName(path)
+        doc.print_(printer)
+        try:
+            size = os.path.getsize(path)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        if size < 500:
+            raise RuntimeError(f"PDF de teste vazio ({size} bytes)")
+        return f"Qt {qVersion()}, plataforma {app.platformName()}, PDF de teste com {size} bytes"
+    check("Interface gráfica e relatório PDF", qt_gui)
+
     dll = d2xx.find_dll()
     if dll:
         def rt_usb():

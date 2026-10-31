@@ -51,7 +51,8 @@ def test_obd_page_end_to_end_with_simulator():
         assert w.stack.currentWidget() is w.obd
         cfg = w.options.config()
         assert cfg["adapter"] == "elm327" and cfg["port"] == "ELM327:SIMULADOR"
-        assert "ELM327" in w.home.link_iface.text() and "simulação" in w.home.link_iface.text()
+        assert "Adaptador OBD" in w.home.link_iface.text() and w.sim_badge.isVisibleTo(w)
+        assert "ELM327" not in w.home.link_iface.text()
 
         w.obd._connect()
         assert _wait(app, lambda: w.obd.connected and w.obd.dtcs is not None, 20)
@@ -59,7 +60,8 @@ def test_obd_page_end_to_end_with_simulator():
         assert w.obd.t_vin.value.text().startswith("RADSML")
         assert w.obd.t_mil.value.text() == "ACESA"
         assert w.home.link_pill.text() == connstate.LABELS[connstate.ECU_CONNECTED]
-        assert w.conn_lbl.text().startswith("Ligado por OBD-II")
+        assert w.conn_lbl.text().startswith("Ligado por OBD")
+        assert not w.obd.t_proto.isVisibleTo(w)                  # o protocolo só aparece no modo técnico
         assert w.home.vehicle_edits["vin"].text().startswith("RADSML")       # VIN preenchido a partir do carro
         codes = [w.obd.fault_table.item(r, 0).text() for r in range(w.obd.fault_table.rowCount())]
         assert codes[:2] == ["P0401", "P2002"] and "P0299" in codes
@@ -84,7 +86,8 @@ def test_obd_page_end_to_end_with_simulator():
         w.show_page("obd")
         w.obd.ecu_table.selectRow(0)
         w.obd._uds()
-        assert _wait(app, lambda: "F190" in w.obd.uds_out.toPlainText(), 10)
+        assert _wait(app, lambda: "RADSMLT0000000001" in w.obd.uds_out.toPlainText(), 10)
+        assert "UDS" not in w.obd.uds_out.toPlainText() and "F190" not in w.obd.uds_out.toPlainText()
 
         # relatório: itens no formato do Auto-Scan, com o aviso de simulação
         items = w.obd.report_items()
@@ -95,7 +98,7 @@ def test_obd_page_end_to_end_with_simulator():
         # funções VAG com o ELM327 escolhido: explicadas, não executadas
         shown.clear()
         w.connect_module(0x01)
-        assert shown and "ELM327" in shown[0] and w.stack.currentWidget() is w.obd
+        assert shown and "adaptador OBD" in shown[0] and w.stack.currentWidget() is w.obd
 
         # compatibilidade
         assert "HEX-USB+CAN" in coverage_html() and "Bloqueado" in coverage_html()

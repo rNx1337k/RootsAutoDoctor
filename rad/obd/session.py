@@ -65,12 +65,12 @@ class ObdSession:
             try:
                 desc = link.open()
             except NotSupported as e:
-                self._step(tr("Adaptador ELM327"), False, str(e))
+                self._step(tr("Adaptador OBD"), False, str(e))
                 raise ProtocolError(str(e)) from e
             except Exception as e:
-                self._step(tr("Abrir a interface"), False, str(e))
+                self._step(tr("Abrir o adaptador"), False, str(e))
                 raise
-            self._step(tr("Abrir a interface"), True, port)
+            self._step(tr("Abrir o adaptador"), True, port)
             ver = desc.get("version") or "?"
             detail = tr("{version} a {baud} baud", version=ver, baud=desc["baud"]) if desc.get("baud") else ver
             if desc.get("simulated"):
@@ -78,17 +78,17 @@ class ObdSession:
             self._step(tr("Adaptador respondeu"), True, detail)
             v = desc.get("voltage")
             if v is None:
-                self._step(tr("Tensão na ficha OBD"), True, tr("não medida pelo adaptador"))
+                self._step(tr("Tensão da bateria"), True, tr("não medida pelo adaptador"))
             elif v < LOW_VOLTAGE:
-                self._step(tr("Tensão na ficha OBD"), False,
-                           tr("{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto no pino 16", v=v))
+                self._step(tr("Tensão da bateria"), False,
+                           tr("{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto na ficha", v=v))
             else:
-                self._step(tr("Tensão na ficha OBD"), True, tr("{v:.1f} V (medida pelo adaptador)", v=v))
+                self._step(tr("Tensão da bateria"), True, tr("{v:.1f} V (medida pelo adaptador)", v=v))
         # 2) veículo
         try:
             if hasattr(link, "connect_vehicle"):
                 link.connect_vehicle()
-            self._step(tr("Protocolo do veículo"), True, link.protocol)
+            self._step(tr("Ligação ao veículo"), True, link.protocol)
             sup = self.obd.discover()
         except NoResponse as e:
             self._step(tr("Comunicação com o veículo"), False, str(e))
@@ -101,7 +101,7 @@ class ObdSession:
             names = self.obd.ecu_names()
         except (ProtocolError, RequestRejected, NotSupported) as e:
             self.log(f"OBD: nomes das centralinas indisponíveis ({e})")
-        self._step(tr("Centralinas OBD-II"), True, ", ".join(tr("{ecu}: {n} parâmetros", ecu=ecu_label(e, names),
+        self._step(tr("Centralinas"), True, ", ".join(tr("{ecu}: {n} parâmetros", ecu=ecu_label(e, names),
                                                                 n=len(p)) for e, p in sup.items()))
         status = {}
         try:

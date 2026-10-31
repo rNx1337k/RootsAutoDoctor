@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit, QScrollArea, QVBoxLayout, QWidget,
 )
 
-from ... import APP_NAME, VERSION, i18n, licensing, updates
+from ... import APP_NAME, VERSION, i18n, licensing, technician_mode, updates
 from ...kline import list_serial_ports
 from ...settings import ui_scale
 from ..style import BAD, OK, WARN
@@ -35,6 +35,9 @@ class OptionsPage(QWidget):
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
+        # Opções avançadas da comunicação (velocidade, eco, protocolo, modo do cabo, registo detalhado,
+        # compatibilidade): só no modo técnico. O cliente vê apenas o equipamento e a porta.
+        self.technical = technician_mode()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
@@ -46,7 +49,7 @@ class OptionsPage(QWidget):
         scroll.setWidget(body)
         v = QVBoxLayout(body)
         v.setContentsMargins(30, 24, 30, 24)
-        v.addWidget(page_header(tr("Opções"), tr("Interface (cabo), comunicação e dados da oficina."),
+        v.addWidget(page_header(tr("Opções"), tr("Cabo, dados da oficina, licença e ecrã."),
                                 tr("Configuração")))
 
         c = card()
@@ -54,11 +57,11 @@ class OptionsPage(QWidget):
         f.setContentsMargins(20, 18, 20, 18)
         f.setVerticalSpacing(12)
         self.adapter = QComboBox()
-        for t, d in [(tr("Cabo KKL / J2534 — diagnóstico VAG pela linha K (KW1281, KWP2000)"), "kline"),
-                     (tr("Adaptador ELM327 — OBD-II / EOBD multimarca (CAN e linha K)"), "elm327")]:
+        for t, d in [(tr("Cabo VAG — Grupo VW (VW, Audi, Seat, Škoda)"), "kline"),
+                     (tr("Adaptador OBD — todas as marcas"), "elm327")]:
             self.adapter.addItem(t, d)
         self.adapter.currentIndexChanged.connect(self._adapter_changed)
-        f.addRow(lbl(tr("Tipo de interface"), "muted"), self.adapter)
+        f.addRow(lbl(tr("Equipamento"), "muted"), self.adapter)
         prow = QHBoxLayout()
         self.port = QComboBox()
         self.port.setMinimumWidth(240)
@@ -89,9 +92,10 @@ class OptionsPage(QWidget):
         crow.setSpacing(8)
         self.detect_btn = btn(tr("Detectar cabo"), "primary", self._detect_cable)
         crow.addWidget(self.detect_btn)
-        crow.addWidget(btn(tr("Testar interface"), None, self._test))
+        crow.addWidget(btn(tr("Testar ligação"), None, self._test))
         crow.addWidget(btn(tr("Diagnóstico da ligação"), None, lambda: self.link_check_req.emit()))
-        crow.addWidget(btn(tr("Compatibilidade"), None, lambda: self.coverage_req.emit()))
+        if self.technical:
+            crow.addWidget(btn(tr("Compatibilidade"), None, lambda: self.coverage_req.emit()))
         crow.addStretch(1)
         f.addRow(lbl(tr("Cabo"), "muted"), crow)
         hrow = QHBoxLayout()
@@ -102,6 +106,8 @@ class OptionsPage(QWidget):
         self.hex_lbl = lbl(tr("Cabo HEX"), "muted")
         f.addRow(self.hex_lbl, hrow)
         self._form, self._hex_row = f, hrow
+        if not self.technical:
+            f.setRowVisible(self.raw, False)
         v.addWidget(c)
 
         wc = card()
@@ -203,20 +209,15 @@ class OptionsPage(QWidget):
         row.addWidget(btn(tr("Guardar"), "primary", self._save))
         row.addSpacing(12)
         row.addWidget(btn(tr("Pacote de suporte"), None, self._support_bundle))
-        row.addWidget(btn(tr("Abrir pasta de registos"), None, self._open_logs))
+        if self.technical:
+            row.addWidget(btn(tr("Abrir pasta de registos"), None, self._open_logs))
         row.addStretch(1)
         v.addLayout(row)
         v.addWidget(lbl(
-            tr("Cabos suportados: cabos KKL 'VAG-COM 409.1' e clones VCDS de linha K com chip FTDI ou CH340 "
-               "(aparecem como porta COM normal). Para máxima velocidade em cabos FTDI: Gestor de dispositivos → "
-               "Portas (COM) → Propriedades → Definições da porta → Avançadas → Latency Timer = 1 ms.\n\n"
-               "Adaptadores ELM327 (USB ou Bluetooth) aparecem como porta COM: escolha \"Adaptador ELM327\" em Tipo de "
-               "interface e use a página OBD-II para qualquer marca com OBD-II/EOBD. Os clones baratos nem sempre "
-               "implementam todos os comandos; o programa indica o que o adaptador respondeu.\n\n"
-               "Clones HEX-USB+CAN (chip FTDI VID 0403 PID FA24 com microcontrolador) aparecem como D2XX:… "
-               "(driver RT-USB) ou FTDI:… (driver WinUSB). O Diagnóstico da ligação fala com o microcontrolador "
-               "do cabo e mostra o estado real; a leitura de centralinas através dele ainda não está disponível. "
-               "Interfaces HEX-V2 / HEX-NET genuínas usam firmware fechado da Ross-Tech e não são suportadas."),
+            tr("Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. "
+               "Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\n"
+               "Cabo VAG: para os módulos do Grupo VW (VW, Audi, Seat, Škoda). Adaptador OBD (USB ou Bluetooth): "
+               "para avarias e dados de qualquer marca na página OBD — todas as marcas."),
             "muted", wrap=True))
         v.addStretch(1)
         self._detecting = False
@@ -241,9 +242,9 @@ class OptionsPage(QWidget):
         form = getattr(self, "_form", None)
         if form is None:
             return
-        form.setRowVisible(self.elm_proto, elm)
+        form.setRowVisible(self.elm_proto, elm and self.technical)
         for row in (self.baud, self.echo, self._hex_row):
-            form.setRowVisible(row, not elm)
+            form.setRowVisible(row, not elm and self.technical)
 
     def _port_changed(self, *_):
         from ...kline import is_elm_sim_port
@@ -449,6 +450,9 @@ class OptionsPage(QWidget):
             QMessageBox.warning(self, APP_NAME, tr("Não foi possível procurar o cabo:\n{res}", res=res))
             return
         findings, j2534 = res
+        if not self.technical:
+            from ... import cable
+            findings = [cable.plain(f) for f in findings]
         self.refresh_ports()
         colors = {"ok": OK, "warn": WARN, "bad": BAD}
         if not findings:
@@ -456,16 +460,20 @@ class OptionsPage(QWidget):
                        "<p>Ligue o cabo à porta USB e volte a carregar em Detectar cabo. "
                        "Se continuar sem aparecer:</p>"
                        "<ul><li>Experimente outra porta USB (de preferência directamente no PC, sem hub).</li>"
-                       "<li>Abra o Gestor de Dispositivos e veja se aparece um dispositivo com ponto de exclamação "
-                       "em <i>Outros dispositivos</i> — nesse caso falta o driver.</li></ul>"))
+                       "<li>Se o cabo é novo neste PC, ligue o PC à internet uma vez com o cabo ligado: o "
+                       "Windows prepara-o sozinho.</li></ul>"))
         else:
             parts = []
             for f in findings:
                 link = (tr("<br><a href='{driver_url}'>Página oficial do driver</a>", driver_url=f['driver_url'])
-                        if f.get("driver_url") else "")
+                        if f.get("driver_url") and self.technical else "")
                 parts.append(f"<p><b style='color:{colors[f['level']]}'>{f['title']}</b><br>{f['detail']}{link}</p>")
             html = "".join(parts)
-        if j2534:
+        if not self.technical:
+            if j2534:
+                html += tr("<p>Interfaces de diagnóstico instaladas neste PC: <b>{v}</b>. Pode escolhê-las em "
+                           "Porta do cabo.</p>", v=", ".join(d["name"] for d in j2534))
+        elif j2534:
             html += tr("<p><b>Interfaces J2534 (PassThru) instaladas:</b></p><ul>")
             for d in j2534:
                 html += (tr("<li><b>{name}</b> — {vendor} ({view})<br>Protocolos: {v}<br><small>{dll}</small></li>",
@@ -480,16 +488,16 @@ class OptionsPage(QWidget):
             if i >= 0:
                 self.port.setCurrentIndex(i)
                 self._save()
-                html += tr("<p>A porta <b>{v}</b> foi escolhida e guardada automaticamente.</p>", v=ready[0])
+                html += tr("<p>O cabo foi escolhido e guardado automaticamente.</p>")
         box = QMessageBox(self)
         box.setWindowTitle(tr("Detectar cabo"))
         box.setTextFormat(Qt.RichText)
         box.setTextInteractionFlags(Qt.TextBrowserInteraction)
         box.setText(html)
-        dm = box.addButton(tr("Abrir Gestor de Dispositivos"), QMessageBox.ActionRole)
+        dm = box.addButton(tr("Abrir Gestor de Dispositivos"), QMessageBox.ActionRole) if self.technical else None
         box.addButton(QMessageBox.Ok)
         box.exec()
-        if box.clickedButton() is dm:
+        if dm is not None and box.clickedButton() is dm:
             try:
                 os.startfile("devmgmt.msc")      # abre sem pedir administrador (só leitura)
             except Exception:
@@ -507,9 +515,9 @@ class OptionsPage(QWidget):
         except Exception as e:
             QMessageBox.warning(self, APP_NAME, tr("Não foi possível criar o pacote:\n{e}", e=e))
             return
-        QMessageBox.information(self, APP_NAME, tr("Pacote de suporte guardado em:\n{path}\n\nContém os registos de "
-                                                   "comunicação dos últimos dias e a lista de portas e cabos. Não "
-                                                   "contém dados de clientes.",
+        QMessageBox.information(self, APP_NAME, tr("Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao "
+                                                   "suporte. Contém os registos dos últimos dias e a informação do "
+                                                   "cabo; não contém dados de clientes.",
                                                    path=path))
 
     def _open_logs(self):

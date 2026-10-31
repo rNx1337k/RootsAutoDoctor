@@ -49,7 +49,7 @@ def test_obd_connect_reaches_ecu_connected_only_with_vehicle_answer():
     assert states[0] == cs.CONNECTING and states[-1] == cs.ECU_CONNECTED
     info = dict(results)["obd_connect"]
     assert info["simulated"] and info["vin"].startswith("RADSML") and info["mil"]
-    assert [s[0] for s in info["steps"]][:2] == ["Abrir a interface", "Adaptador respondeu"]
+    assert [s[0] for s in info["steps"]][:2] == ["Abrir o adaptador", "Adaptador respondeu"]
     w._dispatch("obd_dtcs", ())
     d = dict(results)["obd_dtcs"]
     assert [f["code"] for f in d["stored"]] == ["P0401", "P2002"]
@@ -85,7 +85,7 @@ def test_device_that_is_not_an_elm327_is_unreachable():
     finally:
         restore()
         elm.BAUDS = old_bauds
-    assert "nenhum adaptador ELM327 respondeu" in errors[0][1]
+    assert "o adaptador OBD não respondeu" in errors[0][1]
     assert links[-1].state == cs.UNREACHABLE and links[-1].fatal
 
 
@@ -138,7 +138,7 @@ def test_obd_live_polling_and_vag_functions_refused_on_elm():
         w.set_live(None, [])
         w.submit("connect", 0x01)                               # função VAG com um ELM327 escolhido
         assert _wait(lambda: bool(errors), 5)
-        assert errors[0][0] == "connect" and "ELM327" in errors[0][1]
+        assert errors[0][0] == "connect" and "adaptador OBD" in errors[0][1]
     finally:
         w.stop()
 
@@ -146,5 +146,5 @@ def test_obd_live_polling_and_vag_functions_refused_on_elm():
 def test_kline_adapter_cannot_run_obd_page():
     w, links, results, errors = _worker(port=SIM_PORT, adapter="kline")
     w._dispatch("obd_connect", ())
-    assert errors and "ELM327" in errors[0][1]
-    assert dict(results)["obd_steps"][0][0] == "Tipo de interface"
+    assert errors and "Adaptador OBD" in errors[0][1]
+    assert dict(results)["obd_steps"][0][0] == "Equipamento"

@@ -3,6 +3,35 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — 2026-10-31
+### Changed
+- **Customer-facing language everywhere**: screens, dialogs, error messages, cable detection, the connection
+  check and the customer report no longer show protocol, chip, driver, baud rate, bridge or port internals
+  (KW1281/KWP2000, ELM327, J2534, UDS/ISO/SAE, FTDI/CH340, VID/PID, WinUSB/Zadig, D2XX, latency timer…).
+  The equipment is called "VAG cable" or "OBD adapter"; the multi-make page is "OBD — all makes"
+- Low-level errors keep their technical detail in the log and the support package; on screen,
+  `rad.errors.client_text()` replaces them with a plain explanation of what happened and what to do
+- Cable detection shows plain findings (`cable.plain()`): "cable found and ready", "Windows has not prepared it
+  yet", "needs to be prepared", "incompatible equipment"
+- Port list without VID/PID, driver or serial numbers; the J2534 simulator is only listed in technician mode
+- Customer report: no interface/port line and no technical cause for modules without communication
+- Options: only equipment, port, Detect cable, Test connection and Connection check; the compatibility matrix,
+  speed, K-line echo, OBD protocol, HEX cable mode, detailed log and logs folder moved to technician mode
+- README rewritten as a product page for workshops; the technical content moved to `docs/DEVELOPMENT.md`
+### Added
+- **Technician mode** (`--tecnico` or `RAD_TECNICO=1`): communication log (Ctrl+L), advanced interface options
+  and the raw technical messages, for development and support only
+- **Portable version**: `build_release.bat` also creates `dist\RootsAutoDoctor_<version>_portatil.zip`
+  (extract and run, nothing to install)
+- `tools/finish_build.py`: copies any missing Visual C++ runtime DLLs into the build and stops the release if a
+  required file is missing (Qt Windows plugin, bridges, portable Python); writes `build\teste_pc_limpo.wsb` to
+  test the compiled app in a clean Windows Sandbox
+- Self-test also checks the Qt interface and writes a test PDF (what fails first on a clean PC)
+- Installer: refuses 32-bit Windows and Windows older than 10 1809 with a clear message; optional official FTDI
+  driver added to the Windows driver store so new FTDI cables work on offline PCs without touching cables that
+  already work (`installer/drivers/LEIA-ME.txt`); closes the running program during an update
+- Tests: `test_build`, plain-language checks for the connection check, cable detection and echo messages
+
 ## [1.8.0] — 2026-10-24
 ### Added
 - **English interface** (Options → Display → Language, applied at the next start): every screen, dialog and

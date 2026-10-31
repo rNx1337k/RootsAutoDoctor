@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from ... import VERSION
 from ... import connstate
+from ...errors import client_text
 from ..style import BAD, BLUE, CYAN, MUTED, OK, WARN, pill_style
 from ..widgets import HeroBanner, IconBadge, LogoLabel, glow, nav_icon
 from .common import StatCard, lbl, btn, card
@@ -47,10 +48,10 @@ class HomePage(QWidget):
         tv = QVBoxLayout()
         tv.setSpacing(4)
         tv.addStretch(1)
-        tv.addWidget(lbl(tr("VERSÃO {VERSION}  ·  VAG + OBD-II MULTIMARCA", VERSION=VERSION), "eyebrow"))
+        tv.addWidget(lbl(tr("VERSÃO {VERSION}  ·  DIAGNÓSTICO PROFISSIONAL", VERSION=VERSION), "eyebrow"))
         tv.addWidget(lbl("Roots Auto Doctor", "display"))
-        sub = lbl(tr("Grupo VAG pela linha K (KW1281 e KWP2000) com mapa do veículo e assistente de avarias, e "
-                     "qualquer marca com OBD-II/EOBD e UDS por adaptador ELM327 — numa só aplicação."),
+        sub = lbl(tr("Diagnóstico completo do Grupo VW (VW, Audi, Seat, Škoda) com mapa do veículo e assistente de "
+                     "avarias, e leitura de avarias de qualquer marca — numa só aplicação."),
                   "muted", wrap=True)
         sub.setMaximumWidth(620)
         tv.addWidget(sub)
@@ -59,7 +60,7 @@ class HomePage(QWidget):
         srow.setSpacing(8)
         self.status_dot = lbl("●")
         srow.addWidget(self.status_dot)
-        self.status_lbl = lbl(tr("Interface por configurar"), "h2")
+        self.status_lbl = lbl(tr("Cabo por configurar"), "h2")
         srow.addWidget(self.status_lbl)
         srow.addStretch(1)
         tv.addLayout(srow)
@@ -91,7 +92,7 @@ class HomePage(QWidget):
         ccol = QVBoxLayout()
         ccol.setSpacing(2)
         ccol.addWidget(lbl(tr("CENTRO DE LIGAÇÃO"), "eyebrow"))
-        self.link_iface = lbl(tr("Interface por configurar"), "h2", wrap=True)
+        self.link_iface = lbl(tr("Cabo por configurar"), "h2", wrap=True)
         ccol.addWidget(self.link_iface)
         self.link_detail = lbl(tr("Nenhuma comunicação feita nesta sessão."), "muted", wrap=True)
         ccol.addWidget(self.link_detail)
@@ -101,8 +102,7 @@ class HomePage(QWidget):
         cl.addWidget(self.link_pill, 0, Qt.AlignTop)
         cbtns = QVBoxLayout()
         cbtns.setSpacing(6)
-        cbtns.addWidget(btn(tr("Testar interface"), None, lambda: self.go.emit("test_interface")))
-        cbtns.addWidget(btn(tr("Compatibilidade"), None, lambda: self.go.emit("coverage")))
+        cbtns.addWidget(btn(tr("Testar ligação"), None, lambda: self.go.emit("test_interface")))
         cl.addLayout(cbtns)
         v.addWidget(cc)
 
@@ -124,11 +124,11 @@ class HomePage(QWidget):
         grid.setSpacing(14)
         tiles = [
             ("modules", "modules", tr("Controladores VAG"),
-             tr("Informação, avarias, valores de medição, adaptação e codificação de um módulo (cabo KKL).")),
+             tr("Informação, avarias, valores de medição, adaptação e codificação de cada módulo.")),
             ("autoscan", "autoscan", tr("Auto-Scan com mapa do veículo"),
              tr("Ler todos os controladores VAG e ver no carro onde estão as avarias.")),
-            ("obd", "obd", tr("OBD-II / EOBD multimarca"),
-             tr("Avarias, prontidão, dados em tempo real e identificação UDS de qualquer marca (ELM327).")),
+            ("obd", "obd", tr("OBD — todas as marcas"),
+             tr("Avarias, prontidão para a inspecção e dados em tempo real de qualquer marca.")),
             ("report", "report", tr("Relatório para o cliente"),
              tr("PDF com o logo da oficina, as avarias e as causas prováveis.")),
         ]
@@ -212,8 +212,7 @@ class HomePage(QWidget):
                             "(motor 1.9 TDI, ABS e painel)."), None, wrap=True), 1)
         fl.addWidget(btn(tr("Abrir simulador"), "primary", lambda: self.go.emit("sim")))
         v.addWidget(foot)
-        v.addWidget(lbl(tr("Ligue o cabo à ficha OBD com a ignição ligada. Em cabos FTDI, ponha o "
-                           "Latency Timer a 1 ms nas propriedades da porta COM para leituras mais rápidas."),
+        v.addWidget(lbl(tr("Ligue o cabo à ficha de diagnóstico do carro e ao PC, e ligue a ignição."),
                         "muted", wrap=True))
         v.addStretch(1)
 
@@ -266,7 +265,7 @@ class HomePage(QWidget):
                 connstate.UNREACHABLE: BAD, connstate.ERROR: BAD}.get(status.state, MUTED)
         self.link_pill.setText(status.label)
         self.link_pill.setStyleSheet(pill_style(tone))
-        self.link_detail.setText(status.message)
+        self.link_detail.setText(client_text(status.message))
 
     def set_port(self, text, ok=False):
         self.status_lbl.setText(text)

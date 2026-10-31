@@ -32,9 +32,9 @@ ALL = (NO_DEVICE, UNREACHABLE, OPEN_NO_ECU, CONNECTING, ECU_CONNECTED, ERROR)
 
 # Rótulo curto para a interface (texto de origem em português; traduzido ao usar, com tr_data).
 LABELS = {
-    NO_DEVICE: "Sem interface",
-    UNREACHABLE: "Interface inacessível",
-    OPEN_NO_ECU: "Interface aberta (sem centralina)",
+    NO_DEVICE: "Sem cabo",
+    UNREACHABLE: "Cabo sem resposta",
+    OPEN_NO_ECU: "Cabo pronto (sem centralina)",
     CONNECTING: "A ligar…",
     ECU_CONNECTED: "Ligado à centralina",
     ERROR: "Erro de comunicação",
@@ -111,8 +111,7 @@ def connected(info):
 def obd_connected(info):
     """Veículo ligado por OBD-II: pelo menos uma centralina respondeu ao pedido 01 00."""
     n = len(info.get("ecus", []))
-    return LinkStatus(ECU_CONNECTED, tr("Ligado por OBD-II — {protocol} · {n} centralina(s)",
-                                        protocol=info.get("protocol", ""), n=n), data=info)
+    return LinkStatus(ECU_CONNECTED, tr("Ligado ao veículo por OBD · {n} centralina(s)", n=n), data=info)
 
 
 def connecting(address):
@@ -122,8 +121,7 @@ def connecting(address):
 
 def opened(port):
     """A interface abriu, mas ainda não falou com nenhuma centralina."""
-    return LinkStatus(OPEN_NO_ECU, tr("Interface {port} aberta — ainda sem ligação a nenhuma centralina.",
-                                      port=port), data=port)
+    return LinkStatus(OPEN_NO_ECU, tr("Cabo pronto — ainda sem ligação a nenhuma centralina."), data=port)
 
 
 def classify_error(exc, present=None):

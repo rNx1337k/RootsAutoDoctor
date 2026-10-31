@@ -52,8 +52,6 @@ EN = {
         "It works, but reading will be slow. Device Manager → Ports (COM & LPT) → {com} → Properties → Port Settings → Advanced → Latency Timer = 1.",
     "Cabo {chip} pronto em {com}":
         "{chip} cable ready on {com}",
-    "Escolha {com} na porta do cabo e carregue em Testar interface com a ignição ligada.":
-        "Choose {com} as the cable port and click Test interface with the ignition on.",
     "Cabo FTDI sem porta COM":
         "FTDI cable without a COM port",
     "O driver está instalado mas a porta COM está desligada. Gestor de Dispositivos → Controladores USB → USB Serial Converter → Propriedades → Avançadas → marque 'Load VCP' → OK, e volte a ligar o cabo. Se não existir essa opção, instale o driver VCP da FTDI.":
@@ -66,12 +64,8 @@ EN = {
         "Connected to {where}",
     "Ligado a {where} — {name}":
         "Connected to {where} — {name}",
-    "Ligado por OBD-II — {protocol} · {n} centralina(s)":
-        "Connected via OBD-II — {protocol} · {n} ECU(s)",
     "A ligar ao controlador {where}…":
         "Connecting to module {where}…",
-    "Interface {port} aberta — ainda sem ligação a nenhuma centralina.":
-        "Interface {port} open — not connected to any ECU yet.",
     "{e} (o {v} da interface é de {bits} bits)":
         "{e} (the interface's {v} is {bits}-bit)",
     "Não foi encontrado o RT-USB.DLL do driver da interface. Reinstale o driver ou use o acesso USB directo (WinUSB).":
@@ -154,12 +148,8 @@ EN = {
         "Adaptation channel {channel:02d}: {before} → {after}",
     " (por confirmar)":
         " (unconfirmed)",
-    "Simulador (sem carro) — para testar o programa":
-        "Simulator (no car) — to try the program",
     "Simulador J2534 (sem carro) — testa a ligação por PassThru":
         "J2534 simulator (no car) — tests the PassThru connection",
-    "Simulador ELM327 / OBD-II (sem carro) — testa o diagnóstico multimarca":
-        "ELM327 / OBD-II simulator (no car) — tests multi-brand diagnostics",
     "Não foi possível abrir a porta {port_name}: {e}":
         "Could not open port {port_name}: {e}",
     "Não foi possível mudar a velocidade da porta: {e}":
@@ -226,22 +216,8 @@ EN = {
         "The adapter stopped answering (no answer to {cmd!r} on port {port_name})",
     "O adaptador não suporta o comando {cmd}":
         "The adapter does not support the command {cmd}",
-    " — não é um ELM327 compatível.":
-        " — it is not a compatible ELM327.",
-    "A porta {port_name} abriu, mas nenhum adaptador ELM327 respondeu (velocidades tentadas: {v}). Confirme que é um ELM327, que o Bluetooth está emparelhado e que nenhum outro programa está a usar a porta.":
-        "Port {port_name} opened, but no ELM327 adapter answered (baud rates tried: {v}). Make sure it is an ELM327, that Bluetooth is paired and that no other program is using the port.",
-    " Detalhe: {last_err}":
-        " Detail: {last_err}",
-    "O dispositivo na porta {port_name} não se identificou como ELM327.":
-        "The device on port {port_name} did not identify itself as an ELM327.",
     "O adaptador indicou um protocolo desconhecido: {dpn!r}":
         "The adapter reported an unknown protocol: {dpn!r}",
-    "O veículo respondeu em SAE J1939 (pesados): não suportado nesta versão.":
-        "The vehicle answered in SAE J1939 (heavy vehicles): not supported in this version.",
-    "O adaptador indicou um protocolo, mas nenhuma centralina deu uma resposta válida.":
-        "The adapter reported a protocol, but no ECU gave a valid answer.",
-    "A inicialização da linha K falhou (BUS INIT: ERROR): ignição desligada, centralina sem OBD-II na linha K, ou protocolo errado.":
-        "K-line initialisation failed (BUS INIT: ERROR): ignition off, ECU without OBD-II on the K-line, or wrong protocol.",
     "Ainda não há protocolo com o veículo (ligue primeiro)":
         "No protocol with the vehicle yet (connect first)",
     "Pedidos dirigidos a uma centralina só estão disponíveis em CAN nesta versão":
@@ -384,8 +360,6 @@ EN = {
         "No faults stored in the {n} module(s) read.",
     "{n} controlador(es) não comunicaram e não foram avaliados.":
         "{n} module(s) did not communicate and were not assessed.",
-    "O Auto-Scan foi interrompido ({scanned} de {total} endereços verificados): o resultado é parcial.":
-        "The Auto-Scan was interrupted ({scanned} of {total} addresses checked): the result is partial.",
     "O Auto-Scan foi interrompido: o resultado é parcial.":
         "The Auto-Scan was interrupted: the result is partial.",
     "<b>DADOS SIMULADOS</b> — este relatório foi gerado com o simulador do programa e não corresponde a nenhum veículo real.":
@@ -438,10 +412,6 @@ EN = {
         "Mileage (km)",
     "Saúde do veículo: {score}/100":
         "Vehicle health: {score}/100",
-    "O controlador {address:02X} não responde pela interface J2534 ({e})":
-        "Module {address:02X} does not answer through the J2534 interface ({e})",
-    "Este controlador usa KW1281, que não pode ser usado por interfaces J2534 (a norma não permite confirmar cada byte a tempo). Use um cabo KKL.":
-        "This module uses KW1281, which cannot be used through J2534 interfaces (the standard does not allow each byte to be acknowledged in time). Use a KKL cable.",
     "Protocolo desconhecido (keyword {kw})":
         "Unknown protocol (keyword {kw})",
     "O controlador {address:02X} não responde (verifique ignição, cabo e endereço)":
@@ -458,24 +428,18 @@ EN = {
         "The instrument cluster did not accept the value 0 on channel 02 — nothing was saved. ({e})",
     "O painel não confirmou o valor de teste no canal 02 — nada foi gravado.":
         "The instrument cluster did not confirm the test value on channel 02 — nothing was saved.",
-    "Login enviado e recebido pelo controlador. O protocolo KW1281 não indica se o código está correcto: confirme na função que precisa do login.":
-        "Login sent and received by the module. The KW1281 protocol does not say whether the code is correct: confirm it in the function that needs the login.",
     "O controlador não devolveu a codificação: o resultado é desconhecido. Feche e volte a abrir o controlador para confirmar.":
         "The module did not return the coding: the result is unknown. Close and reopen the module to confirm.",
     "Codificação {coding:05d} confirmada pelo controlador.":
         "Coding {coding:05d} confirmed by the module.",
     "  Procurar…":
         "  Search…",
-    "Paleta de comandos (Ctrl+K): páginas, controladores, acções e avarias":
-        "Command palette (Ctrl+K): pages, modules, actions and faults",
     "Controlador ligado":
         "Connected module",
     "Sem ligação":
         "Not connected",
     "MODO DE SIMULAÇÃO":
         "SIMULATION MODE",
-    "A porta escolhida é um simulador: os valores e avarias são fictícios.":
-        "The selected port is a simulator: values and faults are fictitious.",
     "MODO DEMONSTRAÇÃO":
         "DEMO MODE",
     "Sem licença: lê tudo, mas não escreve em carros reais. Clique para activar.":
@@ -514,22 +478,8 @@ EN = {
         "Start Auto-Scan",
     "Ler todos os controladores agora":
         "Read all modules now",
-    "Avarias, prontidão e dados de qualquer marca (ELM327)":
-        "Faults, readiness and data for any make (ELM327)",
-    "OBD-II multimarca":
-        "Multi-brand OBD-II",
-    "Ligar ao veículo com o adaptador ELM327":
-        "Connect to the vehicle with the ELM327 adapter",
-    "Ligar por OBD-II":
-        "Connect via OBD-II",
-    "Abrir simulador OBD-II":
-        "Open OBD-II simulator",
-    "Experimentar o diagnóstico multimarca sem carro":
-        "Try multi-brand diagnostics without a car",
     "Compatibilidade":
         "Compatibility",
-    "Interfaces e protocolos suportados, com o nível de prova":
-        "Supported interfaces and protocols, with the level of evidence",
     "Diagnósticos guardados":
         "Saved diagnostics",
     "Histórico":
@@ -548,12 +498,8 @@ EN = {
         "Try it without a car",
     "Detectar cabo":
         "Detect cable",
-    "Identificar o cabo e o driver":
-        "Identify the cable and the driver",
     "Diagnóstico da ligação":
         "Connection check",
-    "Verificar cabo, eco e ligação ao carro":
-        "Check the cable, the echo and the connection to the car",
     "Mostrar ou esconder (Ctrl+L)":
         "Show or hide (Ctrl+L)",
     "Controlador ligado (F5)":
@@ -566,38 +512,18 @@ EN = {
         "Connect to {addr:02X} · {name}",
     "Simulador activo: experimente 01 Motor, 03 ABS ou 17 Painel":
         "Simulator active: try 01 Engine, 03 ABS or 17 Instruments",
-    "Simulador ELM327 activo — os dados são fictícios":
-        "ELM327 simulator active — the data is fictitious",
-    "A interface escolhida é um adaptador ELM327 (OBD-II multimarca).\n\nAs funções VAG (controladores, Auto-Scan por KW1281/KWP2000) precisam de um cabo KKL 409.1 ou de uma interface J2534. Com o ELM327, use a página OBD-II.":
-        "The selected interface is an ELM327 adapter (multi-brand OBD-II).\n\nVAG functions (modules, Auto-Scan over KW1281/KWP2000) need a KKL 409.1 cable or a J2534 interface. With the ELM327, use the OBD-II page.",
     "VIN lido do veículo: {vin}":
         "VIN read from the vehicle: {vin}",
-    "Adaptador ELM327 (OBD-II)":
-        "ELM327 adapter (OBD-II)",
-    "Cabo KKL / J2534 (VAG)":
-        "KKL / J2534 cable (VAG)",
     "porta por escolher":
         "port not chosen",
-    " · simulação":
-        " · simulation",
-    "Interface: {kind} · {port}":
-        "Interface: {kind} · {port}",
     " (simulação)":
         " (simulation)",
     "Escolha a porta do cabo em Opções":
         "Choose the cable port in Options",
-    "Interface por configurar":
-        "Interface not configured",
     "Modo de simulação — os dados não vêm de um carro":
         "Simulation mode — the data does not come from a car",
-    "Interface: {port} (simulação)":
-        "Interface: {port} (simulation)",
     "Simulador":
         "Simulator",
-    "Interface escolhida: {port}":
-        "Selected interface: {port}",
-    "Interface: {port}":
-        "Interface: {port}",
     "Opções guardadas":
         "Options saved",
     "Escolha primeiro a porta do cabo em Opções.":
@@ -606,8 +532,6 @@ EN = {
         "Please wait — still communicating with the car",
     "Escolha primeiro a porta do cabo (ou use Detectar cabo).":
         "Choose the cable port first (or use Detect cable).",
-    "Ligue o cabo ao carro com a ignição ligada.\n\nEndereço do controlador a testar (hexadecimal):":
-        "Connect the cable to the car with the ignition on.\n\nAddress of the module to test (hexadecimal):",
     "Endereço inválido.":
         "Invalid address.",
     "A verificar a ligação…":
@@ -648,8 +572,6 @@ EN = {
         "Connecting to module {data:02X} — {v}…",
     "Ligado a {address:02X}{sim}":
         "Connected to {address:02X}{sim}",
-    "{module}\n{protocol} · {baud} baud":
-        "{module}\n{protocol} · {baud} baud",
     "Ligação terminada: {data}":
         "Connection ended: {data}",
     "Controlador fechado":
@@ -678,34 +600,14 @@ EN = {
         "Done — {left} fault(s) came back",
     ", {v} controlador(es) por confirmar":
         ", {v} module(s) unconfirmed",
-    "O Auto-Scan parou porque a interface deixou de responder (cabo desligado do USB ou driver bloqueado). Os controladores já lidos ficaram guardados.\n\nVolte a ligar o cabo e repita.\n\nDetalhe: {interface_error}":
-        "The Auto-Scan stopped because the interface stopped responding (cable unplugged from USB or driver hung). The modules already read have been kept.\n\nPlug the cable in again and repeat.\n\nDetail: {interface_error}",
     "Auto-Scan concluído":
         "Auto-Scan finished",
     "Auto-Scan interrompido":
         "Auto-Scan interrupted",
-    "OBD-II: ligado — {v}":
-        "OBD-II: connected — {v}",
-    "Ligado ao veículo por OBD-II":
-        "Connected to the vehicle via OBD-II",
-    "Sem avarias OBD-II":
-        "No OBD-II faults",
-    "{n} avaria(s) OBD-II":
-        "{n} OBD-II fault(s)",
     "Avarias apagadas — confirmado pela releitura":
         "Faults cleared — confirmed by reading again",
     "Pedido aceite, mas {left} avaria(s) continuam na memória":
         "Request accepted, but {left} fault(s) are still in memory",
-    "Ligação OBD-II perdida":
-        "OBD-II connection lost",
-    "Ligado por OBD-II":
-        "Connected via OBD-II",
-    "{v}\n{v2} centralina(s)":
-        "{v}\n{v2} ECU(s)",
-    "A ligar por OBD-II…":
-        "Connecting via OBD-II…",
-    "Interface: {v}":
-        "Interface: {v}",
     "ERRO ({cmd}): {msg}":
         "ERROR ({cmd}): {msg}",
     "Auto-Scan {i}/{total}: {address:02X} {module}":
@@ -808,8 +710,6 @@ EN = {
         "{APP_NAME} v{VERSION} — Auto-Scan {v:%d/%m/%Y %H:%M}",
     "*** DADOS SIMULADOS — não correspondem a nenhum veículo real ***":
         "*** SIMULATED DATA — does not correspond to any real vehicle ***",
-    "Auto-Scan interrompido: {v} de {v2} endereços verificados (resultado parcial)":
-        "Auto-Scan interrupted: {v} of {v2} addresses checked (partial result)",
     "Endereço {address:02X}: {module}":
         "Address {address:02X}: {module}",
     "   Peça: {part}   Componente: {component}":
@@ -882,8 +782,6 @@ EN = {
         "Open folder",
     "Ainda não há diagnósticos guardados. Faça um Auto-Scan para começar.":
         "No saved diagnostics yet. Run an Auto-Scan to get started.",
-    "Sessão gravada por uma versão anterior, que não registava a interface: não se sabe se veio do simulador ou do carro.":
-        "Session saved by an older version, which did not record the interface: it is not known whether it came from the simulator or the car.",
     "Não foi possível abrir o registo: {e}":
         "Could not open the record: {e}",
     "Escolha um diagnóstico da lista.":
@@ -904,10 +802,6 @@ EN = {
         "Compare with the previous visit",
     "Apagar este diagnóstico do histórico?":
         "Delete this diagnostic from the history?",
-    "VERSÃO {VERSION}  ·  VAG + OBD-II MULTIMARCA":
-        "VERSION {VERSION}  ·  VAG + MULTI-BRAND OBD-II",
-    "Grupo VAG pela linha K (KW1281 e KWP2000) com mapa do veículo e assistente de avarias, e qualquer marca com OBD-II/EOBD e UDS por adaptador ELM327 — numa só aplicação.":
-        "VAG group over the K-line (KW1281 and KWP2000) with a vehicle map and fault assistant, and any make with OBD-II/EOBD and UDS through an ELM327 adapter — in a single application.",
     "  Iniciar Auto-Scan":
         "  Start Auto-Scan",
     "Escolher controlador":
@@ -916,8 +810,6 @@ EN = {
         "CONNECTION CENTRE",
     "Nenhuma comunicação feita nesta sessão.":
         "No communication in this session.",
-    "Testar interface":
-        "Test interface",
     "Diagnósticos hoje":
         "Diagnostics today",
     "Diagnósticos este mês":
@@ -928,16 +820,10 @@ EN = {
         "Vehicles in history",
     "Controladores VAG":
         "VAG modules",
-    "Informação, avarias, valores de medição, adaptação e codificação de um módulo (cabo KKL).":
-        "Identification, faults, measuring values, adaptation and coding of a module (KKL cable).",
     "Auto-Scan com mapa do veículo":
         "Auto-Scan with vehicle map",
     "Ler todos os controladores VAG e ver no carro onde estão as avarias.":
         "Read every VAG module and see on the car where the faults are.",
-    "OBD-II / EOBD multimarca":
-        "Multi-brand OBD-II / EOBD",
-    "Avarias, prontidão, dados em tempo real e identificação UDS de qualquer marca (ELM327).":
-        "Faults, readiness, live data and UDS identification for any make (ELM327).",
     "PDF com o logo da oficina, as avarias e as causas prováveis.":
         "PDF with the workshop logo, the faults and the probable causes.",
     "Veículo em diagnóstico":
@@ -952,8 +838,6 @@ EN = {
         "Saved diagnostics appear here.",
     "Sem carro por perto? Experimente todas as funções com centralinas simuladas (motor 1.9 TDI, ABS e painel).":
         "No car nearby? Try every function with simulated ECUs (1.9 TDI engine, ABS and instrument cluster).",
-    "Ligue o cabo à ficha OBD com a ignição ligada. Em cabos FTDI, ponha o Latency Timer a 1 ms nas propriedades da porta COM para leituras mais rápidas.":
-        "Plug the cable into the OBD socket with the ignition on. On FTDI cables, set the Latency Timer to 1 ms in the COM port properties for faster readings.",
     "Veículo sem matrícula":
         "Vehicle without licence plate",
     "nenhum controlador lido":
@@ -1186,8 +1070,6 @@ EN = {
         "— end —",
     "Seleccionar controlador":
         "Select module",
-    "Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS).":
-        "Choose the module or enter its address in hexadecimal (as in VCDS).",
     "Endereço (ex.: 01)":
         "Address (e.g. 01)",
     "Ligar!":
@@ -1196,40 +1078,22 @@ EN = {
         "Filter (e.g. engine, abs, 17)",
     "erro":
         "error",
-    "Endereço inválido. Use hexadecimal, ex.: 01, 17, 46.":
-        "Invalid address. Use hexadecimal, e.g. 01, 17, 46.",
     "O endereço tem de estar entre 01 e 7F.":
         "The address must be between 01 and 7F.",
-    "Diagnóstico normalizado de qualquer marca com OBD-II (gasolina desde 2001 e gasóleo desde 2004 na UE), através de um adaptador ELM327. Mostra só o que o veículo declara suportar.":
-        "Standardised diagnostics for any make with OBD-II (petrol since 2001 and diesel since 2004 in the EU), through an ELM327 adapter. Shows only what the vehicle declares it supports.",
-    "Multimarca":
-        "Multi-brand",
     "SIMULAÇÃO":
         "SIMULATION",
-    "Os dados vêm do simulador ELM327, não de um veículo.":
-        "The data comes from the ELM327 simulator, not from a vehicle.",
     "Sem ligação ao veículo":
         "Not connected to the vehicle",
-    "Escolha o adaptador ELM327 (ou o simulador) em Opções e carregue em Ligar.":
-        "Choose the ELM327 adapter (or the simulator) in Options and click Connect.",
     "Ligar ao veículo":
         "Connect to vehicle",
     "Desligar":
         "Disconnect",
     "PASSOS DA LIGAÇÃO":
         "CONNECTION STEPS",
-    "Luz de avaria (MIL)":
-        "Malfunction indicator (MIL)",
-    "Centralinas OBD":
-        "OBD ECUs",
-    "Tensão na ficha":
-        "Socket voltage",
     "Dados em tempo real":
         "Live data",
     "Prontidão":
         "Readiness",
-    "Centralinas e UDS":
-        "ECUs and UDS",
     "Imagem congelada":
         "Freeze frame",
     "Apagar avarias…":
@@ -1264,26 +1128,12 @@ EN = {
         "Parameters",
     "Pedido UDS":
         "UDS request",
-    "Ler identificação UDS da centralina seleccionada":
-        "Read UDS identification of the selected ECU",
-    "UDS (ISO 14229) só de leitura: identificação normalizada e avarias com tipo de falha. Disponível em veículos com CAN.":
-        "Read-only UDS (ISO 14229): standard identification and faults with failure type. Available on vehicles with CAN.",
     "Aguarde — ainda a comunicar com o veículo…":
         "Please wait — still communicating with the vehicle…",
-    "A abrir o adaptador e a procurar o protocolo do veículo (pode demorar até 20 s na primeira vez).":
-        "Opening the adapter and looking for the vehicle's protocol (can take up to 20 s the first time).",
-    "Apagar avarias OBD-II":
-        "Clear OBD-II faults",
-    "<p><b>Vai pedir a TODAS as centralinas OBD-II que apaguem as avarias.</b></p><ul><li>Apaga também as imagens congeladas e repõe os monitores de prontidão (o carro pode chumbar na inspecção até completar um ciclo de condução).</li><li>Ignição ligada e <b>motor desligado</b> — muitas centralinas recusam com o motor a trabalhar.</li><li>As avarias permanentes não se apagam por este pedido.</li></ul><p>Depois do pedido, o programa volta a ler as avarias para confirmar.</p>":
-        "<p><b>This will ask ALL OBD-II ECUs to clear their faults.</b></p><ul><li>It also clears the freeze frames and resets the readiness monitors (the car may fail the roadworthiness test until a drive cycle is completed).</li><li>Ignition on and <b>engine off</b> — many ECUs refuse with the engine running.</li><li>Permanent faults are not cleared by this request.</li></ul><p>After the request, the program reads the faults again to confirm.</p>",
     "Cancelar":
         "Cancel",
     "Seleccione uma centralina na tabela.":
         "Select an ECU in the table.",
-    "UDS só está disponível em CAN 11 bits (endereços 7E0–7E7) nesta versão.":
-        "UDS is only available on 11-bit CAN (addresses 7E0–7E7) in this version.",
-    "A ler a identificação UDS de {target}…":
-        "Reading the UDS identification of {target}…",
     "No máximo {MAX_LIVE} parâmetros ao mesmo tempo (cada um é um pedido ao veículo).":
         "At most {MAX_LIVE} parameters at the same time (each one is a request to the vehicle).",
     "Marque pelo menos um parâmetro na lista.":
@@ -1296,14 +1146,10 @@ EN = {
         "declared by the ECU ",
     "não disponível":
         "not available",
-    "a centralina não respondeu ao modo 09 02":
-        "the ECU did not answer mode 09 02",
     "ACESA":
         "ON",
     "{v} avaria(s) declarada(s) pelas centralinas":
         "{v} fault(s) declared by the ECUs",
-    "medida pelo adaptador (pino 16)":
-        "measured by the adapter (pin 16)",
     "não medida":
         "not measured",
     "PID {pid:02X} — {name}":
@@ -1316,8 +1162,6 @@ EN = {
         "continuous",
     "não contínuo":
         "non-continuous",
-    "Nenhuma centralina devolveu o estado dos monitores (PID 01).":
-        "No ECU returned the monitor status (PID 01).",
     "Sem descrição na base instalada — {category}":
         "No description in the installed database — {category}",
     "Nenhuma avaria nas centralinas que responderam (":
@@ -1328,44 +1172,22 @@ EN = {
         "permanent",
     "Não suportado pelo veículo: {kinds}.":
         "Not supported by the vehicle: {kinds}.",
-    "Descrições: só códigos genéricos (SAE J2012 / ISO 15031-6) na base incluída; os códigos do fabricante mostram apenas a categoria.":
-        "Descriptions: only generic codes (SAE J2012 / ISO 15031-6) in the included database; manufacturer codes only show their category.",
     "Sem descrição na base instalada ({category})":
         "No description in the installed database ({category})",
     "depois de apagar":
         "after clearing",
     "Nenhuma imagem congelada guardada na centralina principal.":
         "No freeze frame stored in the main ECU.",
-    "Imagem congelada (modo 02)":
-        "Freeze frame (mode 02)",
     "<p>Condições no momento em que a avaria <b>{dtc}</b> foi registada (centralina {ecu}):</p>":
         "<p>Conditions at the moment fault <b>{dtc}</b> was stored (ECU {ecu}):</p>",
-    "Centralina {target} — identificação UDS (ISO 14229, só leitura)":
-        "ECU {target} — UDS identification (ISO 14229, read-only)",
-    "Avarias UDS: não disponíveis ({dtc_error})":
-        "UDS faults: not available ({dtc_error})",
-    "Avarias UDS: nenhuma com estado presente/pendente/confirmada":
-        "UDS faults: none with present/pending/confirmed status",
-    "Avarias UDS:":
-        "UDS faults:",
     "(sem descrição)":
         "(no description)",
-    "UDS: {msg}":
-        "UDS: {msg}",
     "Ligação ao veículo perdida":
         "Connection to the vehicle lost",
     "Ligação fechada.":
         "Connection closed.",
-    "Interface (cabo), comunicação e dados da oficina.":
-        "Interface (cable), communication and workshop details.",
     "Configuração":
         "Settings",
-    "Cabo KKL / J2534 — diagnóstico VAG pela linha K (KW1281, KWP2000)":
-        "KKL / J2534 cable — VAG diagnostics over the K-line (KW1281, KWP2000)",
-    "Adaptador ELM327 — OBD-II / EOBD multimarca (CAN e linha K)":
-        "ELM327 adapter — multi-brand OBD-II / EOBD (CAN and K-line)",
-    "Tipo de interface":
-        "Interface type",
     "Automático (o adaptador procura)":
         "Automatic (the adapter searches)",
     "ISO 15765-4 CAN 11 bits 500k":
@@ -1476,8 +1298,6 @@ EN = {
         "Support package",
     "Abrir pasta de registos":
         "Open logs folder",
-    "Cabos suportados: cabos KKL 'VAG-COM 409.1' e clones VCDS de linha K com chip FTDI ou CH340 (aparecem como porta COM normal). Para máxima velocidade em cabos FTDI: Gestor de dispositivos → Portas (COM) → Propriedades → Definições da porta → Avançadas → Latency Timer = 1 ms.\n\nAdaptadores ELM327 (USB ou Bluetooth) aparecem como porta COM: escolha \"Adaptador ELM327\" em Tipo de interface e use a página OBD-II para qualquer marca com OBD-II/EOBD. Os clones baratos nem sempre implementam todos os comandos; o programa indica o que o adaptador respondeu.\n\nClones HEX-USB+CAN (chip FTDI VID 0403 PID FA24 com microcontrolador) aparecem como D2XX:… (driver RT-USB) ou FTDI:… (driver WinUSB). O Diagnóstico da ligação fala com o microcontrolador do cabo e mostra o estado real; a leitura de centralinas através dele ainda não está disponível. Interfaces HEX-V2 / HEX-NET genuínas usam firmware fechado da Ross-Tech e não são suportadas.":
-        "Supported cables: 'VAG-COM 409.1' KKL cables and K-line VCDS clones with an FTDI or CH340 chip (they show up as a normal COM port). For maximum speed on FTDI cables: Device Manager → Ports (COM) → Properties → Port Settings → Advanced → Latency Timer = 1 ms.\n\nELM327 adapters (USB or Bluetooth) show up as a COM port: choose \"ELM327 adapter\" as the Interface type and use the OBD-II page for any make with OBD-II/EOBD. Cheap clones do not always implement every command; the program shows what the adapter answered.\n\nHEX-USB+CAN clones (FTDI chip VID 0403 PID FA24 with a microcontroller) show up as D2XX:… (RT-USB driver) or FTDI:… (WinUSB driver). The Connection check talks to the cable's microcontroller and shows the real state; reading ECUs through it is not available yet. Genuine HEX-V2 / HEX-NET interfaces use Ross-Tech's closed firmware and are not supported.",
     "Sem logótipo":
         "No logo",
     "Logótipo da oficina":
@@ -1514,8 +1334,6 @@ EN = {
         "Searching…",
     "Não foi possível procurar o cabo:\n{res}":
         "Could not search for the cable:\n{res}",
-    "<p><b>Nenhum cabo de diagnóstico encontrado.</b></p><p>Ligue o cabo à porta USB e volte a carregar em Detectar cabo. Se continuar sem aparecer:</p><ul><li>Experimente outra porta USB (de preferência directamente no PC, sem hub).</li><li>Abra o Gestor de Dispositivos e veja se aparece um dispositivo com ponto de exclamação em <i>Outros dispositivos</i> — nesse caso falta o driver.</li></ul>":
-        "<p><b>No diagnostic cable found.</b></p><p>Plug the cable into a USB port and click Detect cable again. If it still does not show up:</p><ul><li>Try another USB port (preferably directly on the PC, without a hub).</li><li>Open Device Manager and check whether a device with an exclamation mark appears under <i>Other devices</i> — if so, the driver is missing.</li></ul>",
     "<br><a href='{driver_url}'>Página oficial do driver</a>":
         "<br><a href='{driver_url}'>Official driver page</a>",
     "<p><b>Interfaces J2534 (PassThru) instaladas:</b></p><ul>":
@@ -1524,8 +1342,6 @@ EN = {
         "<li><b>{name}</b> — {vendor} ({view})<br>Protocols: {v}<br><small>{dll}</small></li>",
     "<p>Nenhuma interface J2534 (PassThru) registada neste PC.</p>":
         "<p>No J2534 (PassThru) interface registered on this PC.</p>",
-    "<p>A porta <b>{v}</b> foi escolhida e guardada automaticamente.</p>":
-        "<p>Port <b>{v}</b> was chosen and saved automatically.</p>",
     "Abrir Gestor de Dispositivos":
         "Open Device Manager",
     "RootsAutoDoctor_suporte_{v:%Y%m%d_%H%M}.zip":
@@ -1536,8 +1352,6 @@ EN = {
         "Zip (*.zip)",
     "Não foi possível criar o pacote:\n{e}":
         "Could not create the package:\n{e}",
-    "Pacote de suporte guardado em:\n{path}\n\nContém os registos de comunicação dos últimos dias e a lista de portas e cabos. Não contém dados de clientes.":
-        "Support package saved to:\n{path}\n\nIt contains the communication logs of the last few days and the list of ports and cables. It does not contain customer data.",
     "Procurar páginas, controladores, acções ou avarias (ex.: 00532, turbo)…":
         "Search pages, modules, actions or faults (e.g. 00532, turbo)…",
     "Duplo clique para abrir o gráfico":
@@ -1586,14 +1400,6 @@ EN = {
         "Needs attention",
     "Intervenção recomendada":
         "Repair recommended",
-    "O repositório não tem nenhuma versão publicada.":
-        "The repository has no published version.",
-    "O GitHub respondeu com o erro {code}.":
-        "GitHub answered with error {code}.",
-    "Sem ligação à internet ou o GitHub não respondeu.":
-        "No internet connection or GitHub did not answer.",
-    "Resposta inesperada do GitHub.":
-        "Unexpected answer from GitHub.",
     "Descrição não disponível na base de dados":
         "Description not available in the database",
     "Tipo {n:02d}":
@@ -1608,8 +1414,6 @@ EN = {
         "Connection to the ECU lost: {reason}",
     "Interface fechada depois de um erro; será reaberta no próximo comando.":
         "Interface closed after an error; it will be reopened on the next command.",
-    "A interface escolhida é um adaptador ELM327 (OBD-II/EOBD multimarca). As funções VAG por KW1281/KWP2000 precisam de um cabo KKL 409.1 ou de uma interface J2534: use a página OBD-II, ou escolha outra interface em Opções.":
-        "The selected interface is an ELM327 adapter (multi-brand OBD-II/EOBD). VAG functions over KW1281/KWP2000 need a KKL 409.1 cable or a J2534 interface: use the OBD-II page, or choose another interface in Options.",
     "Escolha a porta do cabo nas Opções":
         "Choose the cable port in Options",
     "Interface {port} aberta":
@@ -1636,10 +1440,6 @@ EN = {
         "Module closed. The interface stays open.",
     "Sem ligação.":
         "Not connected.",
-    "Porta aberta e eco da linha K OK — o cabo está a comunicar com a ficha OBD.":
-        "Port open and K-line echo OK — the cable is communicating with the OBD socket.",
-    "A porta abriu. ":
-        "The port opened. ",
     "A porta escolhida não é um cabo HEX (D2XX:… ou FTDI:0403:FA2x:…)":
         "The selected port is not a HEX cable (D2XX:… or FTDI:0403:FA2x:…)",
     "\n\nModo de arranque agora: {v}":
@@ -1648,16 +1448,6 @@ EN = {
         "No port chosen. Use Detect cable.",
     "Porta do cabo":
         "Cable port",
-    "Cabo detectado no USB":
-        "Cable detected on USB",
-    "O Windows vê a interface":
-        "Windows sees the interface",
-    "O Windows não vê a interface: ligue o cabo ao USB (ou troque de porta/cabo USB)":
-        "Windows does not see the interface: plug the cable into USB (or try another USB port/cable)",
-    "Abrir a interface":
-        "Open the interface",
-    "{e}. Feche outros programas que usem o cabo (VCDS, Delphi…) e confirme a porta.":
-        "{e}. Close other programs that use the cable (VCDS, Delphi…) and check the port.",
     "Adaptador (microcontrolador do cabo HEX)":
         "Adapter (HEX cable microcontroller)",
     "Linha K vista pelo cabo":
@@ -1680,40 +1470,18 @@ EN = {
         "{n} fault(s)",
     "{e}. Confirme que a ignição está ligada; experimente outro endereço (ex.: 17).":
         "{e}. Make sure the ignition is on; try another address (e.g. 17).",
-    "{e}. Active o Registo detalhado e crie um pacote de suporte.":
-        "{e}. Turn on the Detailed log and create a support package.",
     "Apagar avarias {addr:02X}: {error}":
         "Clear faults {addr:02X}: {error}",
     "Ligação OBD perdida: {reason}":
         "OBD connection lost: {reason}",
     "Ligação ao veículo perdida: {reason}":
         "Connection to the vehicle lost: {reason}",
-    "Não há ligação OBD-II ao veículo: carregue em Ligar na página OBD-II":
-        "There is no OBD-II connection to the vehicle: click Connect on the OBD-II page",
-    "Escolha a porta do adaptador ELM327 nas Opções":
-        "Choose the ELM327 adapter's port in Options",
-    "Em Opções, escolha \"ELM327 — OBD-II/EOBD multimarca\" como tipo de interface (ou o Simulador ELM327) para usar o diagnóstico OBD-II.":
-        "In Options, choose \"ELM327 — multi-brand OBD-II/EOBD\" as the interface type (or the ELM327 simulator) to use OBD-II diagnostics.",
     "A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o Bluetooth) e carregue em Actualizar nas Opções.":
         "Port {port} does not appear on the computer: plug the adapter in (or pair the Bluetooth) and click Refresh in Options.",
-    "A ligar ao veículo por OBD-II ({port})…":
-        "Connecting to the vehicle via OBD-II ({port})…",
     "OBD-II: ligado — {protocol}, {v} centralina(s)":
         "OBD-II: connected — {protocol}, {v} ECU(s)",
     ", VIN {vin}":
         ", VIN {vin}",
-    "Adaptador {v} já ligado ao veículo ({v2}).":
-        "Adapter {v} already connected to the vehicle ({v2}).",
-    "Adaptador {v} a responder na porta {port} ({v2} baud).":
-        "Adapter {v} answering on port {port} ({v2} baud).",
-    " Tensão na ficha OBD: {volt:.1f} V.":
-        " Voltage at the OBD socket: {volt:.1f} V.",
-    " Avisos: ":
-        " Warnings: ",
-    "\n\nIsto prova que o adaptador funciona; a ligação ao veículo testa-se na página OBD-II.":
-        "\n\nThis proves the adapter works; the connection to the vehicle is tested on the OBD-II page.",
-    "Ligação OBD-II fechada.":
-        "OBD-II connection closed.",
     "OBD-II: pedido de apagar avarias (modo 04) enviado por acção do utilizador":
         "OBD-II: request to clear faults (mode 04) sent by user action",
     "A centralina deixou de responder ({OBD_LIVE_MAX_SILENT} leituras seguidas sem resposta): ignição desligada ou cabo solto?":
@@ -2448,12 +2216,8 @@ EN = {
         "Interface / protocol",
     "Interface J2534 04.04 (PassThru)":
         "J2534 04.04 interface (PassThru)",
-    "Interface aberta (sem centralina)":
-        "Interface open (no ECU)",
     "Interface de diagnóstico do barramento (J533)":
         "Data bus diagnostic interface (J533)",
-    "Interface inacessível":
-        "Interface unreachable",
     "Interpretação":
         "Interpretation",
     "Interpretação das linhas com cabeçalho e checksum testada com linhas sintéticas; o simulador só imita CAN. Centralinas VAG antigas que só falam KW1281 não respondem por OBD-II.":
@@ -2888,8 +2652,6 @@ EN = {
         "No SecurityAccess, writing, routines, output control or programming (by design). Manufacturer-specific identifiers not included.",
     "Sem comunicação: verifique alimentação, massa e barramento da unidade indicada.":
         "No communication: check the supply, ground and bus of the indicated unit.",
-    "Sem interface":
-        "No interface",
     "Sem interface de programação documentada nem autorização do fabricante.":
         "No documented programming interface or manufacturer authorisation.",
     "Sem sinal":
@@ -3508,26 +3270,16 @@ EN = {
         "Diagnostic report",
     "Resumo":
         "Summary",
-    "Adaptador ELM327":
-        "ELM327 adapter",
     "Adaptador respondeu":
         "Adapter answered",
-    "Centralinas OBD-II":
-        "OBD-II ECUs",
     "Comunicação com o veículo":
         "Communication with the vehicle",
-    "Protocolo do veículo":
-        "Vehicle protocol",
-    "Tensão na ficha OBD":
-        "OBD socket voltage",
     "não medida pelo adaptador":
         "not measured by the adapter",
     "{ecu}: {n} parâmetros":
         "{ecu}: {n} parameters",
     "{v:.1f} V (medida pelo adaptador)":
         "{v:.1f} V (measured by the adapter)",
-    "{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto no pino 16":
-        "{v:.1f} V — low: weak battery, ignition off or poor contact on pin 16",
     "{version} a {baud} baud":
         "{version} at {baud} baud",
     " — simulação":
@@ -3536,4 +3288,298 @@ EN = {
         "The module refused coding {coding:05d}: it still has {current:05d} (before: {before:05d}).",
     "O controlador recusou a codificação {coding:05d}: continua com {current:05d}.":
         "The module refused coding {coding:05d}: it still has {current:05d}.",
+    "\n\nA ligação ao veículo faz-se na página OBD — todas as marcas.":
+        "\n\nThe connection to the vehicle is made on the OBD — all makes page.",
+    " Tensão da bateria na ficha de diagnóstico: {volt:.1f} V.":
+        " Battery voltage at the diagnostic socket: {volt:.1f} V.",
+    "<p><b>Nenhum cabo de diagnóstico encontrado.</b></p><p>Ligue o cabo à porta USB e volte a carregar em Detectar cabo. Se continuar sem aparecer:</p><ul><li>Experimente outra porta USB (de preferência directamente no PC, sem hub).</li><li>Se o cabo é novo neste PC, ligue o PC à internet uma vez com o cabo ligado: o Windows prepara-o sozinho.</li></ul>":
+        "<p><b>No diagnostic cable found.</b></p><p>Plug the cable into a USB port and click Detect cable again. If it still does not appear:</p><ul><li>Try another USB port (preferably directly on the PC, without a hub).</li><li>If the cable is new to this PC, connect the PC to the internet once with the cable plugged in: Windows prepares it by itself.</li></ul>",
+    "<p><b>Vai pedir a TODAS as centralinas que apaguem as avarias.</b></p><ul><li>Apaga também as imagens congeladas e repõe os monitores de prontidão (o carro pode chumbar na inspecção até completar um ciclo de condução).</li><li>Ignição ligada e <b>motor desligado</b> — muitas centralinas recusam com o motor a trabalhar.</li><li>As avarias permanentes não se apagam por este pedido.</li></ul><p>Depois do pedido, o programa volta a ler as avarias para confirmar.</p>":
+        "<p><b>This asks ALL control units to clear their faults.</b></p><ul><li>It also clears the freeze frames and resets the readiness monitors (the car may fail the inspection until it completes a drive cycle).</li><li>Ignition on and <b>engine off</b> — many control units refuse with the engine running.</li><li>Permanent faults are not cleared by this request.</li></ul><p>After the request, the program reads the faults again to confirm.</p>",
+    "<p>Interfaces de diagnóstico instaladas neste PC: <b>{v}</b>. Pode escolhê-las em Porta do cabo.</p>":
+        "<p>Diagnostic interfaces installed on this PC: <b>{v}</b>. You can choose them in Cable port.</p>",
+    "<p>O cabo foi escolhido e guardado automaticamente.</p>":
+        "<p>The cable was selected and saved automatically.</p>",
+    "A identificação detalhada não está disponível para esta centralina.":
+        "Detailed identification is not available for this control unit.",
+    "A ler a identificação da centralina {target}…":
+        "Reading the identification of control unit {target}…",
+    "A ligar ao veículo (pode demorar até 20 s na primeira vez).":
+        "Connecting to the vehicle (can take up to 20 s the first time).",
+    "A ligar ao veículo por OBD…":
+        "Connecting to the vehicle through OBD…",
+    "A ligar por OBD…":
+        "Connecting through OBD…",
+    "A porta {port_name} abriu, mas o adaptador OBD não respondeu. Confirme que o adaptador está ligado ao PC (ou que o Bluetooth está emparelhado) e que nenhum outro programa o está a usar.":
+        "Port {port_name} opened, but the OBD adapter did not answer. Check that the adapter is plugged into the PC (or that Bluetooth is paired) and that no other program is using it.",
+    "A porta {port} não existe neste momento":
+        "Port {port} does not exist right now",
+    "Abrir o adaptador":
+        "Open the adapter",
+    "Abrir o cabo":
+        "Open the cable",
+    "Abrir simulador OBD":
+        "Open OBD simulator",
+    "Adaptador OBD":
+        "OBD adapter",
+    "Adaptador OBD (todas as marcas)":
+        "OBD adapter (all makes)",
+    "Adaptador OBD · {port}":
+        "OBD adapter · {port}",
+    "Adaptador OBD — todas as marcas":
+        "OBD adapter — all makes",
+    "Adaptador ligado ao PC":
+        "Adapter connected to the PC",
+    "Ainda não há nenhuma versão publicada.":
+        "No version has been published yet.",
+    "Auto-Scan interrompido: {v} de {v2} controladores verificados (resultado parcial)":
+        "Auto-Scan interrupted: {v} of {v2} modules checked (partial result)",
+    "Avarias, luz de avaria, prontidão para a inspecção e dados em tempo real de qualquer marca (gasolina desde 2001 e gasóleo desde 2004 na UE). Mostra só o que o veículo indica que suporta.":
+        "Faults, warning light, inspection readiness and live data for any make (petrol from 2001 and diesel from 2004 in the EU). Shows only what the vehicle says it supports.",
+    "Avarias, prontidão e dados de qualquer marca":
+        "Faults, readiness and data for any make",
+    "Avarias, prontidão para a inspecção e dados em tempo real de qualquer marca.":
+        "Faults, inspection readiness and live data for any make.",
+    "Avarias:":
+        "Faults:",
+    "Avarias: nenhuma presente, pendente ou confirmada":
+        "Faults: none present, pending or confirmed",
+    "Avarias: não disponíveis ({dtc_error})":
+        "Faults: not available ({dtc_error})",
+    "Cabo USB":
+        "USB cable",
+    "Cabo VAG":
+        "VAG cable",
+    "Cabo VAG — Grupo VW (VW, Audi, Seat, Škoda)":
+        "VAG cable — VW Group (VW, Audi, Seat, Škoda)",
+    "Cabo de diagnóstico USB":
+        "USB diagnostic cable",
+    "Cabo encontrado e pronto":
+        "Cable found and ready",
+    "Cabo encontrado, mas falta uma parte do programa":
+        "Cable found, but part of the program is missing",
+    "Cabo encontrado, mas o Windows ainda não o preparou":
+        "Cable found, but Windows has not prepared it yet",
+    "Cabo encontrado, mas precisa de ser preparado":
+        "Cable found, but it needs to be prepared",
+    "Cabo escolhido: {port}":
+        "Selected cable: {port}",
+    "Cabo ligado ao PC":
+        "Cable connected to the PC",
+    "Cabo ligado ao carro":
+        "Cable connected to the car",
+    "Cabo por configurar":
+        "Cable not set up",
+    "Cabo pronto (sem centralina)":
+        "Cable ready (no control unit)",
+    "Cabo pronto — ainda sem ligação a nenhuma centralina.":
+        "Cable ready — not yet connected to any control unit.",
+    "Cabo sem resposta":
+        "Cable not responding",
+    "Cabo, dados da oficina, licença e ecrã.":
+        "Cable, workshop details, licence and display.",
+    "Cabo: {port}":
+        "Cable: {port}",
+    "Centralina {target} — identificação detalhada":
+        "Control unit {target} — detailed identification",
+    "Centralinas":
+        "Control units",
+    "Com o cabo no carro e a ignição ligada, carregue em Testar ligação.":
+        "With the cable in the car and the ignition on, click Test connection.",
+    "Descrições: os códigos comuns a todas as marcas têm descrição completa; os códigos próprios de cada marca mostram apenas a categoria.":
+        "Descriptions: codes common to all makes have a full description; manufacturer-specific codes show only the category.",
+    "Diagnóstico automóvel profissional":
+        "Professional vehicle diagnostics",
+    "Diagnóstico completo do Grupo VW (VW, Audi, Seat, Škoda) com mapa do veículo e assistente de avarias, e leitura de avarias de qualquer marca — numa só aplicação.":
+        "Full diagnostics for the VW Group (VW, Audi, Seat, Škoda) with a vehicle map and fault assistant, plus fault reading for any make — in one application.",
+    "Em Opções está escolhido o cabo VAG":
+        "The VAG cable is selected in Options",
+    "Em Opções, escolha \"Adaptador OBD — todas as marcas\" em Equipamento (ou o Simulador OBD) para usar esta página.":
+        "In Options, choose \"OBD adapter — all makes\" under Equipment (or the OBD simulator) to use this page.",
+    "Encontrar o cabo ligado ao PC":
+        "Find the cable plugged into the PC",
+    "Endereço inválido. Exemplos: 01, 17, 46.":
+        "Invalid address. Examples: 01, 17, 46.",
+    "Equipamento":
+        "Equipment",
+    "Equipamento não compatível: {name}":
+        "Incompatible equipment: {name}",
+    "Equipamento: {kind} · {port}":
+        "Equipment: {kind} · {port}",
+    "Escolha a porta do adaptador OBD em Opções.":
+        "Choose the OBD adapter port in Options.",
+    "Escolha o adaptador OBD (ou o simulador) em Opções e carregue em Ligar.":
+        "Choose the OBD adapter (or the simulator) in Options and click Connect.",
+    "Escolha o módulo na lista ou escreva o endereço (ex.: 01 motor, 17 painel).":
+        "Choose the module from the list or type its address (e.g. 01 engine, 17 instruments).",
+    "Escolha {com} na porta do cabo e carregue em Testar ligação com a ignição ligada.":
+        "Choose {com} as the cable port and click Test connection with the ignition on.",
+    "Esta função ainda não está disponível para este módulo.":
+        "This function is not yet available for this module.",
+    "Este adaptador OBD não é compatível com o Roots Auto Doctor.":
+        "This OBD adapter is not compatible with Roots Auto Doctor.",
+    "Este cabo está num modo que o Roots Auto Doctor ainda não consegue usar. Crie um Pacote de suporte em Opções e envie-o.":
+        "This cable is in a mode that Roots Auto Doctor cannot use yet. Create a Support package in Options and send it.",
+    "Este cabo precisa de uma preparação única. Crie um Pacote de suporte (em Opções) e envie-o ao suporte.":
+        "This cable needs a one-time preparation. Create a Support package (in Options) and send it to support.",
+    "Este controlador só comunica com o cabo VAG: ligue-o com o cabo VAG em vez desta interface.":
+        "This module only communicates through the VAG cable: connect to it with the VAG cable instead of this interface.",
+    "Este equipamento só funciona com o programa do seu fabricante. Use um cabo VAG compatível ou um adaptador OBD.":
+        "This equipment only works with its manufacturer's program. Use a compatible VAG cable or an OBD adapter.",
+    "Este veículo usa o diagnóstico dos pesados, que ainda não é suportado.":
+        "This vehicle uses heavy-duty diagnostics, which are not supported yet.",
+    "Está a usar o simulador: os valores e avarias são fictícios.":
+        "You are using the simulator: values and faults are fictitious.",
+    "Experimentar o diagnóstico de todas as marcas sem carro":
+        "Try all-makes diagnostics without a car",
+    "Houve um erro na comunicação com o veículo. Tente de novo; se continuar, crie um Pacote de suporte em Opções e envie-o.":
+        "There was an error communicating with the vehicle. Try again; if it continues, create a Support package in Options and send it.",
+    "Identificação detalhada da centralina (números de peça e de software) e avarias com o tipo de falha. Disponível nos veículos mais recentes.":
+        "Detailed control unit identification (part and software numbers) and faults with their failure type. Available on more recent vehicles.",
+    "Informação, avarias, valores de medição, adaptação e codificação de cada módulo.":
+        "Information, faults, measuring values, adaptation and coding for each module.",
+    "Interface de diagnóstico":
+        "Diagnostic interface",
+    "Ler identificação detalhada da centralina seleccionada":
+        "Read detailed identification of the selected control unit",
+    "Ligado ao veículo por OBD":
+        "Connected to the vehicle through OBD",
+    "Ligado ao veículo por OBD · {n} centralina(s)":
+        "Connected to the vehicle through OBD · {n} control unit(s)",
+    "Ligado por OBD":
+        "Connected through OBD",
+    "Ligar ao veículo com o adaptador OBD":
+        "Connect to the vehicle with the OBD adapter",
+    "Ligar por OBD":
+        "Connect through OBD",
+    "Ligação ao veículo":
+        "Connection to the vehicle",
+    "Ligação ao veículo fechada.":
+        "Connection to the vehicle closed.",
+    "Ligue o PC à internet com o cabo ligado e aguarde um minuto (o Windows prepara-o sozinho), ou volte a instalar o Roots Auto Doctor. Depois carregue outra vez em Detectar cabo.":
+        "Connect the PC to the internet with the cable plugged in and wait a minute (Windows prepares it by itself), or reinstall Roots Auto Doctor. Then click Detect cable again.",
+    "Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\nCabo VAG: para os módulos do Grupo VW (VW, Audi, Seat, Škoda). Adaptador OBD (USB ou Bluetooth): para avarias e dados de qualquer marca na página OBD — todas as marcas.":
+        "Plug the cable into the PC and click Detect cable: the program finds it and selects the port by itself. Then, with the cable in the car and the ignition on, click Test connection.\n\nVAG cable: for the VW Group modules (VW, Audi, Seat, Škoda). OBD adapter (USB or Bluetooth): for faults and data of any make on the OBD — all makes page.",
+    "Ligue o cabo ao carro com a ignição ligada.\n\nMódulo a testar (01 = motor, 17 = painel):":
+        "Connect the cable to the car with the ignition on.\n\nModule to test (01 = engine, 17 = instruments):",
+    "Ligue o cabo à ficha de diagnóstico do carro e ao PC, e ligue a ignição.":
+        "Plug the cable into the car's diagnostic socket and into the PC, and switch the ignition on.",
+    "Login enviado e recebido pelo controlador. O controlador não indica se o código está correcto: confirme na função que precisa do login.":
+        "Login sent and received by the module. The module does not say whether the code is correct: check in the function that needs the login.",
+    "Luz de avaria":
+        "Warning light",
+    "Nenhuma centralina indicou o estado dos monitores de prontidão.":
+        "No control unit reported the readiness monitor status.",
+    "Nenhuma porta escolhida em Opções":
+        "No port selected in Options",
+    "Não foi possível abrir o cabo. Feche outros programas de diagnóstico que o possam estar a usar e confirme a porta do cabo em Opções.":
+        "The cable could not be opened. Close other diagnostic programs that may be using it and check the cable port in Options.",
+    "Não há ligação ao veículo: carregue em Ligar na página OBD — todas as marcas.":
+        "Not connected to the vehicle: click Connect on the OBD — all makes page.",
+    "O Auto-Scan foi interrompido ({scanned} de {total} controladores verificados): o resultado é parcial.":
+        "The Auto-Scan was interrupted ({scanned} of {total} modules checked): the result is partial.",
+    "O Auto-Scan parou porque o cabo deixou de responder (desligado do USB ou bloqueado). Os controladores já lidos ficaram guardados.\n\nDesligue o cabo do USB, volte a ligá-lo e repita o Auto-Scan.":
+        "The Auto-Scan stopped because the cable stopped responding (unplugged from USB or blocked). The modules already read were saved.\n\nUnplug the cable from USB, plug it back in and repeat the Auto-Scan.",
+    "O PC encontra o cabo.":
+        "The PC finds the cable.",
+    "O PC não encontra o cabo: volte a ligá-lo ao USB (ou experimente outra porta USB).":
+        "The PC cannot find the cable: plug it back into USB (or try another USB port).",
+    "O adaptador OBD está a responder.":
+        "The OBD adapter is responding.",
+    "O adaptador OBD já está ligado ao veículo.":
+        "The OBD adapter is already connected to the vehicle.",
+    "O adaptador ligou-se ao veículo, mas nenhuma centralina respondeu correctamente.":
+        "The adapter connected to the vehicle, but no control unit answered correctly.",
+    "O cabo deixou de responder ou não está disponível. Desligue o cabo do USB, volte a ligá-lo e tente de novo. Se continuar, crie um Pacote de suporte em Opções e envie-o.":
+        "The cable stopped responding or is not available. Unplug the cable from USB, plug it back in and try again. If it continues, create a Support package in Options and send it.",
+    "O cabo está a comunicar com o carro.":
+        "The cable is communicating with the car.",
+    "O cabo está a ser usado por outro programa. Feche os outros programas de diagnóstico e tente de novo.":
+        "The cable is being used by another program. Close the other diagnostic programs and try again.",
+    "O cabo está pronto e a comunicar com o carro.":
+        "The cable is ready and communicating with the car.",
+    "O cabo não está a comunicar com o carro. Confirme que está bem encaixado na ficha de diagnóstico e que a ignição está ligada, e tente de novo.":
+        "The cable is not communicating with the car. Check that it is firmly plugged into the diagnostic socket and that the ignition is on, and try again.",
+    "O cabo não está a comunicar com o carro. Confirme que está bem encaixado na ficha de diagnóstico e que a ignição está ligada.":
+        "The cable is not communicating with the car. Check that it is firmly plugged into the diagnostic socket and that the ignition is on.",
+    "O cabo não está a comunicar com o carro. Confirme que está bem encaixado na ficha de diagnóstico e que a ignição está ligada. Se continuar, este cabo pode não ser compatível: crie um Pacote de suporte em Opções e envie-o.":
+        "The cable is not communicating with the car. Check that it is firmly plugged into the diagnostic socket and that the ignition is on. If it continues, this cable may not be compatible: create a Support package in Options and send it.",
+    "O cabo vê a linha K do carro.":
+        "The cable sees the car's K-line.",
+    "O equipamento escolhido em Opções é um adaptador OBD (todas as marcas).\n\nOs controladores e o Auto-Scan do Grupo VW precisam do cabo VAG. Com o adaptador OBD, use a página OBD — todas as marcas.":
+        "The equipment selected in Options is an OBD adapter (all makes).\n\nThe VW Group modules and the Auto-Scan need the VAG cable. With the OBD adapter, use the OBD — all makes page.",
+    "O equipamento escolhido em Opções é um adaptador OBD. Os controladores do Grupo VW precisam do cabo VAG: use a página OBD — todas as marcas, ou escolha o cabo VAG em Opções.":
+        "The equipment selected in Options is an OBD adapter. The VW Group modules need the VAG cable: use the OBD — all makes page, or choose the VAG cable in Options.",
+    "O equipamento na porta {port_name} não é um adaptador OBD compatível.":
+        "The equipment on port {port_name} is not a compatible OBD adapter.",
+    "O módulo não respondeu. Confirme que a ignição está ligada e tente de novo.":
+        "The module did not answer. Check that the ignition is on and try again.",
+    "O módulo recusou o pedido.":
+        "The module refused the request.",
+    "O servidor de actualizações respondeu com o erro {code}.":
+        "The update server answered with error {code}.",
+    "O veículo não respondeu. Confirme que a ignição está ligada e que o veículo tem diagnóstico OBD.":
+        "The vehicle did not answer. Check that the ignition is on and that the vehicle has OBD diagnostics.",
+    "OBD — todas as marcas":
+        "OBD — all makes",
+    "Os dados vêm do simulador OBD, não de um veículo.":
+        "The data comes from the OBD simulator, not from a vehicle.",
+    "Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao suporte. Contém os registos dos últimos dias e a informação do cabo; não contém dados de clientes.":
+        "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days and the cable information; it does not contain customer data.",
+    "Porta do adaptador":
+        "Adapter port",
+    "Procurar (Ctrl+K): páginas, controladores, acções e avarias":
+        "Search (Ctrl+K): pages, modules, actions and faults",
+    "Resposta inesperada do servidor de actualizações.":
+        "Unexpected answer from the update server.",
+    "Sem cabo":
+        "No cable",
+    "Sem comunicação com este controlador.":
+        "No communication with this module.",
+    "Sem ligação à internet ou o servidor de actualizações não respondeu.":
+        "No internet connection, or the update server did not answer.",
+    "Sessão gravada por uma versão anterior, que não registava o equipamento: não se sabe se veio do simulador ou do carro.":
+        "Session saved by an earlier version, which did not record the equipment: it is not known whether it came from the simulator or the car.",
+    "Simulador OBD (todas as marcas) — experimentar sem carro":
+        "OBD simulator (all makes) — try without a car",
+    "Simulador OBD activo — os dados são fictícios":
+        "OBD simulator active — the data is fictitious",
+    "Simulador VAG — experimentar sem carro":
+        "VAG simulator — try without a car",
+    "Simulador — sem carro":
+        "Simulator — no car",
+    "Testar ligação":
+        "Test connection",
+    "Todas as marcas":
+        "All makes",
+    "VERSÃO {VERSION}":
+        "VERSION {VERSION}",
+    "VERSÃO {VERSION}  ·  DIAGNÓSTICO PROFISSIONAL":
+        "VERSION {VERSION}  ·  PROFESSIONAL DIAGNOSTICS",
+    "Verificar o cabo e a ligação ao carro":
+        "Check the cable and the connection to the car",
+    "Volte a instalar o Roots Auto Doctor e carregue outra vez em Detectar cabo.":
+        "Reinstall Roots Auto Doctor and click Detect cable again.",
+    "a iniciar…":
+        "starting…",
+    "medida pelo adaptador":
+        "measured by the adapter",
+    "o veículo não indicou o VIN":
+        "the vehicle did not report the VIN",
+    "sem nome":
+        "unnamed",
+    "{device} — Bluetooth":
+        "{device} — Bluetooth",
+    "{device} — Cabo USB":
+        "{device} — USB cable",
+    "{device} — Porta série":
+        "{device} — Serial port",
+    "{e}. Se continuar, crie um Pacote de suporte em Opções e envie-o.":
+        "{e}. If it continues, create a Support package in Options and send it.",
+    "{n} avaria(s) encontrada(s)":
+        "{n} fault(s) found",
+    "{v:.1f} V — baixa: bateria fraca, ignição desligada ou mau contacto na ficha":
+        "{v:.1f} V — low: weak battery, ignition off or poor contact in the socket",
+    "{v} centralina(s)":
+        "{v} control unit(s)",
 }

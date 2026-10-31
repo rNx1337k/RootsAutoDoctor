@@ -202,7 +202,7 @@ def test_port_that_is_not_an_elm327():
         link.open()
         raise AssertionError("um dispositivo que não responde não é um ELM327")
     except AdapterNotResponding as e:
-        assert "nenhum adaptador ELM327 respondeu" in str(e)
+        assert "o adaptador OBD não respondeu" in str(e)
         assert isinstance(e, InterfaceError)
     finally:
         m.BAUDS = old
@@ -329,7 +329,7 @@ def test_obd_session_connect_steps_and_info():
     s = ObdSession(link)
     info = s.connect()
     names = [st[0] for st in info["steps"]]
-    assert names[:4] == ["Abrir a interface", "Adaptador respondeu", "Tensão na ficha OBD", "Protocolo do veículo"]
+    assert names[:4] == ["Abrir o adaptador", "Adaptador respondeu", "Tensão da bateria", "Ligação ao veículo"]
     assert all(st[1] for st in info["steps"])
     assert info["vin"] == SIM_VIN and info["mil"] and info["dtc_count"] == 2 and info["simulated"]
     assert info["ecus"][0]["label"] == "ECM-EngineControl (7E8)" and info["ecus"][0]["uds_target"] == "7E0"
@@ -351,7 +351,7 @@ def test_obd_session_failures_are_located():
     v.battery = 10.9
     s = ObdSession(_elm(v)[0])
     s.connect()
-    volt = [st for st in s.steps if st[0] == "Tensão na ficha OBD"][0]
+    volt = [st for st in s.steps if st[0] == "Tensão da bateria"][0]
     assert not volt[1] and "10.9 V" in volt[2]
 
 

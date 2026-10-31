@@ -11,14 +11,14 @@ from PySide6.QtWidgets import (
     QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, VERSION, applog, connstate, history, journal, licensing, report, vag_data
+from .. import APP_NAME, VERSION, applog, connstate, history, journal, licensing, report, technician_mode, vag_data
+from ..errors import client_text
 from ..settings import app_settings
-from ..kline import SIM_PORT, is_elm_sim_port, is_simulated_port
+from ..kline import is_elm_sim_port, is_simulated_port, port_label
 from ..worker import Worker
 from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelectPage,
                     ObdPage, OptionsPage, btn, lbl)
 from .pages.common import FaultInfoDialog
-from .pages.coverage import CoverageDialog
 from .palette import Command, CommandPalette
 from .style import BAD, MUTED, OK, QSS, WARN, pill_style
 from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
         self.search_btn = btn(tr("  Procurar…"), "search", self.open_palette)
         self.search_btn.setIcon(nav_icon("search"))
         self.search_btn.setIconSize(QSize(18, 18))
-        self.search_btn.setToolTip(tr("Paleta de comandos (Ctrl+K): páginas, controladores, acções e avarias"))
+        self.search_btn.setToolTip(tr("Procurar (Ctrl+K): páginas, controladores, acções e avarias"))
         sl = QHBoxLayout(self.search_btn)
         sl.setContentsMargins(0, 0, 10, 0)
         sl.addStretch(1)
@@ -92,7 +92,8 @@ class MainWindow(QMainWindow):
         self.nav_btns = {}
         for key, text in [("home", tr("Início")), ("modules", tr("Controladores")),
                           ("module", tr("Controlador ligado")), ("autoscan", tr("Auto-Scan")),
-                          ("obd", tr("OBD-II multimarca")), ("history", tr("Histórico")), ("options", tr("Opções"))]:
+                          ("obd", tr("OBD — todas as marcas")), ("history", tr("Histórico")),
+                          ("options", tr("Opções"))]:
             b = btn(text, "nav", lambda _=False, k=key: self.show_page(k))
             b.setIcon(nav_icon(key))
             b.setIconSize(QSize(20, 20))
@@ -122,7 +123,7 @@ class MainWindow(QMainWindow):
         self.sim_badge = lbl(tr("MODO DE SIMULAÇÃO"), "pill")
         self.sim_badge.setAlignment(Qt.AlignCenter)
         self.sim_badge.setStyleSheet(pill_style(WARN))
-        self.sim_badge.setToolTip(tr("A porta escolhida é um simulador: os valores e avarias são fictícios."))
+        self.sim_badge.setToolTip(tr("Está a usar o simulador: os valores e avarias são fictícios."))
         self.sim_badge.hide()
         cv.addWidget(self.sim_badge)
         self.demo_badge = QPushButton(tr("MODO DEMONSTRAÇÃO"))
@@ -180,13 +181,15 @@ class MainWindow(QMainWindow):
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
         self.options.link_check_req.connect(self.run_link_check)
         self.options.hex_mode_req.connect(self.run_hex_mode)
-        self.options.coverage_req.connect(self.show_coverage)
+        self.options.coverage_req.connect(self.show_coverage)          # botão só existe no modo técnico
         self.options.license_changed.connect(self.apply_license)
         self.options.update_found.connect(self.on_update_found)
         self.obd.report_req.connect(lambda: self.export_report("obd"))
         self.obd.vin_found.connect(self._vin_from_vehicle)
 
-        # ---------------- registo
+        # ---------------- registo de comunicação: só no modo técnico (--tecnico). Para o cliente fica apenas
+        # no disco (pasta de registos / pacote de suporte).
+        self.technical = technician_mode()
         self.log = QPlainTextEdit()
         self.log.setObjectName("log")
         self.log.setReadOnly(True)
@@ -194,17 +197,22 @@ class MainWindow(QMainWindow):
         dock = QDockWidget(tr("Registo de comunicação"), self)
         dock.setWidget(self.log)
         dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetClosable)
-        self.addDockWidget(Qt.BottomDockWidgetArea, dock)
-        self.resizeDocks([dock], [150], Qt.Vertical)
         self.log_dock = dock
+        if self.technical:
+            self.addDockWidget(Qt.BottomDockWidgetArea, dock)
+            self.resizeDocks([dock], [150], Qt.Vertical)
         # o registo técnico fica escondido por omissão; botão na barra de estado e Ctrl+L
         self.log_btn = btn(tr("Registo técnico"), None,
                            lambda: self.log_dock.setVisible(not self.log_dock.isVisible()))
         self.log_btn.setObjectName("statusBtn")
         self.log_btn.setCheckable(True)
-        self.statusBar().addPermanentWidget(self.log_btn)
         dock.visibilityChanged.connect(self.log_btn.setChecked)
-        dock.setVisible(self.settings.value("ui/log_visible", "false") == "true")
+        if self.technical:
+            self.statusBar().addPermanentWidget(self.log_btn)
+            dock.setVisible(self.settings.value("ui/log_visible", "false") == "true")
+        else:
+            self.log_btn.hide()
+            dock.hide()
         self.menuBar().hide()
 
         self.toast = Toast(root)
@@ -248,10 +256,11 @@ class MainWindow(QMainWindow):
             ("Ctrl+3", lambda: self.show_page("autoscan")),
             ("Ctrl+4", lambda: self.show_page("history")),
             ("Ctrl+5", lambda: self.show_page("obd")),
-            ("Ctrl+L", lambda: self.log_dock.setVisible(not self.log_dock.isVisible())),
             ("Ctrl+K", self.open_palette),
             ("Ctrl+P", self.open_palette),
         ]
+        if self.technical:
+            keys.append(("Ctrl+L", lambda: self.log_dock.setVisible(not self.log_dock.isVisible())))
         self._sc = []
         for seq, fn in keys:
             sc = QShortcut(QKeySequence(seq), self)
@@ -306,14 +315,12 @@ class MainWindow(QMainWindow):
                     "autoscan", "scan mapa"),
             Command("Iniciar Auto-Scan", "Ler todos os controladores agora", lambda: self._home_go("autoscan_start"),
                     "bolt", "scan comecar"),
-            Command("OBD-II multimarca", "Avarias, prontidão e dados de qualquer marca (ELM327)",
-                    lambda: self.show_page("obd"), "obd", "obd eobd elm327 multimarca uds can"),
-            Command("Ligar por OBD-II", "Ligar ao veículo com o adaptador ELM327", self._obd_connect, "obd",
+            Command("OBD — todas as marcas", "Avarias, prontidão e dados de qualquer marca",
+                    lambda: self.show_page("obd"), "obd", "obd eobd elm327 multimarca"),
+            Command("Ligar por OBD", "Ligar ao veículo com o adaptador OBD", self._obd_connect, "obd",
                     "obd ligar elm"),
-            Command("Abrir simulador OBD-II", "Experimentar o diagnóstico multimarca sem carro",
+            Command("Abrir simulador OBD", "Experimentar o diagnóstico de todas as marcas sem carro",
                     lambda: self._home_go("sim_obd"), "sim", "demo obd elm simulador"),
-            Command("Compatibilidade", "Interfaces e protocolos suportados, com o nível de prova",
-                    self.show_coverage, "grid", "cobertura protocolos interfaces suporte"),
             Command("Histórico", "Diagnósticos guardados", lambda: self.show_page("history"), "history",
                     "historico matricula"),
             Command("Opções", "Porta do cabo, oficina e suporte", lambda: self.show_page("options"), "options",
@@ -321,13 +328,14 @@ class MainWindow(QMainWindow):
             Command("Relatório para o cliente", "PDF ou página web", lambda: self.export_report("auto"), "report",
                     "pdf imprimir"),
             Command("Abrir simulador", "Experimentar sem carro", lambda: self._home_go("sim"), "sim", "demo teste"),
-            Command("Detectar cabo", "Identificar o cabo e o driver", self.options._detect_cable, "bolt",
-                    "usb ftdi driver porta"),
-            Command("Diagnóstico da ligação", "Verificar cabo, eco e ligação ao carro", self.run_link_check, "bolt",
-                    "teste ligacao eco"),
-            Command("Registo técnico", "Mostrar ou esconder (Ctrl+L)",
-                    lambda: self.log_dock.setVisible(not self.log_dock.isVisible()), "log", "log debug"),
+            Command("Detectar cabo", "Encontrar o cabo ligado ao PC", self.options._detect_cable, "bolt",
+                    "usb porta cabo"),
+            Command("Diagnóstico da ligação", "Verificar o cabo e a ligação ao carro", self.run_link_check, "bolt",
+                    "teste ligacao"),
         ]
+        if self.technical:
+            c.append(Command("Registo técnico", "Mostrar ou esconder (Ctrl+L)",
+                             lambda: self.log_dock.setVisible(not self.log_dock.isVisible()), "log", "log debug"))
         if self.nav_btns["module"].isEnabled():
             c.insert(1, Command("Controlador ligado", self.module.title.text(), lambda: self.show_page("module"),
                                 "module", "ligado"))
@@ -351,10 +359,7 @@ class MainWindow(QMainWindow):
         if key == "sim_obd":
             self.options.select_simulator("elm327")
             self.show_page("obd")
-            self.toast.show_msg(tr("Simulador ELM327 activo — os dados são fictícios"), "info")
-            return
-        if key == "coverage":
-            self.show_coverage()
+            self.toast.show_msg(tr("Simulador OBD activo — os dados são fictícios"), "info")
             return
         if key == "test_interface":
             self.options._test()
@@ -399,9 +404,9 @@ class MainWindow(QMainWindow):
 
     def _explain_elm(self):
         QMessageBox.information(self, APP_NAME, tr(
-            "A interface escolhida é um adaptador ELM327 (OBD-II multimarca).\n\n"
-            "As funções VAG (controladores, Auto-Scan por KW1281/KWP2000) precisam de um cabo KKL "
-            "409.1 ou de uma interface J2534. Com o ELM327, use a página OBD-II."))
+            "O equipamento escolhido em Opções é um adaptador OBD (todas as marcas).\n\n"
+            "Os controladores e o Auto-Scan do Grupo VW precisam do cabo VAG. Com o adaptador OBD, "
+            "use a página OBD — todas as marcas."))
         self.show_page("obd")
 
     def _obd_connect(self):
@@ -415,6 +420,8 @@ class MainWindow(QMainWindow):
             self.toast.show_msg(tr("VIN lido do veículo: {vin}", vin=vin), "info")
 
     def show_coverage(self):
+        """Matriz de compatibilidade (interfaces × protocolos, com o nível de prova): só no modo técnico."""
+        from .pages.coverage import CoverageDialog
         CoverageDialog(self).exec()
 
     def apply_config(self, cfg, quiet=False):
@@ -422,24 +429,22 @@ class MainWindow(QMainWindow):
         self.update_workshop_brand()
         port = cfg["port"]
         sim = is_simulated_port(port)
-        kind = tr("Adaptador ELM327 (OBD-II)") if (cfg.get("adapter") == "elm327" or is_elm_sim_port(port)) \
-            else tr("Cabo KKL / J2534 (VAG)")
-        port_text = port or tr("porta por escolher")
-        self.home.set_interface(f"{kind} · {port_text}" + (tr(" · simulação") if sim else ""))
-        self.obd.set_adapter_text(tr("Interface: {kind} · {port}", kind=kind, port=port_text)
-                                  + (tr(" (simulação)") if sim else ""))
+        kind = tr("Adaptador OBD (todas as marcas)") if (cfg.get("adapter") == "elm327" or is_elm_sim_port(port)) \
+            else tr("Cabo VAG")
+        port_text = port_label(port) if port else tr("porta por escolher")
+        self.home.set_interface(kind if sim else f"{kind} · {port_text}")
+        self.obd.set_adapter_text(tr("Equipamento: {kind} · {port}", kind=kind, port=port_text))
         self.sim_badge.setVisible(sim)
         if not port:
             self.home.set_port(tr("Escolha a porta do cabo em Opções"))
-            self.conn_sub.setText(tr("Interface por configurar"))
+            self.conn_sub.setText(tr("Cabo por configurar"))
         elif sim:
             self.home.set_port(tr("Modo de simulação — os dados não vêm de um carro"), ok=False)
-            self.conn_sub.setText(tr("Interface: {port} (simulação)",
-                                     port=tr("Simulador") if port == SIM_PORT else port))
+            self.conn_sub.setText(tr("Simulador — sem carro"))
         else:
             # a porta está escolhida; só o Testar interface / Diagnóstico da ligação provam que comunica
-            self.home.set_port(tr("Interface escolhida: {port}", port=port), ok=True)
-            self.conn_sub.setText(tr("Interface: {port}", port=port))
+            self.home.set_port(tr("Cabo escolhido: {port}", port=port_text), ok=True)
+            self.conn_sub.setText(tr("Cabo: {port}", port=port_text))
         if not quiet:
             self.toast.show_msg(tr("Opções guardadas"))
 
@@ -472,7 +477,7 @@ class MainWindow(QMainWindow):
             return
         addr, ok = QInputDialog.getText(self, tr("Diagnóstico da ligação"),
                                         tr("Ligue o cabo ao carro com a ignição ligada.\n\n"
-                                           "Endereço do controlador a testar (hexadecimal):"), text="01")
+                                           "Módulo a testar (01 = motor, 17 = painel):"), text="01")
         if not ok:
             return
         try:
@@ -496,9 +501,12 @@ class MainWindow(QMainWindow):
         self.worker.submit("hex_mode", mode)
 
     def show_link_check(self, steps):
+        for s in steps:
+            self.append_log(f"{'OK' if s[1] else 'FALHOU'} — {s[0]}: {s[2]}")
+        steps = [(s[0], s[1], client_text(s[2])) for s in steps]
         ok_all = steps and all(s[1] for s in steps)
         rows = "".join(f"<p><b style='color:{OK if s[1] else '#E8343A'}'>{'✔' if s[1] else '✖'}  {s[0]}</b>"
-                       f"<br>{s[2]}</p>" for s in steps)
+                       + (f"<br>{s[2]}" if s[2] else "") + "</p>" for s in steps)
         head = (tr("<p><b>Ligação OK — pode usar o programa no carro.</b></p>") if ok_all else
                 tr("<p><b>A ligação falhou no passo assinalado.</b> Se não conseguir resolver, use "
                    "<i>Pacote de suporte</i> em Opções e envie o ficheiro.</p>"))
@@ -652,24 +660,20 @@ class MainWindow(QMainWindow):
             self.reconnect_btn.hide()
             sim = tr(" (simulação)") if data.get("simulated") else ""
             self.set_conn_state("connected", tr("Ligado a {address:02X}{sim}", address=data['address'], sim=sim),
-                                tr("{module}\n{protocol} · {baud} baud",
-                                   module=data['module'], protocol=data['protocol'], baud=data['baud']))
+                                data['module'])
             self.module.set_info(data)
             self.nav_btns["module"].setEnabled(True)
             self.show_page("module")
             self.statusBar().showMessage(tr("Ligado a {address:02X} — {part} {component}",
                                             address=data['address'], part=data['part'], component=data['component']))
         else:
-            port = self.options.config()["port"]
-            self.set_conn_state("disconnected", None,
-                                tr("Interface: {port}", port=tr("Simulador") if port == SIM_PORT else port or "—"))
+            self.set_conn_state("disconnected", None, self._port_text())
             self.module.stop_live()
             self.nav_btns["module"].setEnabled(False)
             if self.stack.currentWidget() is self.module:
                 self.show_page("modules")
-            self.statusBar().showMessage(tr("Ligação terminada: {data}",
-                                            data=data) if data else tr("Controlador "
-                                                                                                    "fechado"))
+            self.statusBar().showMessage(tr("Ligação terminada: {data}", data=client_text(data)) if data
+                                         else tr("Controlador fechado"))
             lost = bool(data) and self.was_connected     # uma ligação que falhou à primeira não se "perdeu"
             self.was_connected = False
             if lost:
@@ -729,7 +733,9 @@ class MainWindow(QMainWindow):
         elif cmd == "output_test":
             self.module.show_output(data)
         elif cmd in ("test_interface", "hex_mode"):
-            (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME, data["message"])
+            self.append_log(data["message"])
+            (QMessageBox.information if data["ok"] else QMessageBox.warning)(self, APP_NAME,
+                                                                             client_text(data["message"]))
         elif cmd == "autoscan":
             self.scan.meta = {k: data.get(k) for k in ("aborted", "scanned", "total", "interface", "simulated")}
             self.scan.done(data["aborted"])
@@ -745,11 +751,11 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     self.append_log(tr("Histórico: não foi possível guardar ({e})", e=e))
             if data.get("interface_error"):
-                QMessageBox.warning(self, APP_NAME, tr("O Auto-Scan parou porque a interface deixou de responder "
-                                                       "(cabo desligado do USB ou driver bloqueado). Os controladores "
-                                                       "já lidos ficaram guardados.\n\nVolte a ligar o cabo e "
-                                                       "repita.\n\nDetalhe: {interface_error}",
-                                                       interface_error=data['interface_error']))
+                log.warning("Auto-Scan parado pela interface: %s", data['interface_error'])
+                QMessageBox.warning(self, APP_NAME, tr("O Auto-Scan parou porque o cabo deixou de responder "
+                                                       "(desligado do USB ou bloqueado). Os controladores "
+                                                       "já lidos ficaram guardados.\n\nDesligue o cabo do USB, "
+                                                       "volte a ligá-lo e repita o Auto-Scan."))
             self.statusBar().showMessage(tr("Auto-Scan concluído") if not data["aborted"] else tr("Auto-Scan "
                                                                                                   "interrompido"))
             self.toast.show_msg(tr("Auto-Scan concluído") if not data["aborted"] else tr("Auto-Scan interrompido"),
@@ -759,16 +765,16 @@ class MainWindow(QMainWindow):
         o = self.obd
         if cmd == "obd_connect":
             o.on_connected(data)
-            self.statusBar().showMessage(tr("OBD-II: ligado — {v}", v=data.get('protocol')))
-            self.toast.show_msg(tr("Ligado ao veículo por OBD-II")
+            self.statusBar().showMessage(tr("Ligado ao veículo por OBD"))
+            self.toast.show_msg(tr("Ligado ao veículo por OBD")
                                 + (tr(" (simulação)") if data.get("simulated") else ""))
         elif cmd == "obd_steps":
             o.show_steps(data)
         elif cmd == "obd_dtcs":
             o.on_dtcs(data)
             n = sum(len(data.get(k, [])) for k in ("stored", "pending", "permanent"))
-            self.toast.show_msg(tr("Sem avarias OBD-II") if not n else tr("{n} avaria(s) OBD-II",
-                                                                          n=n), "ok" if not n else "warn")
+            self.toast.show_msg(tr("Sem avarias") if not n else tr("{n} avaria(s) encontrada(s)",
+                                                                   n=n), "ok" if not n else "warn")
         elif cmd == "obd_clear":
             o.on_clear(data)
             left = len(data["after"].get("stored", [])) + len(data["after"].get("pending", []))
@@ -781,7 +787,7 @@ class MainWindow(QMainWindow):
             o.on_uds(data)
         elif cmd == "obd_lost":
             o.on_lost(data)
-            self.toast.show_msg(tr("Ligação OBD-II perdida"), "bad")
+            self.toast.show_msg(tr("Ligação ao veículo perdida"), "bad")
         elif cmd == "obd_disconnect":
             o.on_disconnected()
 
@@ -792,18 +798,24 @@ class MainWindow(QMainWindow):
         data = st.data if isinstance(st.data, dict) else None
         if st.state == connstate.ECU_CONNECTED and data and data.get("kind") == "obd":
             self._obd_conn = True
-            self.set_conn_state("connected", tr("Ligado por OBD-II"),
-                                tr("{v}\n{v2} centralina(s)", v=data.get('protocol', ''), v2=len(data.get('ecus', []))))
+            self.set_conn_state("connected", tr("Ligado por OBD"),
+                                tr("{v} centralina(s)", v=len(data.get('ecus', []))))
         elif st.state == connstate.CONNECTING and st.data is None:          # ligação OBD-II a começar
             self._obd_conn = True
-            self.set_conn_state("connecting", tr("A ligar por OBD-II…"), "")
+            self.set_conn_state("connecting", tr("A ligar por OBD…"), "")
         elif self._obd_conn:
             self._obd_conn = False
-            port = self.options.config()["port"]
-            self.set_conn_state("disconnected", None, tr("Interface: {v}", v=port or '—'))
+            self.set_conn_state("disconnected", None, self._port_text())
+
+    def _port_text(self):
+        port = self.options.config()["port"]
+        if not port:
+            return tr("Cabo por configurar")
+        return tr("Simulador — sem carro") if is_simulated_port(port) else tr("Cabo: {port}", port=port_label(port))
 
     def on_error(self, cmd, msg):
         self.append_log(tr("ERRO ({cmd}): {msg}", cmd=cmd, msg=msg))
+        msg = client_text(msg)
         self.statusBar().showMessage(msg, 8000)
         if cmd.startswith("obd_"):
             self.obd.on_error(cmd, msg)
@@ -843,7 +855,8 @@ class MainWindow(QMainWindow):
             self.toast.move(par.width() - self.toast.width() - 24, par.height() - self.toast.height() - 24)
 
     def closeEvent(self, ev):
-        self.settings.setValue("ui/log_visible", "true" if self.log_dock.isVisible() else "false")
+        if self.technical:
+            self.settings.setValue("ui/log_visible", "true" if self.log_dock.isVisible() else "false")
         self.settings.setValue("ui/geometry", self.saveGeometry())
         self.module.stop_live()
         self.obd.stop_live()

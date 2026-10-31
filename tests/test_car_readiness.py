@@ -34,13 +34,13 @@ def test_no_echo_fails_fast_with_explanation():
     t = time.perf_counter()
     w._dispatch("connect", (0x01,))
     assert time.perf_counter() - t < 1.5
-    assert ev["error"] and ev["error"][0][0] == "connect" and "Sem eco" in ev["error"][0][1]
+    assert ev["error"] and ev["error"][0][0] == "connect" and "ignição" in ev["error"][0][1]
     assert ev["state"][-1][0] == "disconnected" and w.session is None
     ev["error"].clear()
     t = time.perf_counter()
     w._dispatch("autoscan", ([0x01, 0x02, 0x03, 0x17],))
     assert time.perf_counter() - t < 1.5
-    assert ev["error"][0][0] == "autoscan" and "Sem eco" in ev["error"][0][1]
+    assert ev["error"][0][0] == "autoscan" and "ignição" in ev["error"][0][1]
     assert ev["progress"] == []                 # não tentou endereço nenhum
     w._close_all()
 
@@ -61,9 +61,17 @@ def test_preflight_passes_with_echo():
 
 
 def test_no_echo_text_names_the_hex_microcontroller_case():
-    assert "microcontrolador" in no_echo_text("D2XX:RT000001")
-    assert "microcontrolador" in no_echo_text("FTDI:0403:FA24:RT000001")
-    assert "Sem eco" in no_echo_text("COM3") and "microcontrolador" not in no_echo_text("COM3")
+    assert "microcontrolador" in no_echo_text("D2XX:RT000001", technical=True)
+    assert "microcontrolador" in no_echo_text("FTDI:0403:FA24:RT000001", technical=True)
+    assert "Sem eco" in no_echo_text("COM3", technical=True)
+    assert "microcontrolador" not in no_echo_text("COM3", technical=True)
+
+
+def test_no_echo_text_for_the_customer_has_no_technical_words():
+    from rad.errors import client_text
+    for port in ("COM3", "D2XX:RT000001", "FTDI:0403:FA24:RT000001"):
+        text = no_echo_text(port, technical=False)
+        assert "ignição" in text and client_text(text, technical=False) == text
 
 
 class _SilentPort:

@@ -18,7 +18,7 @@ class ModuleSelectPage(QWidget):
         v = QVBoxLayout(self)
         v.setContentsMargins(30, 24, 30, 24)
         v.addWidget(page_header(tr("Seleccionar controlador"),
-                                tr("Escolha o módulo ou introduza o endereço em hexadecimal (como no VCDS)."),
+                                tr("Escolha o módulo na lista ou escreva o endereço (ex.: 01 motor, 17 painel)."),
                                 tr("Controladores")))
         row = QHBoxLayout()
         self.addr = QLineEdit()
@@ -100,7 +100,7 @@ class ModuleSelectPage(QWidget):
         try:
             a = int(self.addr.text().strip(), 16)
         except ValueError:
-            QMessageBox.warning(self, APP_NAME, tr("Endereço inválido. Use hexadecimal, ex.: 01, 17, 46."))
+            QMessageBox.warning(self, APP_NAME, tr("Endereço inválido. Exemplos: 01, 17, 46."))
             return
         if not 0 < a < 0x80:
             QMessageBox.warning(self, APP_NAME, tr("O endereço tem de estar entre 01 e 7F."))

@@ -1,0 +1,22 @@
+Driver dos cabos FTDI no instalador (opcional)
+==============================================
+
+Para que um cabo com chip FTDI seja reconhecido num PC da oficina SEM internet, o instalador pode levar o driver
+oficial da FTDI. O Windows guarda-o no seu armazém de drivers e usa-o quando um cabo novo for ligado. Os cabos que
+já funcionam nesse PC não são alterados (o instalador usa "pnputil /add-driver" sem "/install").
+
+Como preparar (uma vez, no PC de build):
+  1. Abra https://www.ftdichip.com/drivers/vcp
+  2. Na linha "Windows (Desktop)", descarregue o ZIP do driver certificado (WHQL) com os ficheiros .inf
+     (não o "setup executable").
+  3. Extraia o ZIP para installer\drivers\ftdi\ de modo a que exista installer\drivers\ftdi\ftdibus.inf
+  4. Corra o build_release.bat.
+
+Notas:
+  - A licença da FTDI permite distribuir o driver desde que não se altere a informação de licença e que seja
+    usado com chips FTDI.
+  - Os chips FTDI falsificados (comuns em cabos baratos) podem não funcionar com o driver oficial actual. Por isso
+    o instalador só o deixa disponível para cabos novos e não o força nos que já funcionam.
+  - Só é instalado quando o instalador corre como administrador (instalação "para todos os utilizadores").
+  - A pasta installer\drivers\ftdi\ não vai para o GitHub (.gitignore).
+  - Cabos CH340 e adaptadores OBD Bluetooth: o Windows 10/11 instala-os sozinho quando tem internet.

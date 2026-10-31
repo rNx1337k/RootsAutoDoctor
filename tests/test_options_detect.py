@@ -95,7 +95,18 @@ def test_detect_cable_does_not_freeze_the_window():
     assert returned_in < 0.3                      # o clique volta logo; antes ficava 0,8 s congelado
     assert busy and page.detect_btn.isEnabled() and page.detect_btn.text() == "Detectar cabo"
     assert len(calls) == 1 and len(shown) == 1
-    assert "Nenhum cabo de diagnóstico encontrado" in shown[0] and "J2534" in shown[0]
+    assert "Nenhum cabo de diagnóstico encontrado" in shown[0] and "J2534" not in shown[0]
+
+
+def test_detect_cable_shows_plain_language_to_the_customer():
+    """O cliente vê "cabo encontrado e pronto", não o chip, o VID/PID nem o Latency Timer."""
+    from rad.errors import is_technical
+    finding = {"level": "warn", "kind": "ready", "com": "COM5", "driver_url": None,
+               "title": "Cabo FT232R pronto em COM5 — Latency Timer 16 ms",
+               "detail": "Gestor de Dispositivos → Portas (COM e LPT) → COM5 → Latency Timer = 1."}
+    _r, _b, _page, shown = _run_detect(lambda: [finding])
+    assert "Cabo encontrado e pronto" in shown[0]
+    assert "Latency" not in shown[0] and "FT232R" not in shown[0] and not is_technical(shown[0])
 
 
 def test_detect_cable_error_is_shown():

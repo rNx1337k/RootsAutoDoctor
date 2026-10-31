@@ -43,6 +43,19 @@ def is_elm_sim_port(port):
     return port == SIM_ELM_PORT
 
 
+def port_label(port):
+    """Nome curto da porta escolhida, para mostrar ao cliente (sem caminhos de DLL, VID/PID ou nº de série)."""
+    if not port:
+        return ""
+    if is_simulated_port(port):
+        return tr("Simulador")
+    if port.upper().startswith("COM"):
+        return port
+    if port.startswith("J2534:"):
+        return tr("Interface de diagnóstico")
+    return tr("Cabo USB")
+
+
 def precise_sleep(seconds):
     """sleep com precisão de ~1 ms (time.sleep no Windows tem saltos de 15 ms)."""
     if seconds <= 0:
@@ -67,37 +80,58 @@ def _timer_resolution(enable):
         log.warning("timeBeginPeriod/timeEndPeriod falhou", exc_info=True)
 
 
-def list_serial_ports():
-    """Lista [(device, descrição)] das portas série + o simulador."""
+def _friendly_com(device, description, vid):
+    """Nome da porta COM para o cliente: sem chips, VID/PID nem nomes de drivers."""
+    d = (description or "").lower()
+    if "bluetooth" in d:
+        return tr("{device} — Bluetooth", device=device)
+    if vid is not None:
+        return tr("{device} — Cabo USB", device=device)
+    return tr("{device} — Porta série", device=device)
+
+
+def list_serial_ports(technical=None):
+    """Lista [(device, descrição)] das portas série + os simuladores. As descrições são para o cliente
+    (sem nomes de chips, drivers ou VID/PID); no modo técnico mostram o detalhe completo."""
+    from . import technician_mode
+    technical = technician_mode() if technical is None else technical
     ports = []
     try:
         from serial.tools import list_ports
         for p in sorted(list_ports.comports(), key=lambda x: x.device):
             desc = p.description or ""
-            extra = ""
-            if p.vid is not None:
-                extra = f" [VID {p.vid:04X} PID {p.pid:04X}]"
-            ports.append((p.device, f"{p.device} — {desc}{extra}"))
+            if technical:
+                extra = f" [VID {p.vid:04X} PID {p.pid:04X}]" if p.vid is not None else ""
+                ports.append((p.device, f"{p.device} — {desc}{extra}"))
+            else:
+                ports.append((p.device, _friendly_com(p.device, desc, p.vid)))
     except Exception:
         log.warning("Não foi possível listar as portas série", exc_info=True)
+    extra = []
     try:
         from .ftdi_direct import list_ports as ftdi_ports
-        ports.extend(ftdi_ports())
+        extra.extend(ftdi_ports())
     except Exception:
         log.warning("Não foi possível listar as interfaces USB directas (libusb)", exc_info=True)
     try:
         from .d2xx import list_ports as d2xx_ports
-        ports.extend(d2xx_ports())
+        extra.extend(d2xx_ports())
     except Exception:
         log.warning("Não foi possível listar as interfaces D2XX", exc_info=True)
+    if technical:
+        ports.extend(extra)
+    else:
+        ports.extend((dev, tr("Cabo de diagnóstico USB")) for dev, _desc in extra)
     try:
         from .j2534 import list_ports as j2534_ports
-        ports.extend(j2534_ports())
+        for dev, desc in j2534_ports():
+            ports.append((dev, desc if technical else desc.replace("J2534 — ", "", 1)))
     except Exception:
         log.warning("Não foi possível listar as interfaces J2534", exc_info=True)
-    ports.append((SIM_PORT, tr("Simulador (sem carro) — para testar o programa")))
-    ports.append((SIM_J2534_PORT, tr("Simulador J2534 (sem carro) — testa a ligação por PassThru")))
-    ports.append((SIM_ELM_PORT, tr("Simulador ELM327 / OBD-II (sem carro) — testa o diagnóstico multimarca")))
+    ports.append((SIM_PORT, tr("Simulador VAG — experimentar sem carro")))
+    if technical:
+        ports.append((SIM_J2534_PORT, tr("Simulador J2534 (sem carro) — testa a ligação por PassThru")))
+    ports.append((SIM_ELM_PORT, tr("Simulador OBD (todas as marcas) — experimentar sem carro")))
     return ports
 
 

@@ -105,7 +105,7 @@ def _d2xx_finding(d, name, chip, serial, caveat):
     base = {"com": None, "driver_url": None}
     dll = find_dll()
     if not dll:
-        return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
+        return {**base, "level": "warn", "kind": "needs_setup", "driver_url": "https://zadig.akeo.ie/",
                 "title": tr("{name} — driver RT-USB sem RT-USB.DLL", name=name),
                 "detail": (tr("O driver está instalado mas falta a biblioteca RT-USB.DLL. Reinstale o driver, ou "
                            "troque-o pelo WinUSB com o Zadig para usar o acesso USB directo. ") + caveat)}
@@ -113,7 +113,7 @@ def _d2xx_finding(d, name, chip, serial, caveat):
     try:
         find_python(bits)
     except Exception:
-        return {**base, "level": "warn", "driver_url": None,
+        return {**base, "level": "warn", "kind": "missing_component", "driver_url": None,
                 "title": tr("{name} — driver RT-USB OK, falta o componente de {bits} bits do programa",
                             name=name, bits=bits),
                 "detail": (tr("O {dll} é de {bits} bits e é carregado pelo componente de {bits} bits que vem com o "
@@ -121,7 +121,7 @@ def _d2xx_finding(d, name, chip, serial, caveat):
                               "programa (ou, no código-fonte, execute o run.bat) e carregue outra vez em Detectar "
                               "cabo. ",
                               dll=dll, bits=bits) + caveat)}
-    return {**base, "level": "ok", "com": PREFIX + (serial or ""),
+    return {**base, "level": "ok", "kind": "ready", "com": PREFIX + (serial or ""),
             "title": tr("{name} pronta pelo driver RT-USB ({chip}, S/N {v})", name=name, chip=chip, v=serial or '—'),
             "detail": (tr("Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da "
                        "ligação com o cabo no carro e a ignição ligada. ") + caveat)}
@@ -139,7 +139,7 @@ def _hex_usb_finding(d, vid, pid):
               "linha K. Faça-o com o cabo no carro e a ignição ligada."))
     base = {"com": None, "driver_url": None}
     if d["status"].upper() != "OK" or not service:
-        return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
+        return {**base, "level": "warn", "kind": "needs_setup", "driver_url": "https://zadig.akeo.ie/",
                 "title": tr("{name} — chip {chip}, VID {vid} PID {pid}, sem driver",
                             name=name, chip=chip, vid=vid, pid=pid),
                 "detail": (tr("Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB "
@@ -150,17 +150,17 @@ def _hex_usb_finding(d, vid, pid):
     if service == "rt-usb":
         return _d2xx_finding(d, name, chip, serial, caveat)
     if service not in WINUSB_SERVICES:
-        return {**base, "level": "warn", "driver_url": "https://zadig.akeo.ie/",
+        return {**base, "level": "warn", "kind": "needs_setup", "driver_url": "https://zadig.akeo.ie/",
                 "title": tr("{name} — usa o driver '{v}'", name=name, v=d.get('service')),
                 "detail": (tr("Este driver é o do programa do fabricante e o Roots Auto Doctor não o usa. Para "
                            "acesso USB directo substitua-o pelo WinUSB com o Zadig (pode voltar ao driver "
                            "anterior no Gestor de Dispositivos → Controlador → Reverter). ") + caveat)}
     if not _pyftdi_available():
-        return {**base, "level": "warn",
+        return {**base, "level": "warn", "kind": "missing_component",
                 "title": tr("{name} — driver WinUSB OK, falta o pyftdi", name=name),
                 "detail": tr("Instale as dependências: .venv\\Scripts\\python.exe -m pip install -r requirements.txt")}
     port = make_port(int(vid, 16), int(pid, 16), serial)
-    return {**base, "level": "ok", "com": port,
+    return {**base, "level": "ok", "kind": "ready", "com": port,
             "title": tr("{name} pronta por USB directo ({chip}, S/N {v})", name=name, chip=chip, v=serial or '—'),
             "detail": (tr("Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada para confirmar "
                        "que chega à linha K. ") + caveat)}
@@ -239,7 +239,7 @@ def classify(devices, latency=None):
             else:
                 kind, who = "com firmware próprio", "do fabricante"
             findings.append({
-                "level": "bad", "com": None, "driver_url": None,
+                "level": "bad", "kind": "unsupported", "name": d["name"], "com": None, "driver_url": None,
                 "title": tr("Interface {kind} ({v})", kind=kind, v=d['name'] or 'sem nome'),
                 "detail": (tr("Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, e só "
                               "fala com o programa desse fabricante. Não funciona como cabo KKL e não pode ser usada "
@@ -252,7 +252,7 @@ def classify(devices, latency=None):
             lat = latency.get(com)
             if vendor == "FTDI" and lat is not None and lat > 1:
                 findings.append({
-                    "level": "warn", "com": com, "driver_url": None,
+                    "level": "warn", "kind": "ready", "com": com, "driver_url": None,
                     "title": tr("Cabo {chip} pronto em {com} — Latency Timer {lat} ms", chip=chip, com=com, lat=lat),
                     "detail": (tr("Funciona, mas a leitura será lenta. Gestor de Dispositivos → Portas (COM e LPT) → "
                                   "{com} → Propriedades → Definições da porta → Avançadas → Latency Timer = 1.",
@@ -260,16 +260,16 @@ def classify(devices, latency=None):
                 })
             else:
                 findings.append({
-                    "level": "ok", "com": com, "driver_url": None,
+                    "level": "ok", "kind": "ready", "com": com, "driver_url": None,
                     "title": tr("Cabo {chip} pronto em {com}", chip=chip, com=com),
-                    "detail": tr("Escolha {com} na porta do cabo e carregue em Testar interface com a ignição ligada.",
+                    "detail": tr("Escolha {com} na porta do cabo e carregue em Testar ligação com a ignição ligada.",
                                  com=com),
                 })
         elif (vid, pid) in with_com:
             continue                     # entrada USB do mesmo cabo que já tem porta COM
         elif vendor == "FTDI" and status_ok and d["cls"].upper() == "USB":
             findings.append({
-                "level": "warn", "com": None, "driver_url": DRIVERS["FTDI"],
+                "level": "warn", "kind": "needs_driver", "com": None, "driver_url": DRIVERS["FTDI"],
                 "title": tr("Cabo FTDI sem porta COM"),
                 "detail": (tr("O driver está instalado mas a porta COM está desligada. Gestor de Dispositivos → "
                            "Controladores USB → USB Serial Converter → Propriedades → Avançadas → marque "
@@ -278,17 +278,50 @@ def classify(devices, latency=None):
             })
         elif not status_ok:
             findings.append({
-                "level": "warn", "com": None, "driver_url": DRIVERS.get(vendor),
+                "level": "warn", "kind": "needs_driver", "com": None, "driver_url": DRIVERS.get(vendor),
                 "title": tr("Cabo {chip} sem driver", chip=chip),
                 "detail": tr("Instale o driver oficial ({vendor}) e volte a ligar o cabo.", vendor=vendor),
             })
     return findings
 
 
+def plain(finding):
+    """A mesma conclusão em linguagem de oficina, para o cliente: sem chips, drivers, VID/PID nem passos no
+    Gestor de Dispositivos. O detalhe técnico continua no registo e no pacote de suporte."""
+    kind = finding.get("kind")
+    if kind == "ready":
+        title = tr("Cabo encontrado e pronto")
+        detail = tr("Com o cabo no carro e a ignição ligada, carregue em Testar ligação.")
+        level = "ok"
+    elif kind == "needs_driver":
+        title = tr("Cabo encontrado, mas o Windows ainda não o preparou")
+        detail = tr("Ligue o PC à internet com o cabo ligado e aguarde um minuto (o Windows prepara-o sozinho), "
+                    "ou volte a instalar o Roots Auto Doctor. Depois carregue outra vez em Detectar cabo.")
+        level = "warn"
+    elif kind == "missing_component":
+        title = tr("Cabo encontrado, mas falta uma parte do programa")
+        detail = tr("Volte a instalar o Roots Auto Doctor e carregue outra vez em Detectar cabo.")
+        level = "warn"
+    elif kind == "unsupported":
+        title = tr("Equipamento não compatível: {name}", name=finding.get("name") or tr("sem nome"))
+        detail = tr("Este equipamento só funciona com o programa do seu fabricante. Use um cabo VAG compatível "
+                    "ou um adaptador OBD.")
+        level = "bad"
+    else:                                   # needs_setup e casos não previstos
+        title = tr("Cabo encontrado, mas precisa de ser preparado")
+        detail = tr("Este cabo precisa de uma preparação única. Crie um Pacote de suporte (em Opções) e envie-o "
+                    "ao suporte.")
+        level = "warn"
+    return {**finding, "title": title, "detail": detail, "level": level, "driver_url": None}
+
+
 def detect():
     if sys.platform != "win32":
         return []
-    return classify(list_usb_devices(), ftdi_latency())
+    found = classify(list_usb_devices(), ftdi_latency())
+    for f in found:
+        log.info("Cabo: [%s] %s — %s", f["level"], f["title"], f["detail"])
+    return found
 
 
 def j2534_devices():

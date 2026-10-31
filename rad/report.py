@@ -3,7 +3,7 @@ import base64
 import datetime
 import html
 
-from . import APP_NAME, VERSION, fault_advice, journal
+from . import APP_NAME, VERSION, fault_advice, journal, technician_mode
 from .i18n import language, tr
 
 BLUE = "#2F6FE4"
@@ -47,12 +47,20 @@ def verdict_lines(items, meta=None):
     if partial:
         scanned, total = meta.get("scanned"), meta.get("total")
         if scanned is not None and total:
-            out.append(tr("O Auto-Scan foi interrompido ({scanned} de {total} endereços verificados): o resultado "
-                          "é parcial.", scanned=scanned, total=total))
+            out.append(tr("O Auto-Scan foi interrompido ({scanned} de {total} controladores verificados): o "
+                          "resultado é parcial.", scanned=scanned, total=total))
         else:
             out.append(tr("O Auto-Scan foi interrompido: o resultado é parcial."))
     color = OK if not (n_faults or n_err or partial) else WARN
     return color, out
+
+
+def _no_comm(item):
+    """Linha de um controlador que não comunicou. O cliente vê só que não houve comunicação; a causa técnica
+    (interface, protocolo) aparece apenas no modo técnico."""
+    if technician_mode():
+        return tr("Sem comunicação: {error}", error=item.get("error", ""))
+    return tr("Sem comunicação com este controlador.")
 
 
 def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64), meta=None,
@@ -97,7 +105,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
         addr = f"{it['address']:02X}"
         if it.get("status") != "ok":
             rows.append(f"<tr><td class='addr'>{addr}</td><td><b>{_e(it['module'])}</b><br>"
-                        f"<span class='muted'>{_e(tr('Sem comunicação: {error}', error=it.get('error', '')))}"
+                        f"<span class='muted'>{_e(_no_comm(it))}"
                         f"</span></td><td style='color:{RED}'><b>{_e(tr('Erro'))}</b></td></tr>")
             continue
         info = it["info"]
@@ -151,7 +159,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
     read_line = tr("{n} controlador(es) lido(s)", n=len(ok_items))
     if n_err:
         read_line += " · " + tr("{n} sem comunicação", n=n_err)
-    if interface:
+    if interface and technician_mode():          # a porta/interface só interessa ao técnico, não ao cliente
         read_line += " · " + tr("Interface: {interface}", interface=interface)
     T = {"Relatório de diagnóstico": _e(tr("Relatório de diagnóstico")), "Veículo": _e(tr("Veículo")),
          "Resumo": _e(tr("Resumo")), "Controladores": _e(tr("Controladores")),

@@ -99,7 +99,7 @@ class HistoryPage(QWidget):
                 if c == 7:
                     it.setForeground(QBrush(QColor(WARN if origin == 1 else MUTED)))
                     if origin is None:
-                        it.setToolTip(tr("Sessão gravada por uma versão anterior, que não registava a interface: "
+                        it.setToolTip(tr("Sessão gravada por uma versão anterior, que não registava o equipamento: "
                                          "não se sabe se veio do simulador ou do carro."))
                 self.table.setItem(r, c, it)
 

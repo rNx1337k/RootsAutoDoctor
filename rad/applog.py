@@ -86,7 +86,7 @@ def make_support_bundle(dest):
     info = [f"{APP_NAME} v{VERSION}", f"Python {sys.version}", f"Sistema: {platform.platform()}",
             f"Data: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}", "", "Portas:"]
     try:
-        info += [f"  {dev}  —  {desc}" for dev, desc in list_serial_ports()]
+        info += [f"  {dev}  —  {desc}" for dev, desc in list_serial_ports(technical=True)]
     except Exception as e:
         info.append(f"  erro: {e}")
     try:

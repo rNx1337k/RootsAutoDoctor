@@ -7,10 +7,13 @@ __pycache__/
 # Python portátil das pontes D2XX/J2534 (tools/get_runtime.py)
 runtime/
 
-# Executável gerado pelo build_exe.bat
+# Programa compilado, instalador e versão portátil (build_release.bat)
 build/
 dist/
 *.spec
+
+# Driver FTDI para o instalador (descarregado à parte: installer/drivers/LEIA-ME.txt)
+installer/drivers/ftdi/
 
 # Ficheiros de trabalho
 *.patch

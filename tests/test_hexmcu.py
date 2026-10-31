@@ -15,6 +15,20 @@ from rad.kline import KLine                                 # noqa: E402
 from rad.simulator import SimSerial                         # noqa: E402
 
 
+class _Technical:
+    """Modo técnico (--tecnico) durante o bloco: os passos e as mensagens mostram o detalhe do cabo HEX."""
+
+    def __enter__(self):
+        self.old = os.environ.get("RAD_TECNICO")
+        os.environ["RAD_TECNICO"] = "1"
+
+    def __exit__(self, *exc):
+        if self.old is None:
+            os.environ.pop("RAD_TECNICO", None)
+        else:
+            os.environ["RAD_TECNICO"] = self.old
+
+
 class FakeHexSerial:
     def __init__(self, mode=hexmcu.MODE_SMART, mcu_baud=9600, answers=True):
         self.sim = SimSerial()
@@ -174,10 +188,11 @@ def test_link_check_separates_adapter_and_ecu_steps():
     """Modo inteligente, sem mudança automática: o diagnóstico distingue adaptador, linha K e modo, e pára
     antes de tentar a centralina."""
     w, ev = _hex_worker(FakeHexSerial())
-    w._dispatch("link_check", (0x01,))
+    with _Technical():
+        w._dispatch("link_check", (0x01,))
     steps = ev["result"][-1][1]
     names = [s[0] for s in steps]
-    assert names == ["Abrir a interface", "Adaptador (microcontrolador do cabo HEX)", "Linha K vista pelo cabo",
+    assert names == ["Abrir o cabo", "Adaptador (microcontrolador do cabo HEX)", "Linha K vista pelo cabo",
                      "Modo do cabo", "Eco da linha K"], names
     assert [s[1] for s in steps] == [True, True, True, False, False]
     assert "K1=1, K2=1" in steps[2][2] and "ainda não está implementado" in steps[3][2]
@@ -185,9 +200,21 @@ def test_link_check_separates_adapter_and_ecu_steps():
 
 def test_smart_mode_autoscan_explains_limit():
     w, ev = _hex_worker(FakeHexSerial())
-    w._dispatch("autoscan", ([0x01],))
+    with _Technical():
+        w._dispatch("autoscan", ([0x01],))
     assert ev["error"] and "ainda não está implementado" in ev["error"][0][1]
     assert ev["progress"] == []
+
+
+def test_link_check_for_the_customer_hides_the_cable_internals():
+    """Sem modo técnico: só os passos que o cliente entende, sem microcontrolador nem linha K."""
+    from rad.errors import is_technical
+    w, ev = _hex_worker(FakeHexSerial())
+    w._dispatch("link_check", (0x01,))
+    steps = ev["result"][-1][1]
+    assert [s[0] for s in steps] == ["Abrir o cabo", "Cabo ligado ao carro"], steps
+    assert [s[1] for s in steps] == [True, False]
+    assert not any(is_technical(s[2]) for s in steps), steps
 
 
 def test_autoscan_reads_ecus_through_kkl_mode_cable():
@@ -200,7 +227,8 @@ def test_autoscan_reads_ecus_through_kkl_mode_cable():
 
 def test_hex_cable_without_mcu_answer_is_explained():
     w, ev = _hex_worker(FakeHexSerial(answers=False))
-    w._dispatch("autoscan", ([0x01],))
+    with _Technical():
+        w._dispatch("autoscan", ([0x01],))
     assert ev["error"] and "microcontrolador do cabo não respondeu" in ev["error"][0][1]
     assert ev["progress"] == []
 

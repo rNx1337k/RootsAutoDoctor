@@ -44,13 +44,15 @@ class ECUSession:
         try:
             kb1, kb2 = link.five_baud_init(address)
         except KLineError as e:
-            raise NoResponse(tr("O controlador {address:02X} não responde pela interface J2534 ({e})",
-                                address=address, e=e)) from e
+            self.log(f"J2534: init 5 baud a {address:02X} falhou: {e}")
+            raise NoResponse(tr("O controlador {address:02X} não responde (verifique ignição, cabo e endereço)",
+                                address=address)) from e
         kw = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         self.log(f"Sync OK — KB1={kb1:02X} KB2={kb2:02X} (keyword {kw})")
         if kw == 1281:
-            raise ConnectError(tr("Este controlador usa KW1281, que não pode ser usado por interfaces J2534 "
-                               "(a norma não permite confirmar cada byte a tempo). Use um cabo KKL."))
+            self.log("KW1281 não pode ser usado por interfaces J2534 (não confirma cada byte a tempo)")
+            raise ConnectError(tr("Este controlador só comunica com o cabo VAG: ligue-o com o cabo VAG em vez desta "
+                                  "interface."))
         if not 2000 <= kw <= 2047:
             raise ConnectError(tr("Protocolo desconhecido (keyword {kw})", kw=kw))
         self.proto = KWP2000J2534(link, address, self.log)
@@ -208,8 +210,8 @@ class ECUSession:
     def login(self, code, wsc):
         self._call("login", code, wsc)
         return {"status": "sent",
-                "message": tr("Login enviado e recebido pelo controlador. O protocolo KW1281 não indica se o código "
-                           "está correcto: confirme na função que precisa do login.")}
+                "message": tr("Login enviado e recebido pelo controlador. O controlador não indica se o código "
+                              "está correcto: confirme na função que precisa do login.")}
 
     def recode(self, coding, wsc):
         """Devolve {"info", "status", "message"}. A codificação só é dada como aceite quando a

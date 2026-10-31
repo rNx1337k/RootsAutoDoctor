@@ -64,17 +64,17 @@ def latest(opener=None):
         tags = _get_json(API + "/tags?per_page=100", opener)
         versions = [t.get("name", "") for t in tags if parse_version(t.get("name", ""))]
         if not versions:
-            raise UpdateError(tr("O repositório não tem nenhuma versão publicada."))
+            raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
         best = max(versions, key=parse_version)
         return {"version": best.lstrip("v"), "url": f"{RELEASES_PAGE}/tag/{best}", "download": None, "notes": ""}
     except UpdateError:
         raise
     except urllib.error.HTTPError as e:
-        raise UpdateError(tr("O GitHub respondeu com o erro {code}.", code=e.code)) from e
+        raise UpdateError(tr("O servidor de actualizações respondeu com o erro {code}.", code=e.code)) from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise UpdateError(tr("Sem ligação à internet ou o GitHub não respondeu.")) from e
+        raise UpdateError(tr("Sem ligação à internet ou o servidor de actualizações não respondeu.")) from e
     except (ValueError, AttributeError, TypeError) as e:
-        raise UpdateError(tr("Resposta inesperada do GitHub.")) from e
+        raise UpdateError(tr("Resposta inesperada do servidor de actualizações.")) from e
 
 
 def check(current=VERSION, opener=None):

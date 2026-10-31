@@ -37,7 +37,7 @@ def test_unreachable_modules_and_abort_are_stated():
     html = report.build_html({}, {}, items, meta={"aborted": True, "scanned": 5, "total": 20})
     assert "Nenhuma avaria registada nos 1 controlador(es) lido(s)" in html
     assert "1 controlador(es) não comunicaram" in html
-    assert "interrompido (5 de 20 endereços verificados)" in html
+    assert "interrompido (5 de 20 controladores verificados)" in html
     assert "leitura parcial" in html
     color, _lines = report.verdict_lines(items, {"aborted": True})
     assert color != report.OK
@@ -52,7 +52,7 @@ def test_simulated_data_is_marked_in_report():
     html = report.build_html({}, {"plate": "AA"}, [_ok(1, [532], simulated=True)])
     assert "DADOS SIMULADOS" in html
     real = report.build_html({}, {"plate": "AA"}, [_ok(1, [532], simulated=False)])
-    assert "DADOS SIMULADOS" not in real and "Interface: COM3" in real
+    assert "DADOS SIMULADOS" not in real and "COM3" not in real
 
 
 def test_report_uses_session_date_and_marks_suggestions():
