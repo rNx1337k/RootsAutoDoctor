@@ -24,8 +24,8 @@ jobs:
       RAD_NO_UPDATE_CHECK: "1"
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - name: Ambiente do build
@@ -51,7 +51,7 @@ jobs:
         shell: cmd
         run: build_release.bat
       - name: Guardar os ficheiros do build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: RootsAutoDoctor_${{ steps.version.outputs.version }}
           path: |

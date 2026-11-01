@@ -3,6 +3,17 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.14.1] — 2026-11-01
+### Fixed
+- **CI no longer fails with every test passing**: `tests/run_all.py` closes the windows and destroys the
+  `QApplication` in order before exiting. Before, Python and Windows tore the Qt objects down in any order and the
+  process sometimes crashed after the summary (exit code 1 on GitHub, 127/139 on Windows). A `sys.exit()` inside a
+  test now counts as a failure instead of stopping the run.
+
+### Changed
+- GitHub Actions updated to Node 24 versions: `actions/checkout@v5`, `actions/setup-python@v6`,
+  `actions/upload-artifact@v6`.
+
 ## [1.14.0] — 2026-11-01
 ### Added
 - **Recordings viewer** (Measuring → **View recordings**, or "Recordings" in the command palette): opens a CSV saved

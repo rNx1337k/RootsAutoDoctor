@@ -32,7 +32,7 @@ def main(pattern=""):
                 continue
             try:
                 fn()
-            except Exception:
+            except (Exception, SystemExit):         # um sys.exit() num teste não pode parar os outros
                 failed.append((f"{name}.{fn_name}", traceback.format_exc()))
                 print(f"FALHOU {name}.{fn_name}")
             else:
@@ -44,5 +44,31 @@ def main(pattern=""):
     return 1 if failed else 0
 
 
+def close_qt():
+    """Fecha as janelas e destrói a QApplication por ordem, antes de o Python sair.
+
+    Sem isto, o Python e o Windows desmontavam os objectos Qt que os testes deixaram (janelas, a QApplication) por
+    uma ordem qualquer e o processo às vezes ia abaixo depois do resumo (código 1 no GitHub, 127/139 no Windows):
+    o CI ficava vermelho com todos os testes a passar."""
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    import gc
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        return
+    for w in app.topLevelWidgets():
+        w.close()
+        w.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    app.processEvents()
+    gc.collect()
+    shiboken6.delete(app)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else ""))
+    code = main(sys.argv[1] if len(sys.argv) > 1 else "")
+    close_qt()
+    sys.exit(code)
