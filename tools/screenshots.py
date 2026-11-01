@@ -2,7 +2,10 @@
 
 Abre a janela principal num perfil temporário (não mexe no histórico nem nas definições do utilizador), percorre
 Início → Auto-Scan → controlador do motor (avarias e valores de medição) → OBD e grava cada ecrã.
-Uso (no PC, a partir da pasta do projecto):  .venv\\Scripts\\python.exe tools\\screenshots.py [--en]"""
+Uso (no PC, a partir da pasta do projecto):  .venv\\Scripts\\python.exe tools\\screenshots.py [--en] [--review]
+
+--review: grava em build\\ui_review\\ (fora do repositório) também as outras páginas e janelas — controladores,
+Opções, Histórico, relatório, validação — para rever o aspecto de todo o programa."""
 import os
 import sys
 import tempfile
@@ -40,6 +43,8 @@ def _settle(app, seconds=0.8):
 
 def main():
     english = "--en" in sys.argv
+    review = "--review" in sys.argv
+    out = os.path.join(ROOT, "build", "ui_review") if review else OUT
     from rad import history, i18n, vag_data
     if english:
         i18n.set_language("en")
@@ -51,14 +56,14 @@ def main():
     from rad.ui.main_window import MainWindow
     from rad.ui.widgets import asset_path
     app.setWindowIcon(QIcon(asset_path("icon.ico")))
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(out, exist_ok=True)
     suffix = "_en" if english else ""
 
     def shot(widget, name):
         _settle(app)
         w.toast.hide()                     # os avisos temporários não entram na captura
         app.processEvents()
-        path = os.path.join(OUT, f"{name}{suffix}.png")
+        path = os.path.join(out, f"{name}{suffix}.png")
         widget.grab().save(path, "PNG")
         print("gravado", path)
 
@@ -100,6 +105,11 @@ def main():
     _wait(app, lambda: len(w.module.groups[0].cells[0].hist) > 8, 20)
     shot(w, "04_live_data")
     w.module.stop_live()
+    if review:
+        for i, name in ((0, "10_module_info"), (4, "11_module_adaptation"), (5, "12_module_coding"),
+                        (8, "13_module_guided_tests")):
+            w.module.tabs.setCurrentIndex(i)
+            shot(w, name)
     w.worker.submit("disconnect")
     _wait(app, lambda: not w.nav_btns["module"].isEnabled())
 
@@ -107,8 +117,50 @@ def main():
     w.obd._connect()
     if _wait(app, lambda: w.obd.connected and w.obd.dtcs is not None, 30):
         shot(w, "05_obd")
+    if review:
+        _review_pages(app, w, shot)
     w.close()
     app.processEvents()
+
+
+def _review_pages(app, w, shot):
+    """Páginas e janelas que não entram no README, para rever o aspecto (só com --review)."""
+    from PySide6.QtGui import QImage
+    from rad import vag_data
+    from rad.ui.pages.report_dialog import ReportDialog, build_function
+    from rad.ui.widgets import asset_path
+    logo = QImage(asset_path("logo.png"))
+    from rad.ui.pages.validation import ValidationDialog
+    w.show_page("modules")
+    shot(w, "20_modules")
+    w.show_page("options")
+    shot(w, "21_options")
+    w.show_page("history")
+    w.hist.refresh()
+    shot(w, "22_history")
+    w.hist.tabs.setCurrentIndex(1)
+    shot(w, "23_history_vehicles")
+    items = w.scan.items or [{"address": 0x01, "module": "Motor", "status": "ok", "info": {"part": "x"},
+                              "faults": [vag_data.decode_fault(1247, 0x1E)]}]
+    for variant, name in (("client", "24_report_client"), ("technical", "25_report_technical")):
+        dlg = ReportDialog(build_function({"name": "Oficina Demo"}, items, dict(w.scan.meta or {}), None),
+                           w.home.vehicle(), "", logo, w)
+        if variant == "technical":
+            dlg.tech_rb.setChecked(True)
+        dlg.resize(1280, 820)
+        dlg.show()
+        dlg.refresh()
+        shot(dlg, name)
+        dlg.reject()
+    w.options.select_simulator()
+    w.apply_config(w.options.config(), quiet=True)
+    dlg = ValidationDialog(w.worker, w.home.vehicle(), w)
+    dlg.resize(960, 640)
+    dlg.show()
+    dlg.start()
+    _wait(app, lambda: not dlg.running, 60)
+    shot(dlg, "26_validation")
+    dlg.reject()
 
 
 if __name__ == "__main__":

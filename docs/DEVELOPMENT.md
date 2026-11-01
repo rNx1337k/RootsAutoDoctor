@@ -40,12 +40,14 @@ For FTDI cables, a latency timer of 1 ms (Device Manager) makes live data much f
 | Measuring blocks | ✓ | ✓ |
 | Adaptation and coding (the value is read back from the ECU before it is reported as saved) | ✓ | ✓ (K-line and J2534) |
 | Login — KW1281: login block (the ECU does not report whether the code is correct); KWP2000: security access 27 03/04 (key = seed + code) | ✓ | ✓ |
-| Basic settings and output tests | ✓ | Planned |
+| Basic settings and output tests | ✓ | ✓ |
 
 KWP2000 writing follows the EDC16 captures published by [kw1281test](https://github.com/gmenounos/kw1281test)
 (MIT): coding is `3B 9A` with the workshop code and software version the ECU itself returned in `1A 9B`; adaptation
-uses the `31 B8`…`BB` / `32 B8` routines with the fixed `01 03` selector. It is offered only when the `1A 9B` record
-has that known layout, and it is not offered over CAN yet.
+uses the `31 B8`…`BB` / `32 B8` routines with the fixed `01 03` selector; basic settings use `31 B8/BA 00 <group>`
+and output tests `31 B8/B9/BA 01 02`. The open routine is always closed (`32 B8 …`) before any other request. Writing
+is offered only when the `1A 9B` record has that known layout — on the K-line, through J2534 and over CAN (TP2.0)
+alike.
 
 The full matrix, with the evidence for each stage (detection, initialisation, ECU communication, interpretation),
 is in [COVERAGE.md](COVERAGE.md). **No interface has yet been confirmed on a vehicle with this app**: K-line fault
@@ -164,8 +166,32 @@ shows "Updated to version …". A file that fails the check is deleted and never
 source runs only show a notice. The installer installs for the current user by default, so updates need no
 administrator prompt; for an all-users install Windows asks once per update.
 
-**SmartScreen:** without a code-signing certificate, Windows shows "Windows protected your PC" the first time the
-installer or the program is opened (More info → Run anyway). Signing the installer and the `.exe` removes this.
+**Code signing (SmartScreen):** without a code-signing certificate, Windows shows "Windows protected your PC" the
+first time the installer or the program is opened (More info → Run anyway). `build_release.bat` signs the program and
+the installer with Authenticode when a certificate is configured, and skips it with a warning otherwise:
+
+| Variable | Meaning |
+|---|---|
+| `RAD_CODESIGN_PFX` + `RAD_CODESIGN_PASSWORD` | Certificate in a `.pfx` file (keep it outside the repository) |
+| `RAD_CODESIGN_THUMBPRINT` | Or a certificate installed in Windows / on a USB token (EV), by thumbprint |
+| `RAD_CODESIGN_TIMESTAMP` | Timestamp server (default `http://timestamp.digicert.com`) |
+| `RAD_SIGNTOOL` | Path to `signtool.exe` if it is not found in the Windows SDK |
+
+The update signature (`.sig`) is created after the Authenticode signature, so it covers the final file.
+
+### Publishing a release
+
+1. Bump `rad/__init__.py` → `VERSION`, update `CHANGELOG.md`, commit, then `git tag v<version>` and
+   `git push origin main v<version>`.
+2. GitHub Actions (`.github/workflows/release.yml`) runs the tests, compiles the program on a clean Windows runner,
+   runs its self-test and creates a **draft** Release with the installer and the portable zip. It fails if the tag
+   does not match `VERSION`.
+3. On the publisher's PC (which holds the update key and the certificate), run
+   `tools\publicar_release.bat <version>`: it downloads the installer from the draft, signs it (Authenticode, if
+   configured), creates the `.sig`, uploads both and publishes the Release. Installed copies then update
+   themselves. Requires the GitHub CLI (`winget install GitHub.cli`, then `gh auth login`).
+
+`build_release.bat` still builds everything locally, as before.
 
 Self-test of an installed copy (no car needed):
 

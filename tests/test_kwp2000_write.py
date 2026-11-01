@@ -46,7 +46,7 @@ def test_identification_with_coding_and_workshop_code():
     s, info = _abs()
     assert info["protocol"] == "KWP2000" and info["part"] == "1C0907379K"
     assert info["component"] == "ABS/ESP 20 IE CAN" and info["coding"] == 18719 and info["wsc"] == 12345
-    assert info["coding_digits"] == 7 and set(info["features"]) == {"adaptation", "coding", "login"}
+    assert info["coding_digits"] == 7 and set(info["features"]) == {"basic", "adaptation", "coding", "login", "outputs"}
     s.disconnect()
 
 
@@ -117,12 +117,25 @@ def test_unknown_identification_layout_disables_writing():
     s.disconnect()
 
 
-def test_vag_over_can_still_refuses_writing():
-    from rad.vagcan.kwp import VagCanKWP
-    assert VagCanKWP.features == ()
-    p = VagCanKWP.__new__(VagCanKWP)
-    _raises(NotSupported, p.recode, 1, 0)
-    _raises(NotSupported, p.adaptation_save, 1, 1, 0)
+def test_vag_over_can_writes_with_the_same_safeguards():
+    from rad.vagcan import SIM_PORT as CAN_SIM
+    from rad.vagcan.link import VagCanLink
+    from rad.vagcan.simbus import PROFILES
+    link = VagCanLink(CAN_SIM)
+    link.open()
+    s = ECUSession(link)
+    info = s.connect(0x01)
+    assert info["protocol"] == "KWP2000 (CAN TP2.0)" and info["coding"] == 72 and "coding" in info["features"]
+    _raises(RequestRejected, s.adaptation_read, 4)                   # sem acesso de segurança
+    assert s.login(PROFILES[0x01]["security_code"], 0)["status"] == "ok"
+    assert s.adaptation_save(4, 3, 0)["value"] == 3
+    r = s.recode(73, 0)
+    assert r["status"] == "ok" and r["info"]["coding"] == 73
+    assert s.basic_setting(1)["fields"]
+    assert s.output_test()["code"] == PROFILES[0x01]["outputs"][0]
+    s.keep_alive()
+    s.disconnect()
+    link.close()
 
 
 def test_worker_logs_kwp2000_coding_in_the_change_journal():
@@ -138,3 +151,50 @@ def test_worker_logs_kwp2000_coding_in_the_change_journal():
     changes = journal.list_changes(0x03, "1C0907379K")
     assert any(c["kind"] == "coding" and c["after"] == 18721 and c["before"] == 18719 for c in changes)
     w._dispatch("disconnect", ())
+
+
+def _spy(s):
+    sent = []
+    orig = s.proto.request
+
+    def spy(payload, timeout=1.0):
+        sent.append(list(payload))
+        return orig(payload, timeout)
+    s.proto.request = spy
+    return sent
+
+
+def test_basic_setting_enters_once_polls_and_leaves_the_routine():
+    s, _ = _abs()
+    sent = _spy(s)
+    assert s.basic_setting(1)["group"] == 1 and s.basic_setting(1)["fields"]
+    assert sent[:3] == [[0x31, 0xB8, 0x00, 0x00], [0x31, 0xB8, 0x00, 0x01], [0x31, 0xBA, 0x00, 0x01]]
+    assert sent[3] == [0x31, 0xBA, 0x00, 0x01]                       # a segunda leitura não volta a entrar
+    r = s.basic_setting(1)
+    assert len(r["raw"]) == 12                                        # o campo vazio do fim (0x25) foi tirado
+    s.basic_setting(2)
+    assert [0x32, 0xB8, 0x00, 0x01] in sent                           # mudar de grupo sai do anterior
+    s.read_faults()
+    assert sent[-2] == [0x32, 0xB8, 0x00, 0x02] and sent[-1][0] == 0x18   # outra função sai primeiro
+    e = _raises(RequestRejected, s.basic_setting, 7)
+    assert "007" in str(e)
+    s.disconnect()
+
+
+def test_output_test_steps_through_every_output_and_closes_at_the_end():
+    s, _ = _abs()
+    sent = _spy(s)
+    codes = []
+    while True:
+        r = s.output_test()
+        if r is None:
+            break
+        codes.append(r["code"])
+    assert codes == simulator.ABS["outputs"]
+    assert sent[-1] == [0x32, 0xB8, 0x01, 0x02]                       # fim da lista: rotina fechada
+    assert sent.count([0x31, 0xB9, 0x01, 0x02]) == 2 * len(codes)    # activar + passar à seguinte
+    s.output_test()                                                   # recomeça do início
+    s.keep_alive()                                                    # durante o teste: lê a saída (31 BA)
+    assert sent[-1] == [0x31, 0xBA, 0x01, 0x02]
+    s.disconnect()
+    assert [0x32, 0xB8, 0x01, 0x02] in sent[-3:]

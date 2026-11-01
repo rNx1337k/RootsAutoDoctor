@@ -13,6 +13,10 @@ de capturas reais de uma EDC16 pelo projecto kw1281test (licença MIT, github.co
   adaptação     31 B8 00 00 e 31 B8 01 03 (entrar), 31 B9 01 03 <canal> (escolher), 31 B9 01 03 <valor:2> (testar),
                 31 BA 01 03 → 71 BA 01 03 estado 03 <valor:2> ... (ler), 31 BB 01 03 <valor:2> <oficina:6>
                 (gravar), 32 B8 01 03 (sair)
+  ajuste básico 31 B8 00 <grupo> (entrar), 31 BA 00 <grupo> → 71 BA 00 <grupo> estado <campos de 3 bytes> (ler),
+                32 B8 00 <grupo> (sair)
+  saídas        31 B8 01 02 (entrar), 31 BA 01 02 → 71 BA 01 02 03 03 <componente:2> (saída actual),
+                31 B9 01 02 (activar a actual / passar à seguinte), 32 B8 01 02 (sair)
 Validado por nós só no simulador: cada escrita é confirmada lendo outra vez o valor; sem essa confirmação o resultado
 é "desconhecido", nunca "gravado".
 """
@@ -27,6 +31,9 @@ from ..i18n import tr
 log = logging.getLogger(__name__)
 
 ADAPT_SUB = [0x01, 0x03]           # sub-selector fixo das rotinas de adaptação
+OUTPUT_SUB = [0x01, 0x02]          # ... do teste de saídas
+OUTPUT_END = 0x04AB                # a EDC16 devolve este componente depois da última saída (fim da lista)
+PAD_FORMULA = 0x25                 # campo vazio no fim de um bloco
 CODING_MAX = 0xFFFFFF              # 3 bytes (o VCDS mostra 7 algarismos)
 
 
@@ -76,8 +83,11 @@ class NegativeResponse(RequestRejected):
 class KWP2000:
     name = "KWP2000"
     keep_alive_interval = 2.0
-    features = ("adaptation", "coding", "login")      # o que a página do controlador pode oferecer
+    features = ("basic", "adaptation", "coding", "login", "outputs")   # o que a página do controlador oferece
     coding_digits = 7
+    _mode = None                       # rotina aberta: ("basic", grupo) | ("outputs",) | None
+    _enumerated = False
+    _out_first = None
 
     def __init__(self, kl, address, log=None, address_byte=None):
         self.kl = kl
@@ -195,6 +205,10 @@ class KWP2000:
                 "coding": None, "wsc": None, "raw": [" ".join(f"{b:02X}" for b in data)]}
 
     def keep_alive(self):
+        if self._mode == ("outputs",):
+            self._routine(0xBA, OUTPUT_SUB)              # durante o teste de saídas mantém a rotina viva
+            return
+        self.leave_routine()
         try:
             self.request(self._tp_payload)
         except NegativeResponse:
@@ -205,6 +219,7 @@ class KWP2000:
                 raise
 
     def end(self):
+        self.leave_routine()
         try:
             self.request([0x82], timeout=0.3)
         except Exception as e:
@@ -212,6 +227,7 @@ class KWP2000:
 
     # ------------------------------------------------------------- funções
     def read_faults(self):
+        self.leave_routine()
         r = self.request([0x18, 0x02, 0xFF, 0x00])
         n = r[1] if len(r) > 1 else 0
         d = r[2:]
@@ -224,16 +240,81 @@ class KWP2000:
         return faults
 
     def clear_faults(self):
+        self.leave_routine()
         self.request([0x14, 0xFF, 0x00])
 
     def read_group(self, group):
+        self.leave_routine()
         r = self.request([0x21, group & 0xFF])
         return {"group": group, "fields": vag_data.decode_triplets(r[2:]), "raw": r[2:]}
 
-    def _ns(self, *a, **k):
-        raise NotSupported(tr("Função ainda não disponível em KWP2000 nesta versão"))
+    # ------------------------------------------------- rotinas (ajuste básico, saídas)
+    def _enumerate(self):
+        if not self._enumerated:
+            try:
+                self._routine(0xB8, [0x00, 0x00])
+            except RequestRejected as e:
+                self.log(f"Rotinas: enumeração recusada ({e})")
+            self._enumerated = True
 
-    basic_setting = output_test = _ns
+    def leave_routine(self):
+        """Sai da rotina aberta (ajuste básico ou teste de saídas). Nunca falha: é uma limpeza."""
+        mode, self._mode = self._mode, None
+        if mode is None:
+            return
+        sub = [0x00, mode[1] & 0xFF] if mode[0] == "basic" else OUTPUT_SUB
+        try:
+            self.request([0x32, 0xB8] + sub)
+        except (RequestRejected, ProtocolError) as e:
+            self.log(f"Saída da rotina sem confirmação ({e})")
+
+    def basic_setting(self, group):
+        """Ajuste básico de um grupo. A primeira leitura de um grupo entra no modo (31 B8 00 <grupo>); as seguintes
+        só lêem (31 BA 00 <grupo>). Mudar de grupo ou fazer outra coisa sai do modo (32 B8 00 <grupo>)."""
+        group &= 0xFF
+        if self._mode != ("basic", group):
+            self.leave_routine()
+            self._enumerate()
+            try:
+                self._routine(0xB8, [0x00, group])
+            except NegativeResponse as e:
+                raise RequestRejected(tr("O controlador não tem ajuste básico no grupo {group:03d}.",
+                                         group=group)) from e
+            self._mode = ("basic", group)
+        body = self._routine(0xBA, [0x00, group])
+        cells = list(body[4:])                         # BA 00 <grupo> <estado> + campos (fórmula, a, b)
+        cells = cells[:len(cells) - len(cells) % 3]
+        while len(cells) >= 3 and cells[-3] == PAD_FORMULA:
+            cells = cells[:-3]
+        return {"group": group, "fields": vag_data.decode_triplets(cells), "raw": cells}
+
+    def _output_state(self):
+        """Componente da saída actual (o controlador pode intercalar valores ao vivo: lê até 8 vezes)."""
+        for _ in range(8):
+            b = self._routine(0xBA, OUTPUT_SUB)
+            if len(b) > 6 and b[3] == 0x03 and b[4] == 0x03:
+                return (b[5] << 8) | b[6]
+        return None
+
+    def output_test(self):
+        """Um passo do teste de saídas: passa à saída seguinte e activa-a. Devolve o componente activado, ou None
+        no fim da lista (a rotina é fechada)."""
+        if self._mode != ("outputs",):
+            self.leave_routine()
+            self._enumerate()
+            self._routine(0xB8, OUTPUT_SUB)
+            self._mode = ("outputs",)
+            self._out_first = None
+        else:
+            self._routine(0xB9, OUTPUT_SUB)            # a saída anterior foi activada: passa à seguinte
+        code = self._output_state()
+        if code is None or code in (OUTPUT_END, 0, 0xFFFF) or code == self._out_first:
+            self.leave_routine()
+            return None
+        if self._out_first is None:
+            self._out_first = code
+        self._routine(0xB9, OUTPUT_SUB)                # activa a saída mostrada
+        return code
 
     # --------------------------------------------------------------- escrita
     def _record_9b(self):
@@ -254,6 +335,7 @@ class KWP2000:
         identificação. Devolve a identificação lida (com "coding") ou None se não foi possível confirmar."""
         if not 0 <= coding <= min(CODING_MAX, 9_999_999):
             raise RequestRejected(tr("A codificação tem de estar entre 0000000 e 9999999"))
+        self.leave_routine()
         rec = self._record_9b()
         record = list(rec["wsc_raw"]) + list(rec["sw_raw"]) + [0x03, (coding >> 16) & 0xFF, (coding >> 8) & 0xFF,
                                                                 coding & 0xFF]
@@ -268,6 +350,7 @@ class KWP2000:
     def login(self, code, wsc):
         """Acesso de segurança (27 03 / 27 04, chave = semente + código). Devolve "granted" se a centralina aceitou;
         uma chave errada chega como resposta negativa (RequestRejected)."""
+        self.leave_routine()
         r = self.request([0x27, 0x03])
         seed = list(r[2:6])
         if len(seed) < 4:
@@ -298,6 +381,7 @@ class KWP2000:
         """Entra na adaptação, escolhe o canal, faz action() e sai sempre (32 B8 01 03)."""
         if not 0 <= channel <= 0xFF:
             raise RequestRejected(tr("Canal de adaptação inválido"))
+        self.leave_routine()
         self._routine(0xB8, [0x00, 0x00])
         self._routine(0xB8, ADAPT_SUB)
         try:

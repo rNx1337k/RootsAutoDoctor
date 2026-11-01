@@ -168,6 +168,10 @@ QProgressBar {{ background: rgba(5, 9, 20, 0.8); border: 1px solid {LINE}; borde
 QProgressBar::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3B74FF, stop:1 {CYAN}); border-radius: 5px; }}
 QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 5px; border: 1px solid #34467A; background: rgba(5, 9, 20, 0.8); }}
 QCheckBox::indicator:checked {{ background: {GRAD_PRIMARY}; border-color: {CYAN}; }}
+QRadioButton {{ spacing: 8px; }}
+QRadioButton::indicator {{ width: 14px; height: 14px; border-radius: 8px; border: 1px solid #34467A; background: rgba(5, 9, 20, 0.8); }}
+QRadioButton::indicator:hover {{ border-color: {CYAN}; }}
+QRadioButton::indicator:checked {{ background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {CYAN}, stop:0.45 {CYAN}, stop:0.55 rgba(5, 9, 20, 0.8), stop:1 rgba(5, 9, 20, 0.8)); border-color: {CYAN}; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
 QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 4px; min-height: 30px; }}
 QScrollBar::handle:vertical:hover {{ background: {BLUE_SOFT}; }}

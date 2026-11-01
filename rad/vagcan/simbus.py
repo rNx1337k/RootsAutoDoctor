@@ -12,7 +12,9 @@ from ..simulator import ENGINE, SimKW1281, SimKWP2000
 from . import tp20
 
 PROFILES = {
-    0x01: {"baud": 0, "part": "03G906021AB", "component": "R4 2,0L EDC G000SG", "faults": [(16785, 0x23)]},
+    0x01: {"baud": 0, "part": "03G906021AB", "component": "R4 2,0L EDC G000SG", "faults": [(16785, 0x23)],
+           "software": "1902", "coding": 72, "wsc6": [0x00, 0x00, 0x00, 0x00, 0x30, 0x39], "security_code": 12233,
+           "adapt": {1: 0, 4: 2}, "outputs": [1265, 1259]},
     0x03: {"baud": 0, "part": "1K0907379AC", "component": "ESP FRONT MK60EC1", "faults": []},
     0x08: {"baud": 0, "part": "1K0907044BT", "component": "ClimatronicH14 0603", "faults": [(1206, 0x27)]},
     0x15: {"baud": 0, "part": "1K0909605AB", "component": "4C AIRBAG VW10", "faults": []},

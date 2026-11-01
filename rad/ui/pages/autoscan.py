@@ -113,7 +113,7 @@ class AutoScanPage(QWidget):
         sv = QVBoxLayout()
         sv.setSpacing(2)
         sv.addStretch(1)
-        self.summary = lbl(tr("Pronto para ler"), "h2")
+        self.summary = lbl(tr("Pronto para ler"), "h2", wrap=True)     # "· SIMULAÇÃO" não pode ficar cortado
         self.health_lbl = lbl(tr("Ligue a ignição e inicie o Auto-Scan."), "muted", wrap=True)
         self.severity_lbl = lbl("", "muted", wrap=True)
         sv.addWidget(self.summary)

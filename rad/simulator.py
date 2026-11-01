@@ -284,7 +284,13 @@ class SimKWP2000:
         if sid == 0x31 and len(p) >= 2:
             return self._routine(p[1], p[2:])
         if sid == 0x32 and len(p) >= 2 and p[1] == 0xB8:
-            self.adapt_on, self.channel, self.test_value = False, None, None
+            sub = list(p[2:4])
+            if sub == [0x01, 0x03]:
+                self.adapt_on, self.channel, self.test_value = False, None, None
+            elif sub == [0x01, 0x02]:
+                self.out_i = None
+            elif sub[:1] == [0x00]:
+                self.basic = None
             return [0x72, 0xB8] + list(p[2:])
         if sid == 0x18:
             flat = []
@@ -311,6 +317,11 @@ class SimKWP2000:
 
     def _routine(self, rid, args):
         adapt = self.p["adapt"]
+        sub = list(args[:2])
+        if sub[:1] == [0x00] and len(sub) == 2 and sub[1] != 0:           # ajuste básico do grupo sub[1]
+            return self._basic(rid, sub[1])
+        if sub == [0x01, 0x02]:                                          # teste de saídas
+            return self._outputs(rid)
         if rid == 0xB8:
             if args[:2] == [0x01, 0x03]:
                 self.adapt_on = True
@@ -340,6 +351,34 @@ class SimKWP2000:
             adapt[self.channel] = (args[2] << 8) | args[3]
             self.test_value = None
             return [0x71, 0xBB, 0x01, 0x03]
+        return [0x7F, 0x31, 0x12]
+
+    def _basic(self, rid, group):
+        if rid == 0xB8:
+            if self.handle([0x21, group])[0] != 0x61:
+                return [0x7F, 0x31, 0x31]                 # grupo sem valores: sem ajuste básico
+            self.basic = group
+            return [0x71, 0xB8, 0x00, group]
+        if rid == 0xBA and getattr(self, "basic", None) == group:
+            cells = self.handle([0x21, group])[2:]
+            return [0x71, 0xBA, 0x00, group, 0x00] + cells + [0x25, 0x00, 0x00]   # campo vazio no fim
+        return [0x7F, 0x31, 0x22]
+
+    def _outputs(self, rid):
+        outputs = self.p.get("outputs", [])
+        if rid == 0xB8:
+            self.out_i, self.out_active = 0, False
+            return [0x71, 0xB8, 0x01, 0x02]
+        if getattr(self, "out_i", None) is None:
+            return [0x7F, 0x31, 0x22]
+        if rid == 0xB9:                                   # activa a saída actual / passa à seguinte
+            if self.out_active:
+                self.out_i += 1
+            self.out_active = not self.out_active
+            return [0x71, 0xB9, 0x01, 0x02]
+        if rid == 0xBA:
+            code = outputs[self.out_i] if self.out_i < len(outputs) else 0x04AB
+            return [0x71, 0xBA, 0x01, 0x02, 0x03, 0x03, (code >> 8) & 0xFF, code & 0xFF]
         return [0x7F, 0x31, 0x12]
 
 
@@ -372,6 +411,7 @@ ABS = {
     "wsc6": [0x00, 0x00, 0x00, 0x00, 0x30, 0x39],     # oficina 12345, importador 0, equipamento 0
     "security_code": 40168,
     "adapt": {1: 0, 5: 120},
+    "outputs": [1300, 1301, 1302],
     "faults": [(283, 0x23)],
 }
 

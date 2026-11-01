@@ -294,7 +294,11 @@ def dtc_description(code):
         return tr_data(VAG_DTC[code])
     p = vag_to_pcode(code)
     if p:
-        return f"{p} — {tr_data(PCODE_DESC.get(p, 'código OBD-II (ver manual)'))}"
+        desc = PCODE_DESC.get(p)
+        if desc is None:                     # a base genérica OBD-II (rad/obd/dtc.py) também serve aos VAG
+            from .obd.dtc import GENERIC
+            desc = GENERIC.get(p, "código OBD-II (ver manual)")
+        return f"{p} — {tr_data(desc)}"
     return tr_data("Descrição não disponível na base de dados")
 
 

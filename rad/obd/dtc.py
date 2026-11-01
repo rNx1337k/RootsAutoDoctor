@@ -29,7 +29,8 @@ SOURCES = {
                "ISO 15031-6 (só códigos genéricos; confirmar sempre com a documentação do fabricante)",
 }
 
-# Títulos resumidos dos códigos genéricos mais comuns.
+# Títulos resumidos dos códigos genéricos mais comuns. Os títulos P0xxx foram conferidos com a lista oficial de
+# códigos da inspecção do estado do Delaware (EUA): dmv.de.gov/vehicleservices/inspections/pdfs/dtc_list.pdf
 GENERIC = {
     # Medição de ar e combustível
     "P0087": "Pressão do combustível na rampa demasiado baixa",
@@ -83,6 +84,8 @@ GENERIC = {
     "P0205": "Injector do cilindro 5 — circuito",
     "P0206": "Injector do cilindro 6 — circuito",
     "P0234": "Pressão do turbo excessiva (sobrepressão)",
+    "P0237": "Sensor de pressão do turbo A — sinal baixo",
+    "P0238": "Sensor de pressão do turbo A — sinal alto",
     "P0299": "Pressão do turbo insuficiente",
     # Ignição / falhas de combustão
     "P0300": "Falhas de combustão aleatórias / em vários cilindros",
@@ -101,9 +104,13 @@ GENERIC = {
     "P0401": "Recirculação de gases de escape (EGR) — fluxo insuficiente",
     "P0402": "Recirculação de gases de escape (EGR) — fluxo excessivo",
     "P0403": "Recirculação de gases de escape (EGR) — circuito de comando",
+    "P0404": "Recirculação de gases de escape (EGR) — gama/funcionamento do circuito",
+    "P0405": "Sensor A da recirculação de gases de escape (EGR) — sinal baixo",
+    "P0406": "Sensor A da recirculação de gases de escape (EGR) — sinal alto",
     "P0420": "Catalisador (banco 1) — eficiência abaixo do limite",
     "P0430": "Catalisador (banco 2) — eficiência abaixo do limite",
     "P0440": "Sistema de controlo de evaporação (EVAP)",
+    "P0441": "Sistema EVAP — caudal de purga incorrecto",
     "P0442": "Sistema EVAP — fuga pequena detectada",
     "P0455": "Sistema EVAP — fuga grande detectada",
     "P0480": "Ventilador de arrefecimento 1 — circuito de comando",

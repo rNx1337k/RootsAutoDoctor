@@ -44,11 +44,10 @@ MATRIX = [
         "detect": IMPL, "init": SIM, "ecu": SIM, "interpret": SIM,
         "services": "Identificação (com codificação e código de oficina), avarias (ler/apagar), blocos de medição, "
                     "codificação (3B 9A, com releitura), adaptação (ler/testar/gravar, com releitura), acesso de "
-                    "segurança (27 03/04)",
+                    "segurança (27 03/04), ajustes básicos (31 B8/BA 00 + grupo), teste de saídas (31 B8/B9/BA 01 02)",
         "limits": "Escrita baseada nas capturas de uma EDC16 publicadas pelo kw1281test; só disponível quando a "
-                  "identificação tem o formato conhecido. Sem ajustes básicos nem teste de saídas. Byte de estado das "
-                  "avarias descodificado com a tabela KW1281 — por confirmar num carro (a validação no carro mostra o "
-                  "byte cru).",
+                  "identificação tem o formato conhecido. Byte de estado das avarias descodificado com a tabela "
+                  "KW1281 — por confirmar num carro (a validação no carro mostra o byte cru).",
         "tests": ["test_simulator", "test_robustness", "test_kwp2000_write"],
     },
     {
@@ -135,10 +134,12 @@ MATRIX = [
         "protocol": "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 a ~2012",
         "detect": SIM, "init": SIM, "ecu": SIM, "interpret": SIM,
         "services": "Canal TP2.0 (abertura, parâmetros, ACK, teste do canal, fecho), identificação, avarias "
-                    "(ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG",
-        "limits": "Sem validação num carro nem num adaptador físico. Só leitura (escrita por CAN ainda não "
-                  "implementada). Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.",
-        "tests": ["test_vagcan"],
+                    "(ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG; codificação, adaptação, acesso de "
+                    "segurança, ajustes básicos e saídas (os mesmos pedidos do KWP2000 pela linha K)",
+        "limits": "Sem validação num carro nem num adaptador físico. A escrita só é oferecida quando a identificação "
+                  "tem o formato conhecido e cada valor gravado é lido outra vez. Os ELM327 baratos podem ser lentos "
+                  "para os ACK do TP2.0; recomenda-se OBDLink.",
+        "tests": ["test_vagcan", "test_kwp2000_write"],
     },
     {
         "interface": "Adaptador CAN cru (tramas CAN; ex.: SLCAN, SocketCAN)",

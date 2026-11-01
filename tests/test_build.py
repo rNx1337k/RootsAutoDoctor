@@ -77,3 +77,24 @@ def test_installer_signature_for_automatic_updates():
     with open(path, encoding="utf-8") as fh:
         sig = json.load(fh)
     assert autoupdate.verify_file(setup, sig, "9.9.9", ed25519.public_key(secret))
+
+
+def test_codesign_is_skipped_without_a_certificate_and_fails_loudly_with_one():
+    msgs = []
+    assert finish_build.codesign("x.exe", environ={}, log=msgs.append) is None and "SmartScreen" in msgs[0]
+    env = {"RAD_CODESIGN_PFX": r"C:\certs\roots.pfx", "RAD_CODESIGN_PASSWORD": "segredo",
+           "RAD_SIGNTOOL": __file__}                    # um ficheiro que existe faz de signtool
+    cmd = finish_build.codesign_command("dist\\Setup.exe", env, "signtool.exe")
+    assert cmd[:4] == ["signtool.exe", "sign", "/fd", "SHA256"] and cmd[-1] == "dist\\Setup.exe"
+    assert ["/f", r"C:\certs\roots.pfx", "/p", "segredo"] == cmd[cmd.index("/f"):cmd.index("/f") + 4]
+    assert "/sha1" in finish_build.codesign_command("a.exe", {"RAD_CODESIGN_THUMBPRINT": "AB12"}, "s")
+
+    class Res:
+        returncode, stdout, stderr = 1, "", "SignTool Error: no certificates"
+    try:
+        finish_build.codesign("a.exe", environ=env, run=lambda *a, **k: Res(), log=msgs.append)
+        raise AssertionError("devia falhar")
+    except RuntimeError as e:
+        assert "no certificates" in str(e)
+    Res.returncode = 0
+    assert finish_build.codesign("a.exe", environ=env, run=lambda *a, **k: Res(), log=msgs.append) is True

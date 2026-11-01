@@ -5,6 +5,13 @@ tem de abrir à primeira em qualquer PC com Windows 10/11 de 64 bits, sem instal
     python tools\\finish_build.py portable <pasta> <versão> cria dist\\RootsAutoDoctor_<versão>_portatil.zip
     python tools\\finish_build.py sandbox  <pasta>          cria build\\teste_pc_limpo.wsb (Windows Sandbox)
     python tools\\finish_build.py sign     <setup.exe> <versão> cria <setup.exe>.sig (actualizações automáticas)
+    python tools\\finish_build.py codesign <ficheiro.exe>     assinatura Authenticode (tira o aviso do SmartScreen)
+
+codesign: só assina se houver um certificado configurado; sem ele avisa e continua (o programa funciona na mesma,
+o Windows mostra "O Windows protegeu o seu PC" na primeira vez). Configura-se com variáveis de ambiente:
+    RAD_CODESIGN_PFX + RAD_CODESIGN_PASSWORD   certificado num ficheiro .pfx (fora do repositório)
+    RAD_CODESIGN_THUMBPRINT                    ou o certificado instalado no Windows / pen USB (EV), pela impressão
+    RAD_CODESIGN_TIMESTAMP                     servidor de carimbo de tempo (por omissão o da DigiCert)
 
 check: copia para a pasta as DLL do Visual C++ (vcruntime/msvcp) que o Python e o Qt usam, se o compilador não
 as tiver posto lá (num PC limpo não existem e o programa não abria), e confirma que estão lá todos os ficheiros
@@ -184,11 +191,76 @@ def sign(setup, version, secret=None, log=print):
     return path
 
 
+TIMESTAMP_URL = "http://timestamp.digicert.com"
+
+
+def find_signtool(environ=None):
+    """signtool.exe do Windows SDK (o mais recente instalado), ou None."""
+    environ = os.environ if environ is None else environ
+    if environ.get("RAD_SIGNTOOL"):
+        return environ["RAD_SIGNTOOL"] if os.path.exists(environ["RAD_SIGNTOOL"]) else None
+    found = shutil.which("signtool")
+    if found:
+        return found
+    roots = [environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+             environ.get("ProgramFiles", r"C:\Program Files")]
+    candidates = []
+    for root in roots:
+        candidates += glob.glob(os.path.join(root, "Windows Kits", "10", "bin", "*", "x64", "signtool.exe"))
+    return sorted(candidates)[-1] if candidates else None
+
+
+def codesign_command(path, environ=None, signtool=None):
+    """A linha de comando do signtool para este ficheiro, ou None se não houver certificado configurado."""
+    environ = os.environ if environ is None else environ
+    pfx, thumb = environ.get("RAD_CODESIGN_PFX"), environ.get("RAD_CODESIGN_THUMBPRINT")
+    if not pfx and not thumb:
+        return None
+    cmd = [signtool or "signtool", "sign", "/fd", "SHA256",
+           "/tr", environ.get("RAD_CODESIGN_TIMESTAMP") or TIMESTAMP_URL, "/td", "SHA256", "/d", "Roots Auto Doctor"]
+    if pfx:
+        cmd += ["/f", pfx]
+        if environ.get("RAD_CODESIGN_PASSWORD"):
+            cmd += ["/p", environ["RAD_CODESIGN_PASSWORD"]]
+    else:
+        cmd += ["/sha1", thumb]
+    return cmd + [path]
+
+
+def codesign(path, environ=None, run=None, log=print):
+    """Assina o .exe com Authenticode. Devolve True (assinado), None (sem certificado: não assina) ou levanta
+    RuntimeError se o certificado está configurado mas a assinatura falhou (o build não pode continuar)."""
+    import subprocess
+    environ = os.environ if environ is None else environ
+    if not (environ.get("RAD_CODESIGN_PFX") or environ.get("RAD_CODESIGN_THUMBPRINT")):
+        log(f"AVISO: sem certificado de assinatura de código: {os.path.basename(path)} não foi assinado "
+            "(o Windows mostra o aviso do SmartScreen na primeira vez).")
+        return None
+    tool = find_signtool(environ)
+    if tool is None:
+        raise RuntimeError("Certificado configurado, mas o signtool.exe não foi encontrado (instale o Windows SDK "
+                           "ou indique-o em RAD_SIGNTOOL).")
+    cmd = codesign_command(path, environ, tool)
+    res = (run or subprocess.run)(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        output = (res.stdout or "") + (res.stderr or "")
+        raise RuntimeError(f"A assinatura de {os.path.basename(path)} falhou: {output}")
+    log(f"{os.path.basename(path)} assinado (Authenticode).")
+    return True
+
+
 def main(argv):
-    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign"):
+    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign", "codesign"):
         print(__doc__)
         return 2
     cmd, dist = argv[0], argv[1]
+    if cmd == "codesign":
+        try:
+            codesign(dist)
+        except RuntimeError as e:
+            print(e)
+            return 1
+        return 0
     if cmd == "check":
         return 0 if check(dist) else 1
     if cmd == "sign":

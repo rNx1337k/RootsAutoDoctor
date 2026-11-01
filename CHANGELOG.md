@@ -3,6 +3,34 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] — 2026-11-01
+### Added
+- **KWP2000 basic settings and output tests** (K-line, J2534 and CAN): basic settings enter the group once
+  (`31 B8 00 <group>`), poll its values (`31 BA 00 <group>`) and leave it (`32 B8 00 <group>`) when the group changes or
+  anything else is requested; output tests step through every output and activate it (`31 B8/B9/BA 01 02`), ending
+  at the end-of-list code and closing the routine. The module page now offers every tab on KWP2000 modules
+- **Writing over CAN (TP2.0)**: coding, adaptation, security access, basic settings and output tests on VAG modules
+  from ~2004, with the same safeguards as the K-line (offered only with the known identification layout, every
+  value read back)
+- **Release workflow** (`.github/workflows/release.yml`): pushing a `v<version>` tag tests, compiles, self-tests and
+  creates a draft GitHub Release with the installer and the portable zip; `tools/publicar_release.bat` signs the
+  installer on the publisher's PC and publishes it. `build_release.bat` no longer waits for a key press when `CI` is
+  set
+- **Code signing** (`tools/finish_build.py codesign`): Authenticode signature of the program and the installer with
+  `signtool` when a certificate is configured (`RAD_CODESIGN_PFX` / `RAD_CODESIGN_THUMBPRINT`); skipped with a warning
+  otherwise
+- `tools/screenshots.py --review`: captures every page and dialog into `build\ui_review\` for a visual review
+- Generic fault descriptions P0237, P0238, P0404, P0405, P0406 and P0441 (titles checked against the Delaware DMV
+  inspection code list)
+### Changed
+- VAG fault codes that map to a standard OBD-II code now also use the generic OBD-II description table, so many
+  more of them show a description instead of "OBD-II code (see manual)"
+- Simulated ABS (K-line) and engine (CAN) support basic settings and output tests; CAN engine has coding, workshop
+  code, access code and adaptation channels
+### Fixed
+- Radio buttons (report version) showed no indicator when not selected
+- Auto-Scan summary cut "· SIMULATION" when the panel was narrow (it now wraps)
+
 ## [1.11.0] — 2026-11-01
 ### Added
 - **Communication recording** (`rad/capture.py`): Options → Support → *Record communication* writes every byte

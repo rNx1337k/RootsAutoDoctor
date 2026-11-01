@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rad.kline import KLine, SIM_PORT
 from rad.session import ECUSession
-from rad.errors import NoResponse, RequestRejected, NotSupported
+from rad.errors import NoResponse, RequestRejected
 
 
 def make(log=None):
@@ -88,11 +88,7 @@ def test_abs_kwp2000():
     g = s.read_group(1)
     assert g["fields"][0]["unit"] == "km/h"
     s.keep_alive()
-    try:
-        s.basic_setting(1)                    # ajustes básicos em KWP2000: ainda não
-        assert False
-    except NotSupported:
-        pass
+    assert s.basic_setting(1)["fields"][0]["unit"] == "km/h"       # ajuste básico (rotina 31 B8/BA 00 <grupo>)
     assert s.clear_faults() == []
     s.disconnect()
 

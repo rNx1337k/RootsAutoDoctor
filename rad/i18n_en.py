@@ -342,8 +342,6 @@ EN = {
         "Invalid KWP2000 checksum",
     "Tempo esgotado à espera de resposta":
         "Timed out waiting for an answer",
-    "Função ainda não disponível em KWP2000 nesta versão":
-        "Function not yet available on KWP2000 in this version",
     "Mensagem J2534 vazia":
         "Empty J2534 message",
     "Mensagem J2534 curta":
@@ -3568,8 +3566,6 @@ EN = {
         "OBD adapter — VAG from ~2004 and all makes",
     "Cabo VAG — VW, Audi, Seat, Škoda até ~2005":
         "VAG cable — VW, Audi, Seat, Škoda up to ~2005",
-    "Canal TP2.0 (abertura, parâmetros, ACK, teste do canal, fecho), identificação, avarias (ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG":
-        "TP2.0 channel (setup, parameters, ACK, channel test, disconnect), identification, faults (read/clear), measuring blocks; Auto-Scan over the VAG addresses",
     "Informação, avarias e valores de medição de cada módulo; adaptação e codificação nos modelos até ~2005.":
         "Information, faults and measuring values for each module; adaptation and coding on models up to ~2005.",
     "Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\nCabo VAG: para os VW, Audi, Seat e Škoda até ~2005. Adaptador OBD (USB ou Bluetooth): para os VAG de ~2004 em diante (Controladores e Auto-Scan) e para avarias e dados de qualquer marca na página OBD — todas as marcas. Para os VAG mais recentes recomenda-se um adaptador OBDLink.":
@@ -3582,8 +3578,6 @@ EN = {
         "Module {address:02X} did not answer",
     "O simulador OBD só tem o diagnóstico de todas as marcas. Para experimentar os controladores VAG, escolha em Opções o Simulador VAG ou o Simulador VAG por CAN.":
         "The OBD simulator only has all-makes diagnostics. To try the VAG modules, choose the VAG simulator or the VAG CAN simulator in Options.",
-    "Sem validação num carro nem num adaptador físico. Só leitura (escrita por CAN ainda não implementada). Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.":
-        "Not validated on a car or a physical adapter. Read-only (writing over CAN not implemented yet). Cheap ELM327 clones may be too slow for TP2.0 ACKs; OBDLink is recommended.",
     "Simulador VAG por CAN (2004 em diante) — experimentar sem carro":
         "VAG CAN simulator (2004 onwards) — try without a car",
     "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 a ~2012":
@@ -3593,8 +3587,6 @@ EN = {
         " — {plate}",
     "A codificação tem de estar entre 0000000 e 9999999":
         "The coding must be between 0000000 and 9999999",
-    "A escrita nos controladores por CAN ainda não está disponível nesta versão":
-        "Writing to modules over CAN is not available in this version yet",
     "A gravar a comunicação":
         "Recording the communication",
     "A gravar toda a comunicação com o carro. Repita o que falhou e depois carregue em Parar gravação.":
@@ -3663,8 +3655,6 @@ EN = {
         "New error in {cmd}: {msg}",
     "Escolha um veículo da lista.":
         "Choose a vehicle from the list.",
-    "Escrita baseada nas capturas de uma EDC16 publicadas pelo kw1281test; só disponível quando a identificação tem o formato conhecido. Sem ajustes básicos nem teste de saídas. Byte de estado das avarias descodificado com a tabela KW1281 — por confirmar num carro (a validação no carro mostra o byte cru).":
-        "Writing based on the EDC16 captures published by kw1281test; only available when the identification has the known format. No basic settings or output tests. Fault status byte decoded with the KW1281 table — to be confirmed on a car (the on-car validation shows the raw byte).",
     "Falhou":
         "Failed",
     "Ficaram {n} avaria(s) (provavelmente ainda presentes).":
@@ -3691,8 +3681,6 @@ EN = {
         "Save web page…",
     "Identificação":
         "Identification",
-    "Identificação (com codificação e código de oficina), avarias (ler/apagar), blocos de medição, codificação (3B 9A, com releitura), adaptação (ler/testar/gravar, com releitura), acesso de segurança (27 03/04)":
-        "Identification (with coding and workshop code), faults (read/clear), measuring blocks, coding (3B 9A, read back), adaptation (read/test/save, read back), security access (27 03/04)",
     "Identificação, avarias, blocos de medição, codificação e adaptação (as mesmas do KWP2000 pela linha K)":
         "Identification, faults, measuring blocks, coding and adaptation (the same as KWP2000 over the K-line)",
     "Imprimir…":
@@ -3833,4 +3821,26 @@ EN = {
         "{prefix}: connect and identify",
     "Última visita":
         "Last visit",
+    "Sensor de pressão do turbo A — sinal baixo":
+        "Turbocharger boost sensor A — circuit low",
+    "Sensor de pressão do turbo A — sinal alto":
+        "Turbocharger boost sensor A — circuit high",
+    "Recirculação de gases de escape (EGR) — gama/funcionamento do circuito":
+        "Exhaust gas recirculation (EGR) — circuit range/performance",
+    "Sensor A da recirculação de gases de escape (EGR) — sinal baixo":
+        "Exhaust gas recirculation (EGR) sensor A — circuit low",
+    "Sensor A da recirculação de gases de escape (EGR) — sinal alto":
+        "Exhaust gas recirculation (EGR) sensor A — circuit high",
+    "Sistema EVAP — caudal de purga incorrecto":
+        "EVAP system — incorrect purge flow",
+    "O controlador não tem ajuste básico no grupo {group:03d}.":
+        "The module has no basic setting in group {group:03d}.",
+    "Canal TP2.0 (abertura, parâmetros, ACK, teste do canal, fecho), identificação, avarias (ler/apagar), blocos de medição; Auto-Scan pelos endereços VAG; codificação, adaptação, acesso de segurança, ajustes básicos e saídas (os mesmos pedidos do KWP2000 pela linha K)":
+        "TP2.0 channel (setup, parameters, ACK, channel test, disconnect), identification, faults (read/clear), measuring blocks; Auto-Scan through the VAG addresses; coding, adaptation, security access, basic settings and output tests (the same requests as KWP2000 over the K-line)",
+    "Escrita baseada nas capturas de uma EDC16 publicadas pelo kw1281test; só disponível quando a identificação tem o formato conhecido. Byte de estado das avarias descodificado com a tabela KW1281 — por confirmar num carro (a validação no carro mostra o byte cru).":
+        "Writing based on the EDC16 captures published by kw1281test; only available when the identification has the known format. Fault status byte decoded with the KW1281 table — to be confirmed on a car (the on-car validation shows the raw byte).",
+    "Identificação (com codificação e código de oficina), avarias (ler/apagar), blocos de medição, codificação (3B 9A, com releitura), adaptação (ler/testar/gravar, com releitura), acesso de segurança (27 03/04), ajustes básicos (31 B8/BA 00 + grupo), teste de saídas (31 B8/B9/BA 01 02)":
+        "Identification (with coding and workshop code), faults (read/clear), measuring blocks, coding (3B 9A, read back), adaptation (read/test/save, read back), security access (27 03/04), basic settings (31 B8/BA 00 + group), output tests (31 B8/B9/BA 01 02)",
+    "Sem validação num carro nem num adaptador físico. A escrita só é oferecida quando a identificação tem o formato conhecido e cada valor gravado é lido outra vez. Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.":
+        "No validation on a car or with a physical adapter. Writing is only offered when the identification has the known format, and every saved value is read back. Cheap ELM327 adapters may be too slow for the TP2.0 ACKs; OBDLink is recommended.",
 }
