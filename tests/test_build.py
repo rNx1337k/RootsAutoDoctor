@@ -98,3 +98,26 @@ def test_codesign_is_skipped_without_a_certificate_and_fails_loudly_with_one():
         assert "no certificates" in str(e)
     Res.returncode = 0
     assert finish_build.codesign("a.exe", environ=env, run=lambda *a, **k: Res(), log=msgs.append) is True
+
+
+def test_clean_pc_test_before_publishing_passes_fails_or_says_it_was_not_done():
+    zip_path = finish_build.portable(_fake_dist(), "9.9.9", out_dir=tempfile.mkdtemp(), log=lambda m: None)
+    msgs = []
+    assert finish_build.clean_pc_test(zip_path, log=msgs.append, exe="", launch=lambda c: None) is None
+    assert "Sandbox" in msgs[0] and "não foi feito" in msgs[0]                # sem Windows Sandbox: avisa
+
+    def sandbox_writes(result):
+        def launch(cmd):
+            with open(cmd[1], encoding="utf-8") as fh:
+                wsb = fh.read()
+            assert "RootsAutoDoctor.exe" in wsb and "--selftest" in wsb and "Roots Auto Doctor</HostFolder>" in wsb
+            folder = os.path.join(finish_build.ROOT, "build", "pc_limpo_release", "resultado")
+            with open(os.path.join(folder, "autoteste.txt"), "w", encoding="utf-8") as fh:
+                fh.write("...\nRESULTADO: " + result + "\n")
+        return launch
+    closed = []
+    run = dict(exe="WindowsSandbox.exe", poll=0.01, log=lambda m: None, close=lambda: closed.append(1))
+    assert finish_build.clean_pc_test(zip_path, launch=sandbox_writes("tudo OK"), **run) is True
+    assert finish_build.clean_pc_test(zip_path, launch=sandbox_writes("há falhas"), **run) is False
+    assert finish_build.clean_pc_test(zip_path, launch=lambda c: None, timeout=0.05, **run) is False
+    assert len(closed) == 3                                   # o Sandbox é sempre fechado

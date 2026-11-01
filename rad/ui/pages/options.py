@@ -186,6 +186,12 @@ class OptionsPage(QWidget):
         self.upd_lbl = lbl(tr("Versão instalada: {VERSION}", VERSION=VERSION), "muted", wrap=True)
         urow.addWidget(self.upd_lbl, 1)
         uf.addRow(lbl(tr("Versão"), "muted"), urow)
+        if self.technical:                     # só no PC do fornecedor / de quem testa: o cliente nunca vê
+            self.upd_beta = QCheckBox(tr("Receber versões de teste antes dos clientes"))
+            self.upd_beta.setChecked(self.update_channel() == updates.BETA)
+            self.upd_beta.toggled.connect(lambda on: self.settings.setValue(
+                "updates/channel", updates.BETA if on else updates.STABLE))
+            uf.addRow(lbl(tr("Testes"), "muted"), self.upd_beta)
         uf.addRow(lbl(tr("O programa actualiza-se sempre sozinho, também na versão portátil. Ao abrir (e de algumas "
                          "em algumas horas) procura uma versão nova e descarrega-a; se ainda não começou a trabalhar, "
                          "fecha, actualiza e volta a abrir; senão, instala-a quando fechar o programa. Os "
@@ -376,6 +382,11 @@ class OptionsPage(QWidget):
         self.saved.emit(c)
 
     # -------------------------------------------------------- actualizações
+    def update_channel(self):
+        """Canal de actualizações: versões de teste (escolhido uma vez no modo técnico) ou só as publicadas."""
+        return updates.BETA if self.settings.value("updates/channel", updates.STABLE) == updates.BETA \
+            else updates.STABLE
+
     def check_updates(self, manual=False):
         """Procura numa thread à parte (a rede pode demorar ou não existir)."""
         if self._checking:
@@ -385,9 +396,11 @@ class OptionsPage(QWidget):
         if manual:
             self.upd_lbl.setText(tr("A procurar…"))
 
+        channel = self.update_channel()
+
         def run():
             try:
-                res = updates.check()
+                res = updates.check(channel=channel)
             except Exception as e:                     # UpdateError ou outro: nunca derrubar o programa
                 res = e
             try:

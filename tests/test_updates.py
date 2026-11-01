@@ -104,3 +104,26 @@ def test_release_offers_the_signed_portable_zip_and_the_repository_has_notes_for
     import finish_build
     notes = finish_build.customer_notes(VERSION)
     assert notes.get("pt") and notes.get("en"), "docs/NOVIDADES.md não tem a versão actual"
+
+
+def _rel(version, prerelease=False, draft=False):
+    return {"tag_name": f"v{version}", "html_url": "h", "body": "", "prerelease": prerelease, "draft": draft,
+            "assets": [{"name": f"Setup_RootsAutoDoctor_{version}.exe", "browser_download_url": f"https://dl/{version}"},
+                       {"name": f"Setup_RootsAutoDoctor_{version}.exe.sig", "browser_download_url": "https://dl/s"}]}
+
+
+def test_test_versions_reach_only_the_beta_channel():
+    routes = {"releases/latest": _rel("9.0.0"),
+              "releases?per_page": [_rel("9.2.0", draft=True), _rel("9.1.0", prerelease=True), _rel("9.0.0"),
+                                    {"tag_name": "v9.5.0", "assets": []}]}
+    stable = updates.check(current="8.0.0", opener=_opener(routes))
+    assert stable["version"] == "9.0.0" and not stable["prerelease"]
+    beta = updates.check(current="8.0.0", opener=_opener(routes), channel=updates.BETA)
+    assert beta["version"] == "9.1.0" and beta["prerelease"] and beta["available"]   # rascunhos e sem instalador: não
+    assert updates.release_for("9.0.0", opener=_opener({"releases/tags/v9.0.0": _rel("9.0.0")}))["version"] == "9.0.0"
+    assert updates.release_for("7.0.0", opener=_opener({"releases/tags/v7.0.0": _http(404)})) is None
+    try:
+        updates.check(current="8.0.0", opener=_opener({"releases?per_page": []}), channel=updates.BETA)
+        assert False
+    except updates.UpdateError:
+        pass

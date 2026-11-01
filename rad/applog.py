@@ -97,7 +97,7 @@ def scrub(text):
 
 
 SAFE_SETTINGS = ("adapter", "port", "baud", "echo", "elm_protocol", "raw_log", "ui/language", "ui/scale",
-                 "updates/gave_up")
+                 "updates/gave_up", "updates/channel")
 
 BUNDLE_README = """Pacote de suporte — {app} v{version}
 
@@ -125,6 +125,12 @@ def _update_lines():
         mode = autoupdate.update_mode()
         st = autoupdate.pending() or {}
         lines = [f"  modo: {mode or 'só aviso'}"]
+        bad = sorted(autoupdate.bad_versions())
+        if bad:
+            lines.append(f"  versões que não abriram (recusadas): {', '.join(bad)}")
+        back = autoupdate.rollback_target()
+        if back:
+            lines.append(f"  caminho de volta: versão {back}")
         if st:
             lines.append(f"  pendente: {st.get('version')} ({st.get('mode', 'installer')}), "
                          f"tentativas {st.get('attempts', 0)}, lançada {st.get('launched')}")

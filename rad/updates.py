@@ -85,31 +85,49 @@ def _pick(assets, start, ext):
     return next((n for n in names if n.lower().startswith(start)), names[0] if names else None)
 
 
-def latest(opener=None):
-    """Devolve {"version", "url", "download", "signature", "portable", "portable_signature", "notes"} da versão
-    mais recente publicada. notes = novidades para o cliente (pode ser "")."""
+STABLE, BETA = "stable", "beta"
+
+
+def _release_info(rel):
+    """O que o programa precisa de uma release do GitHub, ou None se não tiver versão ou instalador."""
+    version = str(rel.get("tag_name", ""))
+    if not parse_version(version) or rel.get("draft"):
+        return None
+    assets = {str(a.get("name", "")): a.get("browser_download_url") for a in rel.get("assets") or []}
+    exe_name = _pick(assets, "setup", ".exe")
+    zip_name = next((n for n in assets if n.lower().endswith("_portatil.zip")), None)
+    if exe_name is None:
+        log.warning("Release %s sem instalador anexado: não é anunciada", version)
+        return None
+    return {"version": version.lstrip("v"), "url": rel.get("html_url") or RELEASES_PAGE,
+            "download": assets.get(exe_name), "signature": assets.get(f"{exe_name}.sig"),
+            "portable": assets.get(zip_name) if zip_name else None,
+            "portable_signature": assets.get(f"{zip_name}.sig") if zip_name else None,
+            "notes": customer_notes(rel.get("body")), "prerelease": bool(rel.get("prerelease"))}
+
+
+def latest(opener=None, channel=STABLE):
+    """Devolve {"version", "url", "download", "signature", "portable", "portable_signature", "notes", "prerelease"}
+    da versão mais recente publicada. notes = novidades para o cliente (pode ser "").
+    channel=BETA (só o PC do fornecedor ou de quem testa, escolhido no modo técnico): conta também as pré-versões
+    ("versões de teste"), para experimentar uma versão antes de ela chegar aos clientes."""
     opener = opener or urllib.request.urlopen
     try:
+        if channel == BETA:
+            found = [i for i in map(_release_info, _get_json(API + "/releases?per_page=20", opener) or []) if i]
+            if not found:
+                raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
+            return max(found, key=lambda i: parse_version(i["version"]))
         try:
             rel = _get_json(API + "/releases/latest", opener)
         except urllib.error.HTTPError as e:
             if e.code == 404:            # o repositório ainda não tem nenhuma release publicada
                 raise UpdateError(tr("Ainda não há nenhuma versão publicada.")) from e
             raise
-        version = rel.get("tag_name", "")
-        if not parse_version(version):
+        info = _release_info(rel)
+        if info is None:
             raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
-        assets = {str(a.get("name", "")): a.get("browser_download_url") for a in rel.get("assets") or []}
-        exe_name = _pick(assets, "setup", ".exe")
-        zip_name = next((n for n in assets if n.lower().endswith("_portatil.zip")), None)
-        if exe_name is None:
-            log.warning("Release %s sem instalador anexado: não é anunciada", version)
-            raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
-        return {"version": version.lstrip("v"), "url": rel.get("html_url") or RELEASES_PAGE,
-                "download": assets.get(exe_name), "signature": assets.get(f"{exe_name}.sig"),
-                "portable": assets.get(zip_name) if zip_name else None,
-                "portable_signature": assets.get(f"{zip_name}.sig") if zip_name else None,
-                "notes": customer_notes(rel.get("body"))}
+        return info
     except UpdateError:
         raise
     except urllib.error.HTTPError as e:
@@ -120,7 +138,16 @@ def latest(opener=None):
         raise UpdateError(tr("Resposta inesperada do servidor de actualizações.")) from e
 
 
-def check(current=VERSION, opener=None):
+def release_for(version, opener=None):
+    """A release publicada de uma versão concreta (para voltar à versão anterior), ou None."""
+    opener = opener or urllib.request.urlopen
+    try:
+        return _release_info(_get_json(f"{API}/releases/tags/v{version}", opener))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError, TypeError):
+        return None
+
+
+def check(current=VERSION, opener=None, channel=STABLE):
     """{"available": bool, "current", "version", "url", "download", "notes"}. Lança UpdateError."""
-    info = latest(opener)
+    info = latest(opener, channel)
     return dict(info, available=is_newer(info["version"], current), current=current)

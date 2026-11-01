@@ -194,6 +194,7 @@ class MainWindow(QMainWindow):
         self.options.capture_req.connect(lambda on: self.worker.submit("capture_start" if on else "capture_stop"))
         self.options.validation_req.connect(self.open_validation)
         self.options.update_found.connect(self.on_update_found)
+        self.options.update_done.connect(self._update_checked)
         self.obd.report_req.connect(lambda: self.export_report("obd"))
         self.obd.vin_found.connect(self._vin_from_vehicle)
 
@@ -300,15 +301,24 @@ class MainWindow(QMainWindow):
         self.options.show_license(self.license)
 
     def _after_update(self):
-        """Primeiro arranque depois de uma actualização automática: diz se correu bem ou se não terminou."""
+        """Primeiro arranque depois de uma actualização automática: diz se correu bem, se não terminou ou se a versão
+        nova não abriu e o programa voltou à anterior. A versão só fica dada como boa ao fim de HEALTHY_SECONDS."""
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(autoupdate.HEALTHY_SECONDS * 1000, self._started_ok)
         try:
+            back = autoupdate.rollback_notice()
             st = autoupdate.startup_status()
         except Exception:
             log.warning("Verificação pós-actualização falhou", exc_info=True)
             return
+        if back:
+            QTimer.singleShot(1500, lambda: QMessageBox.warning(self, APP_NAME, tr(
+                "A versão {bad} não abriu bem neste computador, por isso o programa voltou à versão {VERSION}. "
+                "A versão {bad} não volta a ser instalada; a próxima versão instala-se sozinha, como sempre.",
+                bad=back["bad"], VERSION=VERSION)))
+            return
         if not st:
             return
-        from PySide6.QtCore import QTimer
         if st["result"] == "updated":
             QTimer.singleShot(1500, lambda: self.toast.show_msg(tr("Actualizado para a versão {version}",
                                                                    version=st["version"])))
@@ -328,6 +338,21 @@ class MainWindow(QMainWindow):
                       "{VERSION} e volta a tentar quando o fechar.", version=st["version"], VERSION=VERSION)
         QTimer.singleShot(1500, lambda: QMessageBox.warning(self, APP_NAME, text))
 
+    def _update_checked(self, res, _manual):
+        """Cada procura: se a versão já descarregada foi retirada do GitHub, deixa de a instalar."""
+        if isinstance(res, dict) and res.get("version"):
+            try:
+                if autoupdate.forget_withdrawn(res["version"]) and not res.get("available"):
+                    self.update_btn.hide()
+            except Exception:
+                log.warning("Verificação da versão descarregada falhou", exc_info=True)
+
+    def _started_ok(self):
+        try:
+            autoupdate.mark_started_ok()
+        except Exception:
+            log.warning("Não foi possível marcar o arranque como bom", exc_info=True)
+
     def on_update_found(self, info):
         # A procura periódica volta a encontrar a mesma versão: se já está descarregada não faz nada; se a descarga
         # tinha falhado (ex.: sem internet), tenta outra vez; o aviso "versão disponível" não se repete.
@@ -336,6 +361,8 @@ class MainWindow(QMainWindow):
         st = autoupdate.pending()
         if announced and st and st.get("version") == info.get("version"):
             return
+        if info.get("version") in autoupdate.bad_versions():
+            return                                     # não abriu neste PC: não se anuncia nem se instala
         gave_up = str(self.settings.value("updates/gave_up", "") or "") == info.get("version")
         if not gave_up and autoupdate.downloadable(info):
             self._download_update(info)
@@ -1058,6 +1085,7 @@ class MainWindow(QMainWindow):
         self.obd.stop_live()
         self.worker.submit("disconnect")
         self.worker.stop()
+        self._started_ok()                             # fechou normalmente: esta versão funciona
         if autoupdate.can_self_update():
             try:                                       # corre o instalador em silêncio depois de fechar
                 relaunch = getattr(self, "_relaunch_after_update", False)

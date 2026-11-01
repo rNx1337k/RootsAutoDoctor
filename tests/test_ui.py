@@ -242,6 +242,26 @@ def test_update_installs_by_itself_on_start_and_while_the_customer_has_not_start
         w.show_page("home")
         w._apply_update_now()                                          # sem versão descarregada: não fecha
         assert w.isVisible()
+        # voltou à versão anterior porque a nova não abriu: avisa uma vez
+        from PySide6.QtWidgets import QMessageBox
+        shown, old_warning, old_notice = [], QMessageBox.warning, autoupdate.rollback_notice
+        QMessageBox.warning = staticmethod(lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok)
+        autoupdate.rollback_notice = lambda current=None: {"bad": "9.9.9", "version": "1.0.0"}
+        try:
+            w._after_update()
+            assert _wait(app, lambda: shown, 4) and "9.9.9" in shown[0] and "voltou" in shown[0]
+        finally:
+            QMessageBox.warning, autoupdate.rollback_notice = old_warning, old_notice
+        # o fornecedor retirou a versão já descarregada: deixa de a anunciar
+        forgot = []
+        old_forget = autoupdate.forget_withdrawn
+        autoupdate.forget_withdrawn = lambda v: forgot.append(v) or True
+        try:
+            w.update_btn.show()
+            w._update_checked({"available": False, "version": "1.0.0"}, False)
+            assert forgot == ["1.0.0"] and w.update_btn.isHidden()
+        finally:
+            autoupdate.forget_withdrawn = old_forget
     finally:
         w.close()
         app.processEvents()

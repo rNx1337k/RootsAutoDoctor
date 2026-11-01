@@ -3861,4 +3861,10 @@ EN = {
         "Updating to version {version}: the program will open again in a moment.",
     "A versão nova instala-se quando fechar o programa.":
         "The new version installs when you close the program.",
+    "A versão {bad} não abriu bem neste computador, por isso o programa voltou à versão {VERSION}. A versão {bad} não volta a ser instalada; a próxima versão instala-se sozinha, como sempre.":
+        "Version {bad} did not open properly on this computer, so the program went back to version {VERSION}. Version {bad} will not be installed again; the next version installs by itself, as usual.",
+    "Receber versões de teste antes dos clientes":
+        "Receive test versions before customers",
+    "Testes":
+        "Testing",
 }

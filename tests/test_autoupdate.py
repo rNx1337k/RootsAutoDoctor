@@ -40,6 +40,16 @@ def _opener(files):
     return opener
 
 
+class _Key:
+    """Chave de actualizações de teste enquanto dura o bloco with."""
+    def __enter__(self):
+        self.old = autoupdate.public_key
+        autoupdate.public_key = lambda: PUBLIC
+
+    def __exit__(self, *a):
+        autoupdate.public_key = self.old
+
+
 def _with_key(fn):
     old = autoupdate.public_key
     autoupdate.public_key = lambda: PUBLIC
@@ -361,7 +371,134 @@ def test_portable_script_copies_the_new_version_and_restores_the_old_one_on_fail
     assert "RESULTADO: ok" in log_text, log_text
     assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"
     assert os.path.exists(os.path.join(app, "_internal", "novo.dll"))
-    assert not os.path.exists(os.path.join(folder, autoupdate.BACKUP)) and not os.path.exists(new)
+    assert not os.path.exists(new)
+    # a cópia da versão anterior fica até a nova abrir bem (é o caminho de volta)
+    assert open(os.path.join(folder, autoupdate.BACKUP, "RootsAutoDoctor.exe")).read() == "antiga"
     log_text, _ = _run_script(os.path.join(base, "nao_existe"), app)          # a cópia falha: repõe a anterior
     assert "RESULTADO: falhou" in log_text, log_text
     assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"
+
+
+def _clean_rollback():
+    import shutil
+    autoupdate.clear()
+    shutil.rmtree(autoupdate.rollback_dir(), ignore_errors=True)
+
+
+def test_new_version_that_does_not_open_goes_back_to_the_previous_installer():
+    _clean_rollback()
+    folder = tempfile.mkdtemp()
+    old_setup = _setup_file(b"instalador 1.9.0")
+    old_sig = autoupdate.make_signature(SECRET, old_setup, "1.9.0")
+    path = _setup_file()
+    info, opener = _info(autoupdate.make_signature(SECRET, path, "9.0.0"))
+    with _Key():
+        # 1.9.0 actualiza-se para 9.0.0 (e o instalador da 1.9.0 tinha ficado guardado da actualização anterior)
+        autoupdate._keep_installer(old_setup, old_sig, "1.9.0")
+        autoupdate.download(info, opener=opener, current="1.9.0")
+        autoupdate._prepare_rollback("9.0.0", autoupdate.INSTALLER, current="1.9.0")
+        st = autoupdate.pending()
+        assert autoupdate.startup_status(current="9.0.0")["result"] == "updated"
+        for v in ("9.0.0", "1.9.0"):                                  # o novo e o caminho de volta
+            assert os.path.exists(autoupdate._installer_path(v))
+        assert st and autoupdate.rollback_target() == "1.9.0"
+        # a 9.0.0 não chega a abrir duas vezes seguidas: à terceira volta à 1.9.0
+        mode = autoupdate.INSTALLER
+        assert autoupdate.begin_start("9.0.0", mode) is None
+        assert autoupdate.begin_start("9.0.0", mode) is None
+        assert autoupdate.begin_start("9.0.0", mode) == "rollback"
+        calls = []
+        assert autoupdate.rollback(launcher=lambda p, a, e: calls.append((p, a)) or True, folder=folder,
+                                   current="9.0.0")
+        assert calls[0][0] == autoupdate._installer_path("1.9.0")
+        assert autoupdate.RELAUNCH_ARG in calls[0][1] and "/SILENT" in calls[0][1]
+        assert "9.0.0" in autoupdate.bad_versions() and not autoupdate.can_roll_back("9.0.0", mode)
+        assert not autoupdate.rollback(launcher=lambda p, a, e: True, folder=folder, current="9.0.0")   # só uma vez
+        # a 1.9.0 abre: avisa uma vez e limpa; a 9.0.0 nunca mais se instala sozinha
+        assert autoupdate.begin_start("1.9.0", mode) is None
+        assert autoupdate.rollback_notice("1.9.0") == {"bad": "9.0.0", "version": "1.9.0"}
+        assert autoupdate.rollback_notice("1.9.0") is None
+        autoupdate.mark_started_ok("1.9.0")
+        assert not os.path.exists(os.path.join(autoupdate.rollback_dir(), autoupdate.ROLLBACK))
+        assert os.path.exists(autoupdate._installer_path("1.9.0"))
+        assert not os.path.exists(autoupdate._installer_path("9.0.0"))
+    _clean_rollback()
+
+
+def test_a_version_that_opens_keeps_only_its_installer_and_is_never_rolled_back():
+    _clean_rollback()
+    with _Key():
+        autoupdate._prepare_rollback("9.0.0", autoupdate.INSTALLER, current="1.9.0")
+        assert autoupdate.begin_start("9.0.0", autoupdate.INSTALLER) is None
+        autoupdate.mark_started_ok("9.0.0")                       # a janela abriu (ou fechou normalmente)
+        for _ in range(4):
+            assert autoupdate.begin_start("9.0.0", autoupdate.INSTALLER) is None
+        assert not autoupdate.can_roll_back("9.0.0", autoupdate.INSTALLER)
+        # uma versão instalada à mão (sem actualização automática) nunca volta atrás
+        _clean_rollback()
+        for _ in range(4):
+            assert autoupdate.begin_start("9.0.0", autoupdate.INSTALLER) is None
+    _clean_rollback()
+
+
+def test_rollback_downloads_the_previous_installer_when_it_was_not_kept():
+    _clean_rollback()
+    old_setup = _setup_file(b"instalador 1.9.0")
+    sig = autoupdate.make_signature(SECRET, old_setup, "1.9.0")
+    rel = {"tag_name": "v1.9.0", "html_url": "h", "body": "",
+           "assets": [{"name": "Setup_RootsAutoDoctor_1.9.0.exe", "browser_download_url": "https://dl/old.exe"},
+                      {"name": "Setup_RootsAutoDoctor_1.9.0.exe.sig", "browser_download_url": "https://dl/old.sig"}]}
+    with open(old_setup, "rb") as fh:
+        data = fh.read()
+    files = {updates.API + "/releases/tags/v1.9.0": json.dumps(rel).encode(), "https://dl/old.exe": data,
+             "https://dl/old.sig": json.dumps(sig).encode()}
+    with _Key():
+        autoupdate._prepare_rollback("9.0.0", autoupdate.INSTALLER, current="1.9.0")
+        calls = []
+        assert autoupdate.rollback(launcher=lambda p, a, e: calls.append(p) or True, folder=tempfile.mkdtemp(),
+                                   opener=_opener(files), current="9.0.0")
+        assert calls == [autoupdate._installer_path("1.9.0")]
+        # instalador trocado no GitHub: recusado, nada corre
+        _clean_rollback()
+        autoupdate._prepare_rollback("9.0.0", autoupdate.INSTALLER, current="1.9.0")
+        files["https://dl/old.exe"] = b"outro ficheiro"
+        assert not autoupdate.rollback(launcher=lambda p, a, e: calls.append(p) or True, folder=tempfile.mkdtemp(),
+                                       opener=_opener(files), current="9.0.0")
+        assert len(calls) == 1
+    _clean_rollback()
+
+
+def test_portable_copy_goes_back_to_the_copy_kept_before_updating():
+    _clean_rollback()
+    with _Key():
+        autoupdate._prepare_rollback("9.0.0", autoupdate.PORTABLE, current="1.9.0")
+        app = tempfile.mkdtemp()
+        calls = []
+        assert not autoupdate.rollback(launcher=lambda p, a, e: calls.append(p) or True, folder=app,
+                                       current="9.0.0")                # sem cópia guardada: não faz nada
+        _clean_rollback()
+        autoupdate._prepare_rollback("9.0.0", autoupdate.PORTABLE, current="1.9.0")
+        old = os.path.join(autoupdate.rollback_dir(), autoupdate.BACKUP)
+        os.makedirs(old)
+        with open(os.path.join(old, "RootsAutoDoctor.exe"), "w") as fh:
+            fh.write("1.9.0")
+        assert autoupdate.rollback(launcher=lambda p, a, e: calls.append(p) or True, folder=app, pid=4321,
+                                   current="9.0.0")
+        text = open(calls[-1], encoding="utf-8").read()
+        assert f'set "OLD={old}"' in text and f'set "APP={app}"' in text and 'set "PID=4321"' in text
+        assert open(calls[-1], "rb").read().count(b"\r\n") > 10
+        autoupdate.mark_started_ok("1.9.0")                          # voltou e abriu: a cópia já não faz falta
+        assert not os.path.exists(old)
+    _clean_rollback()
+
+
+def test_downloaded_version_that_was_withdrawn_is_forgotten_not_installed():
+    autoupdate.clear()
+    path = _setup_file()
+    info, opener = _info(autoupdate.make_signature(SECRET, path, "9.0.0"))
+    _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0"))
+    assert not autoupdate.forget_withdrawn("9.0.0") and autoupdate.pending()     # continua publicada
+    assert not autoupdate.forget_withdrawn("lixo") and autoupdate.pending()
+    assert autoupdate.forget_withdrawn("8.0.0") and autoupdate.pending() is None  # retirada: a publicada é a 8.0.0
+    assert not _with_key(lambda: autoupdate.install_pending(launcher=lambda p, a, e: True,
+                                                            folder=tempfile.mkdtemp()))

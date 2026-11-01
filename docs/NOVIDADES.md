@@ -12,6 +12,7 @@ Uma versão sem secção aqui é publicada sem novidades (o programa só diz que
 - O programa actualiza-se sempre sozinho, também na versão portátil: não precisa de fazer nada.
 - Antes de actualizar, o programa mostra o que há de novo.
 - Se uma actualização não terminar, o programa continua a funcionar na versão anterior e avisa.
+- Se uma versão nova não abrir no seu computador, o programa volta sozinho à versão anterior.
 - O pacote de suporte tira os números de chassis e as matrículas dos registos e leva mais informação para
   resolver problemas mais depressa.
 
@@ -19,6 +20,7 @@ Uma versão sem secção aqui é publicada sem novidades (o programa só diz que
 - The program always updates itself, also in the portable version: there is nothing to do.
 - Before updating, the program shows what is new.
 - If an update does not finish, the program keeps working on the previous version and tells you.
+- If a new version does not open on your computer, the program goes back to the previous version by itself.
 - The support package removes chassis numbers and number plates from the logs and includes more information to
   solve problems faster.
 

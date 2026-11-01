@@ -26,6 +26,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 - **Support package**: `LEIA-ME.txt`, safe connection settings, licence state, update state and the last install
   log; chassis numbers and number plates are removed from logs and reports (recordings stay byte-exact for replay).
 
+- **Goes back by itself if a new version does not open**: a version installed by an automatic update that fails
+  to start (an error before the window, or two starts in a row that never reach the window) is replaced by the
+  previous one, which opens by itself and says so once. The installed version reruns the previous installer (kept
+  from the last update or downloaded from its release, signature checked); the portable version copies back the
+  backup taken before updating. That version is never installed again on that PC; the next one installs normally.
+- **Test versions**: `tools/publicar_release.bat <version> teste` publishes a pre-release that only PCs with
+  "Receive test versions" (technician mode) get; `tools/promover_release.bat <version>` then releases it to
+  everyone.
+- **Withdraw a release**: `tools/retirar_release.bat <version>` turns it back into a draft; copies that downloaded
+  it but did not install it discard it.
+- **Clean-Windows test before publishing**: `tools/publicar_release.bat` opens the portable version in Windows
+  Sandbox, waits for its self-test and does not publish if it fails (`tools/finish_build.py cleanpc`).
+
 ### Changed
 - `build_release.bat`, `tools/publicar_release.bat` and `.github/workflows/release.yml` sign the portable zip and
   write the Release text with the customer notes.

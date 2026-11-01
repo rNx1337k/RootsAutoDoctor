@@ -7,6 +7,8 @@ tem de abrir à primeira em qualquer PC com Windows 10/11 de 64 bits, sem instal
     python tools\\finish_build.py sign     <setup.exe> <versão> cria <setup.exe>.sig (actualizações automáticas)
     python tools\\finish_build.py codesign <ficheiro.exe>     assinatura Authenticode (tira o aviso do SmartScreen)
     python tools\\finish_build.py notes    <versão> [ficheiro]  texto da Release com as novidades (docs/NOVIDADES.md)
+    python tools\\finish_build.py cleanpc  <portatil.zip>      abre o programa num Windows limpo (Windows Sandbox),
+                                                             espera pelo auto-teste e diz se passou (antes de publicar)
 
 codesign: só assina se houver um certificado configurado; sem ele avisa e continua (o programa funciona na mesma,
 o Windows mostra "O Windows protegeu o seu PC" na primeira vez). Configura-se com variáveis de ambiente:
@@ -171,6 +173,64 @@ def sandbox(dist, log=print):
     return path
 
 
+SANDBOX_EXE_NAMES = ("WindowsSandboxRemoteSession.exe", "WindowsSandboxClient.exe", "WindowsSandbox.exe")
+CLEANPC_PASSED = "RESULTADO: tudo OK"
+
+
+def sandbox_exe(environ=None):
+    environ = os.environ if environ is None else environ
+    path = os.path.join(environ.get("SystemRoot", r"C:\Windows"), "System32", "WindowsSandbox.exe")
+    return path if os.path.exists(path) else None
+
+
+def clean_pc_test(zip_path, timeout=900, log=print, launch=None, exe=None, poll=5.0, close=None):
+    """Teste num Windows limpo antes de publicar: extrai a versão portátil, abre-a no Windows Sandbox (sem Python,
+    sem Visual C++, sem drivers), espera pelo auto-teste e fecha o Sandbox.
+    Devolve True (passou), False (falhou ou não respondeu a tempo) ou None (Windows Sandbox não está activo)."""
+    import subprocess
+    import time
+    exe = sandbox_exe() if exe is None else exe
+    if not exe:
+        log("AVISO: o Windows Sandbox não está activo neste PC (Windows 10/11 Pro: Activar ou desactivar "
+            "funcionalidades do Windows → Windows Sandbox). O teste em Windows limpo não foi feito.")
+        return None
+    work = os.path.join(ROOT, "build", "pc_limpo_release")
+    shutil.rmtree(work, ignore_errors=True)
+    app, result = os.path.join(work, "programa"), os.path.join(work, "resultado")
+    os.makedirs(result)
+    with zipfile.ZipFile(zip_path) as z:
+        z.extractall(app)
+    tops = [d for d in os.listdir(app) if os.path.isfile(os.path.join(app, d, "RootsAutoDoctor.exe"))]
+    if len(tops) != 1:
+        log("A versão portátil não tem a pasta do programa.")
+        return False
+    wsb = os.path.join(work, "teste.wsb")
+    with open(wsb, "w", encoding="utf-8") as fh:
+        fh.write(SANDBOX.format(dist=os.path.join(app, tops[0]), result=result, command=SANDBOX_COMMAND))
+    log("A abrir o programa num Windows limpo (Windows Sandbox). Não feche a janela do Sandbox.")
+    (launch or (lambda cmd: subprocess.Popen(cmd)))([exe, wsb])
+    report = os.path.join(result, "autoteste.txt")
+    end = time.monotonic() + timeout
+    text = ""
+    while time.monotonic() < end:
+        try:
+            with open(report, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            text = ""
+        if "RESULTADO:" in text:
+            break
+        time.sleep(poll)
+    (close or (lambda: [subprocess.run(["taskkill", "/F", "/IM", n], capture_output=True)
+                        for n in SANDBOX_EXE_NAMES]))()
+    if "RESULTADO:" not in text:
+        log(f"O programa não terminou o auto-teste no Windows limpo em {timeout // 60} minutos.")
+        return False
+    ok = CLEANPC_PASSED in text
+    log(("Teste em Windows limpo: passou." if ok else "Teste em Windows limpo: FALHOU.\n" + text))
+    return ok
+
+
 def sign(setup, version, secret=None, log=print):
     """Assina o instalador para as actualizações automáticas: cria <setup>.sig ao lado. Sem a chave privada
     (tools/update_key.py genkey) não assina e avisa: os clientes recebem só o aviso de versão nova."""
@@ -291,7 +351,7 @@ def codesign(path, environ=None, run=None, log=print):
 
 
 def main(argv):
-    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign", "codesign", "notes"):
+    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign", "codesign", "notes", "cleanpc"):
         print(__doc__)
         return 2
     cmd, dist = argv[0], argv[1]
@@ -303,6 +363,9 @@ def main(argv):
         else:
             sys.stdout.write(text)
         return 0
+    if cmd == "cleanpc":                         # 0 passou, 1 falhou, 2 sem Windows Sandbox (não foi feito)
+        res = clean_pc_test(dist)
+        return {True: 0, False: 1, None: 2}[res]
     if cmd == "codesign":
         try:
             codesign(dist)

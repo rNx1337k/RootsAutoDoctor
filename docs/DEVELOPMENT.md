@@ -162,8 +162,9 @@ installer (`Setup_RootsAutoDoctor_<version>.exe.sig`: Ed25519 over the version a
 To release, create a GitHub Release with tag `v<version>` and attach the installer, its `.sig` and the portable
 zip. Installed copies (`rad/autoupdate.py`) see the release at start-up, download the installer in the
 background, check the signature, and run it silently (`/VERYSILENT`) when the program closes; the next start
-shows "Updated to version …". A file that fails the check is deleted and never runs. The portable version and
-source runs only show a notice. The installer installs for the current user by default, so updates need no
+shows "Updated to version …". A file that fails the check is deleted and never runs. The portable version updates
+the same way (signed zip, copied over after the program closes, with a backup); source runs only show a notice.
+Updates install with nothing to click (see the CHANGELOG for 1.13.0). The installer installs for the current user by default, so updates need no
 administrator prompt; for an all-users install Windows asks once per update.
 
 **Code signing (SmartScreen):** without a code-signing certificate, Windows shows "Windows protected your PC" the
@@ -187,9 +188,23 @@ The update signature (`.sig`) is created after the Authenticode signature, so it
    runs its self-test and creates a **draft** Release with the installer and the portable zip. It fails if the tag
    does not match `VERSION`.
 3. On the publisher's PC (which holds the update key and the certificate), run
-   `tools\publicar_release.bat <version>`: it downloads the installer from the draft, signs it (Authenticode, if
-   configured), creates the `.sig`, uploads both and publishes the Release. Installed copies then update
-   themselves. Requires the GitHub CLI (`winget install GitHub.cli`, then `gh auth login`).
+   `tools\publicar_release.bat <version> teste`: it downloads the installer and the portable zip from the draft,
+   signs the installer (Authenticode, if configured), creates both `.sig` files, **tests the portable version in a
+   clean Windows** (Windows Sandbox, if enabled: the release is not published if the self-test fails), uploads the
+   files, writes the customer notes from `docs/NOVIDADES.md` and publishes it as a **pre-release**. Only PCs with
+   **Options → Updates → Receive test versions** (technician mode, `--tecnico`; the setting is kept) get it.
+   Requires the GitHub CLI (`winget install GitHub.cli`, then `gh auth login`).
+4. Once the test version works on your PC, `tools\promover_release.bat <version>` makes it the latest release:
+   every installed and portable copy updates itself. (`tools\publicar_release.bat <version>` without `teste`
+   publishes straight to everyone.)
+
+**If a version has a problem:** `tools\retirar_release.bat <version>` turns it back into a draft. Copies that have
+not installed it stop seeing it (a downloaded copy is discarded instead of installed); copies that already have it
+keep it until you publish a fixed version with a new number. Independently of this, a copy updated automatically
+that cannot open the new version (it fails to start, or does not reach the main window twice in a row) goes back
+to the previous version by itself and never installs that version again (`rad/autoupdate.py`, "voltar à versão
+anterior"): the installed version reruns the previous installer (kept from the last update, or downloaded from its
+release, signature checked), the portable version copies back the backup kept before updating.
 
 `build_release.bat` still builds everything locally, as before.
 

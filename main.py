@@ -25,9 +25,16 @@ def show_fatal_error(text):
 
 
 def startup_failed(exc_type, exc, tb):
-    """Erro antes de a janela abrir: regista e explica. Devolve o código de saída."""
+    """Erro antes de a janela abrir: regista e explica. Devolve o código de saída.
+    Se esta versão acabou de chegar por uma actualização automática, volta já à versão anterior, que abre sozinha."""
     text = applog.write_crash(exc_type, exc, tb)
     last = text.strip().splitlines()[-1] if text.strip() else repr(exc)
+    previous = rollback_possible()
+    if previous:                                    # primeiro o aviso: a reposição só começa depois de fechar
+        show_fatal_error(f"A versão {VERSION} do {APP_NAME} não abriu neste computador.\n\n"
+                         f"O programa vai voltar à versão {previous} e abrir sozinho dentro de momentos.")
+        if roll_back():
+            return 2
     show_fatal_error(f"Não foi possível iniciar o {APP_NAME} v{VERSION}.\n\n{last}\n\n"
                      f"Os detalhes foram guardados em:\n{applog.crash_log_path()}\n\n"
                      "Se instalou o programa, volte a instalá-lo. Se o problema continuar, envie esse ficheiro.")
@@ -112,6 +119,29 @@ def install_crash_handler():
     sys.excepthook = hook
 
 
+def rollback_possible():
+    """A versão anterior, se esta veio de uma actualização automática e se pode voltar a ela; senão None."""
+    try:
+        from rad import autoupdate
+        return autoupdate.rollback_target() if autoupdate.can_roll_back() else None
+    except Exception:
+        return None
+
+
+def roll_back():
+    """Volta à versão anterior se esta veio de uma actualização automática e não abre. Devolve a versão anterior se
+    a reposição foi lançada, senão None. Nunca falha (o pior caso é o programa tentar abrir como antes)."""
+    try:
+        from rad import autoupdate
+        if not autoupdate.can_roll_back():
+            return None
+        previous = autoupdate.rollback_target()
+        return previous if autoupdate.rollback() else None
+    except Exception:
+        applog.write_crash(*sys.exc_info())
+        return None
+
+
 def create_app():
     """Cria a aplicação Qt (idioma, tamanho da interface, estilo e ícone)."""
     from rad import i18n
@@ -178,6 +208,12 @@ def main():
         return selftest.main(sys.argv)
     applog.setup_logging()
     install_crash_handler()
+    try:
+        from rad import autoupdate
+        if autoupdate.begin_start() == "rollback" and roll_back():
+            return 0                                # a versão anterior abre sozinha no fim
+    except Exception:
+        applog.write_crash(*sys.exc_info())
     if update_on_start():
         return 0
     try:

@@ -355,7 +355,7 @@ echo %DATE% %TIME% a copiar a versao {version}>>"%LOG%"
 robocopy "%NEW%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
 if errorlevel 8 goto rollback
 echo %DATE% %TIME% RESULTADO: ok>>"%LOG%"
-rd /s /q "%OLD%"
+REM a copia da versao anterior fica ate a versao nova abrir bem (para voltar atras se nao abrir)
 rd /s /q "%NEW%"
 goto done
 :rollback
@@ -376,11 +376,12 @@ if "{elevated}"=="1" (start "" explorer.exe "%APP%\{exe}") else (start "" "%APP%
 """
 
 
-def portable_script(version, pid, app, new, folder=None, relaunch=False, elevated=False):
-    """Escreve o script que aplica a versão portátil e devolve o caminho."""
+def portable_script(version, pid, app, new, folder=None, relaunch=False, elevated=False, backup=None):
+    """Escreve o script que aplica a versão portátil e devolve o caminho. backup: onde fica a cópia da versão
+    actual (por omissão na pasta do script)."""
     folder = folder or updates_dir()
     text = SCRIPT_TEMPLATE.format(version=version, pid=int(pid), app=os.path.abspath(app),
-                                  new=os.path.abspath(new), old=os.path.join(folder, BACKUP),
+                                  new=os.path.abspath(new), old=backup or os.path.join(folder, BACKUP),
                                   log=os.path.join(folder, LOG_NAME), relaunch="1" if relaunch else "0",
                                   elevated="1" if elevated else "0", exe=EXE_NAME)
     path = os.path.join(folder, SCRIPT)
@@ -421,10 +422,13 @@ def install_pending(launcher=None, folder=None, relaunch=False, pid=None, visibl
             if not new or not os.path.isfile(os.path.join(new, EXE_NAME)):
                 new = extract_portable(st["path"])
             elevate = not _writable(folder)
-            script = portable_script(version, pid or os.getpid(), folder, new, relaunch=relaunch, elevated=elevate)
+            _prepare_rollback(version, PORTABLE)
+            script = portable_script(version, pid or os.getpid(), folder, new, relaunch=relaunch, elevated=elevate,
+                                     backup=os.path.join(rollback_dir(), BACKUP))
             ok = (launcher or _launch_script)(script, [], elevate)
         else:
             elevate = not _writable(folder)
+            _prepare_rollback(version, INSTALLER)
             args = (list(VISIBLE_ARGS if visible else SILENT_ARGS) + [f"/LOG={log_path()}"]
                     + ([RELAUNCH_ARG] if relaunch else []))
             ok = (launcher or _launch)(st["path"], args, elevate)
@@ -438,6 +442,18 @@ def install_pending(launcher=None, folder=None, relaunch=False, pid=None, visibl
     return bool(ok)
 
 
+def forget_withdrawn(latest_version):
+    """A versão descarregada deixou de estar publicada (retirada pelo fornecedor, ou era uma versão de teste e o
+    canal mudou): apaga-a em vez de a instalar. True se apagou."""
+    st = pending()
+    if st and parse_version(latest_version) and is_newer(st.get("version", ""), latest_version):
+        log.warning("A versão %s descarregada já não está publicada (a mais recente é %s): apagada",
+                    st.get("version"), latest_version)
+        clear(keep_log=True)
+        return True
+    return False
+
+
 def ready_on_start(mode=None):
     """A versão nova já descarregada que se instala logo ao abrir o programa (antes da janela), ou None.
     Só na primeira tentativa: se uma instalação anterior não terminou, o programa abre normalmente e volta a tentar
@@ -446,7 +462,7 @@ def ready_on_start(mode=None):
     st = pending()
     if not mode or not st or st.get("attempts", 0) or st.get("mode", INSTALLER) != mode:
         return None
-    if not is_newer(st.get("version", "")):
+    if not is_newer(st.get("version", "")) or st.get("version") in bad_versions():
         return None
     return st
 
@@ -472,6 +488,9 @@ def startup_status(current=VERSION, now=None):
         return None
     version = st.get("version", "")
     if parse_version(version) == parse_version(current):
+        if st.get("mode", INSTALLER) == INSTALLER:     # guarda-o: é o caminho de volta se a próxima falhar
+            previous = (_read(ROLLBACK) or {}).get("previous")
+            _keep_installer(st.get("path"), st.get("sig"), version, keep=[previous] if previous else [])
         clear()
         return {"result": "updated", "version": version, "notes": st.get("notes") or ""}
     if not is_newer(version, current):
@@ -497,3 +516,248 @@ def after_start(current=VERSION):
     """A versão nova se a última actualização correu bem, senão None (ver startup_status)."""
     st = startup_status(current)
     return st["version"] if st and st["result"] == "updated" else None
+
+
+# ------------------------------------------------------------------ voltar à versão anterior
+# Se uma versão nova, instalada por uma actualização automática, não chega a abrir neste PC, o programa volta
+# sozinho à versão que estava antes e não volta a instalar essa versão (a seguinte instala-se normalmente).
+#   begin_start()        no main.py, antes da janela: conta os arranques desta versão que não chegaram ao fim
+#   mark_started_ok()    a janela abriu e o programa está a funcionar (HEALTHY_SECONDS) ou fechou normalmente
+#   rollback()           repõe a versão anterior: na versão instalada corre o instalador dessa versão (guardado da
+#                        actualização anterior ou descarregado do GitHub, sempre com a assinatura verificada); na
+#                        portátil copia de volta a cópia que o script guardou antes de actualizar.
+HEALTH = "arranque.json"
+ROLLBACK = "reposicao.json"
+BAD = "versoes_recusadas.json"
+NOTICE = "aviso_reposicao.json"
+ROLLBACK_SCRIPT = "repor_versao_anterior.bat"
+FAILED_STARTS = 2                    # arranques seguidos sem abrir a janela antes de voltar à versão anterior
+HEALTHY_SECONDS = 20                 # janela aberta há este tempo: a versão funciona neste PC
+
+
+def rollback_dir():
+    base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".config")
+    path = os.path.join(base, "RootsAutoDoctor", "reposicao")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _read(name, default=None):
+    try:
+        with open(os.path.join(rollback_dir(), name), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return default
+
+
+def _write(name, obj):
+    path = os.path.join(rollback_dir(), name)
+    with open(path + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(obj, fh)
+    os.replace(path + ".tmp", path)
+
+
+def _remove(name):
+    path = os.path.join(rollback_dir(), name)
+    try:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        log.warning("Não foi possível apagar %s", path, exc_info=True)
+
+
+def bad_versions():
+    """Versões que não abriram neste PC: nunca mais se instalam sozinhas."""
+    return set(_read(BAD, []) or [])
+
+
+def _installer_path(version):
+    return os.path.join(rollback_dir(), f"Setup_RootsAutoDoctor_{version}.exe")
+
+
+def _keep_installer(path, sig, version, keep=()):
+    """Guarda o instalador da versão que ficou instalada (e a assinatura) e apaga os outros, salvo os de keep."""
+    try:
+        if path and os.path.exists(path) and verify_file(path, sig, version):
+            shutil.copyfile(path, _installer_path(version))
+            _write(os.path.basename(_installer_path(version)) + ".sig", sig)
+        _prune_installers({version, *keep})
+    except OSError:
+        log.warning("Não foi possível guardar o instalador da versão %s", version, exc_info=True)
+
+
+def _prune_installers(keep):
+    names = {os.path.basename(_installer_path(v)) for v in keep}
+    for name in os.listdir(rollback_dir()):
+        if name.startswith("Setup_RootsAutoDoctor_") and name.replace(".sig", "") not in names:
+            _remove(name)
+
+
+def _kept_installer(version):
+    """(caminho, assinatura) do instalador guardado de uma versão, se ainda estiver bom."""
+    path = _installer_path(version)
+    sig = _read(os.path.basename(path) + ".sig")
+    if os.path.exists(path) and verify_file(path, sig, version):
+        return path, sig
+    return None, None
+
+
+def _prepare_rollback(version, mode, current=VERSION):
+    """Antes de instalar: lembra de onde vem, para poder voltar se a versão nova não abrir."""
+    try:
+        _write(ROLLBACK, {"version": version, "previous": current, "mode": mode})
+    except OSError:
+        log.warning("Não foi possível guardar o caminho de volta", exc_info=True)
+
+
+def begin_start(current=VERSION, mode=None):
+    """No arranque, antes da janela. Devolve "rollback" quando esta versão veio de uma actualização automática e os
+    últimos FAILED_STARTS arranques não chegaram a abrir a janela."""
+    try:
+        h = _read(HEALTH, {}) or {}
+        if h.get("version") != current:
+            h = {"version": current, "failed": 0}
+        elif h.get("open"):                              # o arranque anterior não chegou ao fim
+            h["failed"] = h.get("failed", 0) + 1
+        h["open"] = True
+        _write(HEALTH, h)
+        rb = _read(ROLLBACK) or {}
+        if (rb.get("version") == current and not rb.get("rolled_back") and h["failed"] >= FAILED_STARTS
+                and (mode or update_mode())):
+            log.error("A versão %s não abriu %d vezes seguidas: a voltar à %s", current, h["failed"],
+                      rb.get("previous"))
+            return "rollback"
+    except OSError:
+        log.warning("Contagem de arranques falhou", exc_info=True)
+    return None
+
+
+def can_roll_back(current=VERSION, mode=None):
+    """True se esta versão veio de uma actualização automática e ainda há caminho de volta."""
+    rb = _read(ROLLBACK) or {}
+    return bool(rb.get("version") == current and not rb.get("rolled_back") and rb.get("previous")
+                and (mode or update_mode()))
+
+
+def rollback_target():
+    """A versão para onde se volta, se a actual não abrir (ou None)."""
+    return (_read(ROLLBACK) or {}).get("previous")
+
+
+def mark_started_ok(current=VERSION):
+    """A versão abriu e funciona: esquece a contagem e apaga o que só servia para voltar atrás (fica o instalador
+    desta versão, para a próxima actualização)."""
+    try:
+        _write(HEALTH, {"version": current, "failed": 0, "open": False})
+        rb = _read(ROLLBACK) or {}
+        if rb and (rb.get("version") == current or rb.get("rolled_back")):
+            _remove(BACKUP)
+            _prune_installers({current})
+            _remove(ROLLBACK)
+    except OSError:
+        log.warning("Não foi possível marcar o arranque como bom", exc_info=True)
+
+
+def _previous_installer(version, opener=None):
+    """Instalador da versão anterior: o guardado, ou descarregado da release dessa versão (assinatura verificada)."""
+    path, sig = _kept_installer(version)
+    if path:
+        return path
+    from .updates import release_for
+    info = release_for(version, opener)
+    if not info or not info.get("download") or not info.get("signature"):
+        return None
+    opener = opener or urllib.request.urlopen
+    path = _installer_path(version)
+    try:
+        sig = json.loads(_fetch(info["signature"], opener).decode("utf-8"))
+        _fetch(info["download"], opener, dest=path)
+    except (OSError, ValueError):
+        log.warning("Não foi possível descarregar o instalador da versão %s", version, exc_info=True)
+        return None
+    if not verify_file(path, sig, version):
+        _remove(os.path.basename(path))
+        log.error("Instalador da versão %s recusado: a assinatura não corresponde", version)
+        return None
+    _write(os.path.basename(path) + ".sig", sig)
+    return path
+
+
+ROLLBACK_TEMPLATE = r"""@echo off
+chcp 65001 >nul
+REM Roots Auto Doctor: volta a versao {previous} porque a {version} nao abriu neste computador.
+set "PID={pid}"
+set "APP={app}"
+set "OLD={old}"
+set "LOG={log}"
+set /a N=0
+echo %DATE% %TIME% a voltar a versao {previous} (processo %PID%)>>"%LOG%"
+:wait
+tasklist /FI "PID eq %PID%" /NH 2>nul | find " %PID% " >nul
+if errorlevel 1 goto closed
+set /a N+=1
+if %N% GEQ 120 goto busy
+ping -n 2 127.0.0.1 >nul
+goto wait
+:closed
+robocopy "%OLD%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
+if errorlevel 8 (echo %DATE% %TIME% RESULTADO: falhou>>"%LOG%") else (echo %DATE% %TIME% RESULTADO: ok>>"%LOG%")
+goto done
+:busy
+echo %DATE% %TIME% RESULTADO: falhou (o programa nao fechou)>>"%LOG%"
+:done
+if "{elevated}"=="1" (start "" explorer.exe "%APP%\{exe}") else (start "" "%APP%\{exe}")
+"""
+
+
+def rollback(launcher=None, folder=None, pid=None, opener=None, current=VERSION):
+    """Volta à versão anterior (ver begin_start) e abre-a no fim. Esta versão fica recusada neste PC.
+    True se a reposição foi lançada (o programa deve sair já)."""
+    rb = _read(ROLLBACK) or {}
+    if rb.get("version") != current or rb.get("rolled_back") or not rb.get("previous"):
+        return False
+    previous, mode = rb["previous"], rb.get("mode", INSTALLER)
+    folder = folder or app_dir()
+    _write(BAD, sorted(bad_versions() | {current}))
+    clear()                                              # o que estiver descarregado desta versão já não serve
+    elevate = not _writable(folder)
+    try:
+        if mode == PORTABLE:
+            old = os.path.join(rollback_dir(), BACKUP)
+            if not os.path.isfile(os.path.join(old, EXE_NAME)):
+                log.error("Sem a cópia da versão %s: não é possível voltar atrás", previous)
+                return False
+            script = os.path.join(updates_dir(), ROLLBACK_SCRIPT)
+            with open(script, "w", encoding="utf-8", newline="\r\n") as fh:
+                fh.write(ROLLBACK_TEMPLATE.format(previous=previous, version=current, pid=int(pid or os.getpid()),
+                                                  app=os.path.abspath(folder), old=old,
+                                                  log=os.path.join(updates_dir(), LOG_NAME),
+                                                  elevated="1" if elevate else "0", exe=EXE_NAME))
+            ok = (launcher or _launch_script)(script, [], elevate)
+        else:
+            path = _previous_installer(previous, opener)
+            if not path:
+                log.error("Sem o instalador da versão %s: não é possível voltar atrás", previous)
+                return False
+            args = VISIBLE_ARGS + [f"/LOG={log_path()}", RELAUNCH_ARG]
+            ok = (launcher or _launch)(path, args, elevate)
+    except Exception:
+        log.exception("Não foi possível voltar à versão %s", previous)
+        return False
+    if ok:
+        _write(ROLLBACK, dict(rb, rolled_back=True))
+        _write(NOTICE, {"bad": current, "version": previous})
+    return bool(ok)
+
+
+def rollback_notice(current=VERSION):
+    """{"bad", "version"} uma vez, no primeiro arranque depois de voltar à versão anterior; senão None."""
+    notice = _read(NOTICE)
+    if not notice:
+        return None
+    if notice.get("version") != current:                 # a reposição ainda não terminou (ou falhou)
+        return None
+    _remove(NOTICE)
+    return notice
