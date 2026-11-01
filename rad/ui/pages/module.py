@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ... import fault_advice, guided, journal, technician_mode, vag_data, APP_NAME
+from ... import fault_advice, guided, journal, live_alerts, logview, recordings, technician_mode, vag_data, APP_NAME
 from ..style import BAD, CYAN, MUTED, OK, WARN, severity_color
 from ..widgets import ChartDialog
 from .common import FaultAdviceCard, lbl, btn, card, ask, GroupCard
@@ -27,6 +27,10 @@ class ModulePage(QWidget):
         self.info = None
         self.csv_file = None
         self.csv_writer = None
+        self.last_csv = None                # última gravação: abre directamente em "Ver gravações"
+        self.last_stored = None             # a cópia dessa gravação guardada com o veículo (rad/recordings.py)
+        self.vehicle = dict                 # a janela principal liga aqui os dados do veículo da página inicial
+        self._reset_visit()
 
         v = QVBoxLayout(self)
         v.setContentsMargins(26, 20, 26, 20)
@@ -207,10 +211,15 @@ class ModulePage(QWidget):
         self.csv_btn = btn(tr("⏺  Gravar CSV"), None, self._toggle_csv)
         row.addWidget(self.mvb_btn)
         row.addWidget(self.csv_btn)
+        row.addWidget(btn(tr("Ver gravações"), None, self.open_logs))
         row.addStretch(1)
         self.mvb_rate = lbl("", "muted")
         row.addWidget(self.mvb_rate)
         v.addLayout(row)
+        self.alerts_lbl = lbl("", None, wrap=True)
+        self.alerts_lbl.setVisible(False)
+        v.addWidget(self.alerts_lbl)
+        self.monitor = None
         self.groups = [GroupCard(tr("Grupo A"), 1), GroupCard(tr("Grupo B"), 3), GroupCard(tr("Grupo C"), 11, False)]
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -355,7 +364,16 @@ class ModulePage(QWidget):
         return w
 
     # ------------------------------------------------------------ estado
+    def _reset_visit(self):
+        """O que o relatório conta da medição deste controlador: grupos lidos e alertas que apareceram."""
+        self.visit_groups = set()
+        self.visit_alerts = {}
+        self.visit_checked = False          # houve regras de alerta para esta peça
+        self.last_csv = self.last_stored = None
+
     def set_info(self, info):
+        if not self.info or self.info.get("address") != info.get("address"):
+            self._reset_visit()
         self.info = info
         self.title.setText(f"{info['address']:02X} — {info['module']}")
         if technician_mode():
@@ -414,6 +432,11 @@ class ModulePage(QWidget):
             self.gd_btn.setText(tr("▶  Iniciar teste"))
             self.gd_timer_lbl.setText("")
         self.w.set_live(None, [])
+        if self.monitor is not None:
+            self.visit_alerts.update(self.monitor.seen)
+            self.visit_checked = self.visit_checked or bool(self.monitor.rules)
+        self.monitor = None
+        self._show_alerts()
         self._lock_groups(False)
         self.basic_group.spin.setEnabled(True)
         self.mvb_btn.setText(tr("▶  Iniciar leitura"))
@@ -638,6 +661,9 @@ class ModulePage(QWidget):
             return
         for g in self.groups:
             g.reset_peaks()
+        self.monitor = live_alerts.Monitor(self.info.get("part") if self.info else "")
+        self.visit_groups.update(groups)
+        self._show_alerts()
         self.w.set_live("read", groups)
         self._lock_groups(True)
         self.mvb_btn.setText(tr("■  Parar leitura"))
@@ -681,6 +707,9 @@ class ModulePage(QWidget):
             if dt > 0:
                 self.mvb_rate.setText(tr("{v:.1f} leituras/s", v=1 / dt))
         self._last_live_t = data["t"]
+        if self.monitor is not None and data["mode"] == "read":
+            self.monitor.feed(data["t"], data["groups"])
+            self._show_alerts()
         if self.csv_writer and data["mode"] == "read":
             row = [datetime.datetime.fromtimestamp(data["t"]).strftime("%H:%M:%S.%f")[:-3]]
             for card_ in self.groups:
@@ -689,6 +718,58 @@ class ModulePage(QWidget):
                 for i in range(4):
                     row.append(res[i]["value"] if isinstance(res, list) and i < len(res) else "")
             self.csv_writer.writerow(row)
+
+    def measuring_summary(self):
+        """Resumo da medição desta visita para o relatório (guardável em JSON), ou None se não houve leitura:
+        {"address", "module", "groups", "checked", "alerts": [{"group", "severity", "text"}],
+         "channels": [{"name", "unit", "min", "max", "avg", "prev_avg"}], "previous_date"}.
+        Os canais vêm da última gravação CSV; prev_avg da gravação da visita anterior do mesmo carro."""
+        if not self.info or not (self.visit_groups or self.last_csv):
+            return None
+        alerts = dict(self.visit_alerts)
+        if self.monitor is not None:                    # leitura ainda a decorrer
+            alerts.update(self.monitor.seen)
+        out = {"address": self.info["address"], "module": self.info.get("module", ""),
+               "groups": sorted(self.visit_groups),
+               "checked": self.visit_checked or bool(self.monitor and self.monitor.rules),
+               "alerts": [{"group": a.group, "severity": a.severity, "text": a.text}
+                          for a in sorted(alerts.values(), key=lambda a: (a.severity != "bad", a.group))],
+               "channels": [], "previous_date": None}
+        try:
+            log = logview.parse(self.last_csv) if self.last_csv else None
+        except logview.LogError:
+            log = None
+        if log is None:
+            return out
+        prev, prev_avg = None, {}
+        found = (recordings.previous(self.vehicle(), self.info["address"], current=self.last_stored)
+                 if self.last_stored else None)
+        if found:
+            try:
+                prev = logview.parse(found[0])
+            except logview.LogError:
+                prev = None
+        if prev is not None:
+            out["previous_date"] = found[1].isoformat(timespec="minutes")
+            prev_avg = {id(a): b.stats()[2] for a, b, _d in logview.compare(log, prev) if b.stats()}
+        for ch in log.channels:
+            st = ch.stats()
+            if st:
+                out["channels"].append({"name": ch.name, "unit": ch.unit, "min": st[0], "max": st[1], "avg": st[2],
+                                        "prev_avg": prev_avg.get(id(ch))})
+        return out
+
+    def _show_alerts(self):
+        """Faixa por cima dos grupos com os alertas activos da leitura (vermelho se houver algum grave)."""
+        alerts = self.monitor.alerts() if self.monitor else []
+        self.alerts_lbl.setVisible(bool(alerts))
+        if not alerts:
+            self.alerts_lbl.setText("")
+            return
+        color = BAD if any(a.severity == "bad" for a in alerts) else WARN
+        self.alerts_lbl.setStyleSheet(f"color: {color}; border: 1px solid {color}; border-radius: 10px; "
+                                      f"padding: 8px 12px; font-weight: 600;")
+        self.alerts_lbl.setText("\n".join(tr("⚠  Grupo {g:03d}: {text}", g=a.group, text=a.text) for a in alerts))
 
     def _toggle_csv(self):
         if self.csv_writer:
@@ -721,9 +802,26 @@ class ModulePage(QWidget):
         if self.w.live_mode != "read":
             self._toggle_mvb()
 
+    def open_logs(self):
+        """Abre a última gravação (ou a última guardada com este veículo) já comparada com a anterior do mesmo
+        veículo e controlador, se houver."""
+        from ..logviewer import LogViewerDialog
+        vehicle = self.vehicle()
+        address = self.info["address"] if self.info else None
+        path, stored = self.last_csv, self.last_stored
+        if path is None and address is not None:
+            latest = recordings.previous(vehicle, address)
+            if latest:
+                path = stored = latest[0]
+        prev = recordings.previous(vehicle, address, current=stored) if address is not None and stored else None
+        LogViewerDialog(self, path, compare=prev, start_dir=recordings.vehicle_dir(vehicle)).exec()
+
     def _stop_csv(self):
         if self.csv_file:
             self.csv_file.close()
+            self.last_csv = self.csv_file.name
+            self.last_stored = (recordings.store(self.last_csv, self.vehicle(), self.info["address"])
+                                if self.info else None)
         self.csv_file = None
         self.csv_writer = None
         self.csv_btn.setText(tr("⏺  Gravar CSV"))

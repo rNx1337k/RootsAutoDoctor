@@ -78,12 +78,62 @@ def _no_comm(item, technical=False):
     return tr("Sem comunicação com este controlador.")
 
 
+def _num(v):
+    from .vag_data import format_number
+    return format_number(v) if isinstance(v, (int, float)) else "—"
+
+
+def measuring_html(m, technical=False):
+    """Secção "Valores de medição": os alertas da leitura (ou que ficou tudo dentro do habitual) e, no relatório
+    técnico, os valores da gravação com a média da visita anterior. m = ModulePage.measuring_summary()."""
+    if not m:
+        return ""
+    groups = ", ".join(f"{g:03d}" for g in m.get("groups") or [])
+    parts = [f"<h2>{_e(tr('Valores de medição'))}</h2>"]
+    head = tr("{addr:02X} {module}", addr=int(m.get("address", 0)), module=m.get("module", ""))
+    if groups:
+        head += " · " + tr("grupos lidos: {groups}", groups=groups)
+    parts.append(f"<p class='muted'>{_e(head)}</p>")
+    alerts = m.get("alerts") or []
+    if alerts:
+        for a in alerts:
+            color = RED if a.get("severity") == "bad" else WARN
+            parts.append(f"<div class='fault' style='border-left-color:{color}'><b>"
+                         + _e(tr("Grupo {g:03d}", g=int(a.get("group", 0)))) + f"</b> — {_e(a.get('text'))}</div>")
+    elif m.get("checked"):
+        parts.append(f"<p style='color:{OK}'><b>"
+                     + _e(tr("Os valores lidos ficaram dentro do habitual durante a leitura.")) + "</b></p>")
+    else:
+        parts.append("<p class='muted'>" + _e(tr("Sem avaliação automática dos valores para este controlador.")) +
+                     "</p>")
+    channels = m.get("channels") or []
+    if technical and channels:
+        prev_date = m.get("previous_date")
+        rows = []
+        for c in channels:
+            prev, avg = c.get("prev_avg"), c.get("avg")
+            diff = "—"
+            if isinstance(prev, (int, float)) and isinstance(avg, (int, float)):
+                diff = ("+" if avg - prev >= 0 else "") + _num(avg - prev)
+            rows.append(f"<tr><td>{_e(c.get('name'))}</td><td class='muted'>{_e(c.get('unit'))}</td>"
+                        f"<td>{_num(c.get('min'))}</td><td>{_num(c.get('max'))}</td><td><b>{_num(avg)}</b></td>"
+                        + (f"<td>{_num(prev)}</td><td>{_e(diff)}</td>" if prev_date else "") + "</tr>")
+        cols = [tr("Canal"), tr("Unidade"), tr("Mín"), tr("Máx"), tr("Média")]
+        if prev_date:
+            when = prev_date.replace("T", " ")
+            cols += [tr("Média em {d}", d=when), tr("Diferença")]
+        header = "".join(f"<td class='muted'><b>{_e(c)}</b></td>" for c in cols)
+        parts.append(f"<table class='modules'><tr>{header}</tr>{''.join(rows)}</table>")
+    return "".join(parts)
+
+
 def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64), meta=None,
                date=None, variant="client"):
     """items: lista no formato do Auto-Scan
        [{"address", "module", "status": ok|error, "info", "faults", "error"}].
-    meta: {"interface", "simulated", "aborted", "scanned", "total", "changes"} da sessão (opcional);
-    changes = alterações do registo (rad/journal.py) feitas durante a visita.
+    meta: {"interface", "simulated", "aborted", "scanned", "total", "changes", "measuring"} da sessão (opcional);
+    changes = alterações do registo (rad/journal.py) feitas durante a visita; measuring = resumo da medição
+    (ver measuring_html).
     date: data da sessão (datetime ou texto ISO); por omissão, agora.
     variant: "client" (para o dono do carro) ou "technical" (com os pormenores de comunicação)."""
     meta = meta or {}
@@ -186,6 +236,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                                 "\"Confirmada\" = o controlador devolveu o valor gravado."))
                         + f"</p><table class='modules'>{''.join(crow)}</table>")
 
+    measuring = measuring_html(meta.get("measuring"), technical)
     notes_html = (f"<h2>{_e(tr('Observações'))}</h2><p>{_e(notes).replace(chr(10), '<br>')}</p>"
                   if notes.strip() else "")
     partial = " " + tr("(leitura parcial)") if score is not None and (n_err or meta.get("aborted")) else ""
@@ -242,6 +293,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
 
 <h2>{T["Controladores"]}</h2>
 <table class="modules">{''.join(rows) if rows else f'<tr><td>{T["Nenhum controlador lido."]}</td></tr>'}</table>
+{measuring}
 {changes_html}
 {notes_html}
 <p class="muted" style="margin-top:24px">{footer}</p>

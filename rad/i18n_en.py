@@ -3867,4 +3867,84 @@ EN = {
         "Receive test versions before customers",
     "Testes":
         "Testing",
+    "A gravação não tem valores.":
+        "The recording has no values.",
+    "Abra um CSV gravado em Medição → Gravar CSV.":
+        "Open a CSV saved with Measuring → Record CSV.",
+    "Abrir gravação":
+        "Open recording",
+    "Abrir gravação…":
+        "Open recording…",
+    "Comparar com a gravação":
+        "Compare with recording",
+    "Comparar com…":
+        "Compare with…",
+    "Diferença":
+        "Difference",
+    "Escolha um ou mais canais à esquerda":
+        "Choose one or more channels on the left",
+    "Este canal não tem valores numéricos.":
+        "This channel has no numeric values.",
+    "Formato não reconhecido: escolha um CSV gravado em Medição → Gravar CSV.":
+        "Format not recognised: choose a CSV saved with Measuring → Record CSV.",
+    "Gravações":
+        "Recordings",
+    "Gravações de valores de medição":
+        "Measuring value recordings",
+    "Máx":
+        "Max",
+    "Média (comparação)":
+        "Average (comparison)",
+    "Mín":
+        "Min",
+    "Não foi possível abrir o ficheiro:\n{e}":
+        "Could not open the file:\n{e}",
+    "O ficheiro está vazio.":
+        "The file is empty.",
+    "Passe o rato no gráfico para ver os valores em cada instante.":
+        "Move the mouse over the chart to see the values at each moment.",
+    "Pode ver até {n} canais ao mesmo tempo.":
+        "You can view up to {n} channels at the same time.",
+    "Tirar comparação":
+        "Remove comparison",
+    "Ver e comparar gravações de valores de medição (CSV)":
+        "View and compare measuring value recordings (CSV)",
+    "Ver gravações":
+        "View recordings",
+    "comparação (tracejado) — {name}: {n} leituras em {s:.1f} s":
+        "comparison (dashed) — {name}: {n} readings in {s:.1f} s",
+    "{name} (comparação)":
+        "{name} (comparison)",
+    "{name}: {n} leituras em {s:.1f} s":
+        "{name}: {n} readings in {s:.1f} s",
+    "Cilindro(s) {c} fora de ±2 mg/H ao ralenti: injector gasto/a pingar ou compressão baixa.":
+        "Cylinder(s) {c} outside ±2 mg/H at idle: worn/dripping injector or low compression.",
+    "Massa de ar real só {p} % da pretendida: medidor (MAF) fraco, filtro sujo, fuga antes do MAF ou EGR a abrir em carga.":
+        "Actual air mass only {p} % of specified: weak air mass meter (MAF), dirty filter, leak before the MAF or EGR opening under load.",
+    "Pressão do turbo {d} mbar abaixo da pretendida a {rpm} rpm: verifique fugas na admissão, tubos de vácuo, N75 e o turbo.":
+        "Boost pressure {d} mbar below specified at {rpm} rpm: check for intake leaks, vacuum hoses, N75 and the turbo.",
+    "Sobrepressão do turbo: {d} mbar acima da pretendida. Alivie o pé e verifique N75, geometria variável/wastegate e o sensor de pressão.":
+        "Overboost: {d} mbar above specified. Lift off and check N75, variable geometry/wastegate and the pressure sensor.",
+    "Temperatura do líquido {t} °C: risco de sobreaquecimento. Pare o motor e verifique o nível, o ventilador e o termóstato.":
+        "Coolant temperature {t} °C: risk of overheating. Stop the engine and check the level, the fan and the thermostat.",
+    "Tensão da bateria alta ({u} V): regulador do alternador avariado.":
+        "Battery voltage high ({u} V): faulty alternator regulator.",
+    "Tensão da bateria baixa ({u} V): bateria fraca ou o alternador não carrega.":
+        "Battery voltage low ({u} V): weak battery or the alternator is not charging.",
+    "⚠  Grupo {g:03d}: {text}":
+        "⚠  Group {g:03d}: {text}",
+    "comparação (tracejado) com a visita anterior, {d:%d/%m/%Y %H:%M}: {n} leituras em {s:.1f} s":
+        "comparison (dashed) with the previous visit, {d:%d/%m/%Y %H:%M}: {n} readings in {s:.1f} s",
+    "Grupo {g:03d}":
+        "Group {g:03d}",
+    "Média em {d}":
+        "Average on {d}",
+    "Os valores lidos ficaram dentro do habitual durante a leitura.":
+        "The values read stayed within the usual range during the reading.",
+    "Sem avaliação automática dos valores para este controlador.":
+        "No automatic assessment of the values for this controller.",
+    "grupos lidos: {groups}":
+        "groups read: {groups}",
+    "{addr:02X} {module}":
+        "{addr:02X} {module}",
 }

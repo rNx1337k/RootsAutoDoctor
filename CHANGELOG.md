@@ -3,6 +3,29 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.14.0] — 2026-11-01
+### Added
+- **Recordings viewer** (Measuring → **View recordings**, or "Recordings" in the command palette): opens a CSV saved
+  with **Record CSV**, plots up to 4 channels at once (each on its own scale), shows min / max / average per channel
+  and the values under the mouse, and compares with a second recording (before / after a repair) — the comparison is
+  drawn dashed and the table shows the difference of the averages. Channels are paired by group and field
+  (`rad/logview.py`, `rad/ui/logviewer.py`).
+- **Alerts while reading measuring values** (`rad/live_alerts.py`): on engines with known groups (1.9 TDI EDC15,
+  Bosch ME7) the Measuring tab shows a banner as soon as a value leaves the usual range — boost below or above
+  specified under load, low air mass, injector deviation at idle, coolant overheating, battery voltage. A condition
+  must last 1–3 s before it is shown, so a single spike never raises an alert; the alert goes away when the value
+  recovers. Serious alerts (overboost, overheating) are red.
+- **Recordings kept with the car** (`rad/recordings.py`): when a Record CSV stops and the plate (or VIN) is filled
+  in, a copy goes to `historico/medicao/<plate>/`. **View recordings** then opens the recording already compared
+  with the previous visit's recording of the same car and controller; with no recording in this session it opens
+  the car's latest one. The open buttons start in the car's folder. The support package does not include these
+  copies.
+- **Measuring values in the report**: when measuring values were read during the visit, the report has a
+  "Measuring values" section with the groups read and the alerts that appeared (or that everything stayed within
+  the usual range, on engines the program can assess). The technical report adds min / max / average of each
+  channel of the last recording and the average of the previous visit's recording with the difference. The summary
+  is saved with the session in the history. Changing controller starts a new summary.
+
 ## [1.13.0] — 2026-11-01
 ### Added
 - **Portable version updates itself**: it downloads the signed portable zip (`RootsAutoDoctor_<version>_portatil.zip`

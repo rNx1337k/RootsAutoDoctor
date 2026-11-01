@@ -169,6 +169,7 @@ class MainWindow(QMainWindow):
         self.home = HomePage()
         self.select = ModuleSelectPage()
         self.module = ModulePage(self.worker)
+        self.module.vehicle = lambda: self.home.vehicle()
         self.scan = AutoScanPage(self.worker)
         self.options = OptionsPage(self.settings)
         self.hist = HistoryPage()
@@ -476,6 +477,9 @@ class MainWindow(QMainWindow):
     def open_palette(self):
         self.palette.popup()
 
+    def open_logs(self):
+        self.module.open_logs()
+
     def show_fault(self, fault, address=None):
         FaultInfoDialog(self, fault, address).exec()
 
@@ -496,6 +500,8 @@ class MainWindow(QMainWindow):
                     lambda: self._home_go("sim_obd"), "sim", "demo obd elm simulador"),
             Command("Histórico", "Diagnósticos guardados", lambda: self.show_page("history"), "history",
                     "historico matricula"),
+            Command("Gravações", "Ver e comparar gravações de valores de medição (CSV)", self.open_logs, "history",
+                    "csv grafico comparar antes depois log"),
             Command("Opções", "Porta do cabo, oficina e suporte", lambda: self.show_page("options"), "options",
                     "definicoes porta cabo oficina"),
             Command("Relatório para o cliente", "PDF ou página web", lambda: self.export_report("auto"), "report",
@@ -740,6 +746,9 @@ class MainWindow(QMainWindow):
                 meta["changes"] = journal.changes_for_visit(items, simulated=bool(meta.get("simulated")))
             except Exception as e:
                 self.append_log(tr("Registo de alterações: não foi possível ler ({e})", e=e))
+        measuring = None if from_obd else self.module.measuring_summary()
+        if measuring and (not from_scan or any(i.get("address") == measuring["address"] for i in items)):
+            meta["measuring"] = measuring
         if not self.license.get("licensed") and not meta.get("simulated"):
             meta["demo"] = True
         done = self._write_report(items, vehicle, "", meta)
@@ -750,8 +759,8 @@ class MainWindow(QMainWindow):
         try:
             if from_scan and self.scan.session_id:
                 # o Auto-Scan já ficou no histórico quando terminou: actualiza-o em vez de criar outro
-                history.update_session(self.scan.session_id, vehicle, notes,
-                                       meta={"changes": meta["changes"]} if meta.get("changes") else None)
+                extra = {k: meta[k] for k in ("changes", "measuring") if meta.get(k)}
+                history.update_session(self.scan.session_id, vehicle, notes, meta=extra or None)
             else:
                 history.save_session("autoscan" if from_scan else ("obd" if from_obd else "modulo"), vehicle, items,
                                      notes, meta=meta)
