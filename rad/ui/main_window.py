@@ -290,20 +290,38 @@ class MainWindow(QMainWindow):
         self.options.show_license(self.license)
 
     def _after_update(self):
-        """Primeiro arranque depois de uma actualização automática: avisa e limpa a pasta de descargas."""
+        """Primeiro arranque depois de uma actualização automática: diz se correu bem ou se não terminou."""
         try:
-            version = autoupdate.after_start()
+            st = autoupdate.startup_status()
         except Exception:
             log.warning("Verificação pós-actualização falhou", exc_info=True)
             return
-        if version:
-            from PySide6.QtCore import QTimer
+        if not st:
+            return
+        from PySide6.QtCore import QTimer
+        if st["result"] == "updated":
             QTimer.singleShot(1500, lambda: self.toast.show_msg(tr("Actualizado para a versão {version}",
-                                                                   version=version)))
+                                                                   version=st["version"])))
+            return
+        if st["gave_up"]:                               # não volta a descarregar esta versão sozinho
+            self.settings.setValue("updates/gave_up", st["version"])
+            text = tr("Não foi possível instalar a versão {version} depois de várias tentativas. O programa continua "
+                      "a funcionar na versão {VERSION}.\n\nPode instalar a versão nova à mão a partir da página de "
+                      "transferências. Se o problema continuar, envie o Pacote de suporte (Opções → Suporte).",
+                      version=st["version"], VERSION=VERSION)
+        elif st["denied"]:
+            text = tr("A actualização para a versão {version} não foi instalada porque o Windows não deu "
+                      "autorização. O programa continua a funcionar na versão {VERSION} e volta a tentar quando o "
+                      "fechar.", version=st["version"], VERSION=VERSION)
+        else:
+            text = tr("A actualização para a versão {version} não terminou. O programa continua a funcionar na versão "
+                      "{VERSION} e volta a tentar quando o fechar.", version=st["version"], VERSION=VERSION)
+        QTimer.singleShot(1500, lambda: QMessageBox.warning(self, APP_NAME, text))
 
     def on_update_found(self, info):
         self.update_info = info
-        if self.options.auto_update_enabled() and autoupdate.can_self_update() and info.get("signature"):
+        gave_up = str(self.settings.value("updates/gave_up", "") or "") == info.get("version")
+        if self.options.auto_update_enabled() and not gave_up and autoupdate.downloadable(info):
             self._download_update(info)
             return
         self.update_btn.setText(tr("Nova versão {version} disponível", version=info['version']))
@@ -319,7 +337,7 @@ class MainWindow(QMainWindow):
 
         def run():
             try:
-                res = autoupdate.download(info)
+                res = autoupdate.download(info, mode=autoupdate.update_mode())
             except Exception as e:                      # UpdateError ou outro: nunca derrubar o programa
                 log.warning("Actualização automática: %s", e)
                 res = e
@@ -346,21 +364,35 @@ class MainWindow(QMainWindow):
     def _open_update(self):
         st = autoupdate.pending()
         if st:
+            notes = self._notes_text(st.get("notes"))
             if QMessageBox.question(self, APP_NAME, tr(
-                    "A versão {version} já foi descarregada e verificada.\n\nActualizar agora? O programa fecha, "
-                    "instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as "
-                    "definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar "
-                    "o programa.", version=st["version"])) == QMessageBox.Yes:
+                    "A versão {version} já foi descarregada e verificada.\n\n", version=st["version"]) + notes + tr(
+                    "Actualizar agora? O programa fecha, instala a versão nova e volta a abrir (cerca de 1 minuto). "
+                    "Os diagnósticos, a licença e as definições ficam guardados.\n\nSe preferir, a actualização "
+                    "instala-se sozinha quando fechar o programa.")) == QMessageBox.Yes:
                 self._relaunch_after_update = True
                 self.close()
             return
         info = self.update_info or {}
-        notes = info.get("notes", "")
+        from ..j2534 import is_frozen
+        portable = is_frozen() and not autoupdate.is_installed() and bool(info.get("portable"))   # o zip
         text = (tr("Versão instalada: {VERSION}\nVersão nova: {v}\n\n", VERSION=VERSION, v=info.get('version', '?'))
-                + (notes[:1200] + ("…" if len(notes) > 1200 else "") + "\n\n" if notes else "")
-                + tr("Abrir a página para descarregar o instalador?"))
+                + self._notes_text(info.get("notes"))
+                + (tr("Descarregar a versão portátil nova?") if portable
+                   else tr("Abrir a página para descarregar o instalador?")))
         if QMessageBox.question(self, APP_NAME, text) == QMessageBox.Yes:
-            QDesktopServices.openUrl(QUrl(info.get("download") or info.get("url") or ""))
+            url = info.get("portable") if portable else info.get("download")
+            QDesktopServices.openUrl(QUrl(url or info.get("url") or ""))
+
+    @staticmethod
+    def _notes_text(notes):
+        """Bloco "Novidades" para as perguntas de actualização ("" se a versão não tiver novidades)."""
+        notes = (notes or "").strip()
+        if not notes:
+            return ""
+        if len(notes) > 1200:
+            notes = notes[:1200].rsplit("\n", 1)[0] + "\n…"
+        return tr("Novidades:") + "\n" + notes + "\n\n"
 
     def _reconnect(self):
         if self.last_address is not None:

@@ -38,6 +38,7 @@ class OptionsPage(QWidget):
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
+        self._license_state = None
         # Opções avançadas da comunicação (velocidade, eco, protocolo, modo do cabo, registo detalhado,
         # compatibilidade): só no modo técnico. O cliente vê apenas o equipamento e a porta.
         self.technical = technician_mode()
@@ -189,8 +190,9 @@ class OptionsPage(QWidget):
         urow.addWidget(self.upd_lbl, 1)
         uf.addRow(lbl(tr("Versão"), "muted"), urow)
         uf.addRow(lbl(tr("Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e "
-                         "instala-a quando o fechar; os diagnósticos, a licença e as definições ficam guardados. Na "
-                         "versão portátil só avisa. Sem internet não acontece nada."), "muted", wrap=True))
+                         "instala-a quando o fechar, também na versão portátil; os diagnósticos, a licença e as "
+                         "definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. "
+                         "Sem internet não acontece nada."), "muted", wrap=True))
         v.addWidget(uc)
 
         sc = card()
@@ -422,6 +424,7 @@ class OptionsPage(QWidget):
 
     # ------------------------------------------------------------- licença
     def show_license(self, st):
+        self._license_state = st.get("state")
         color = {"licensed": OK, "demo": BAD}.get(st.get("state"), WARN)
         self.lic_state.setText(st.get("message", "—"))
         self.lic_state.setStyleSheet(f"color: {color};")
@@ -541,14 +544,15 @@ class OptionsPage(QWidget):
         if not path:
             return
         try:
-            applog.make_support_bundle(path)
+            applog.make_support_bundle(path, settings=self.settings, license_state=self._license_state)
         except Exception as e:
             QMessageBox.warning(self, APP_NAME, tr("Não foi possível criar o pacote:\n{e}", e=e))
             return
         QMessageBox.information(self, APP_NAME, tr("Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao "
                                                    "suporte. Contém os registos dos últimos dias, as últimas gravações "
-                                                   "da comunicação e a informação do cabo; não contém dados de "
-                                                   "clientes.",
+                                                   "da comunicação e a informação do cabo e das actualizações. Não "
+                                                   "leva o histórico, os dados da oficina nem a licença, e os números "
+                                                   "de chassis e as matrículas são tirados dos registos.",
                                                    path=path))
 
     def set_recording(self, on, path=None):

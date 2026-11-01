@@ -3546,8 +3546,6 @@ EN = {
         "Updated to version {version}",
     "Actualizar automaticamente (precisa de internet)":
         "Update automatically (needs internet)",
-    "Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e instala-a quando o fechar; os diagnósticos, a licença e as definições ficam guardados. Na versão portátil só avisa. Sem internet não acontece nada.":
-        "When it opens, the program looks for a new version. If there is one, it downloads it while you work and installs it when you close the program; diagnostics, the licence and settings are kept. The portable version only notifies. Without internet nothing happens.",
     "Já tem a versão mais recente ({VERSION}).":
         "You already have the latest version ({VERSION}).",
     "Não foi possível descarregar a versão {version}.":
@@ -3717,8 +3715,6 @@ EN = {
         "Vehicles appear here after the first saved diagnostic.",
     "PDF (*.pdf)":
         "PDF (*.pdf)",
-    "Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao suporte. Contém os registos dos últimos dias, as últimas gravações da comunicação e a informação do cabo; não contém dados de clientes.":
-        "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days, the latest communication recordings and the cable information; it does not contain customer data.",
     "Para o cliente — linguagem simples":
         "For the customer — plain language",
     "Parar gravação":
@@ -3837,10 +3833,28 @@ EN = {
         "Identification (with coding and workshop code), faults (read/clear), measuring blocks, coding (3B 9A, read back), adaptation (read/test/save, read back), security access (27 03/04), basic settings (31 B8/BA 00 + group), output tests (31 B8/B9/BA 01 02)",
     "Sem validação num carro nem num adaptador físico. A escrita só é oferecida quando a identificação tem o formato conhecido e cada valor gravado é lido outra vez. Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.":
         "No validation on a car or with a physical adapter. Writing is only offered when the identification has the known format, and every saved value is read back. Cheap ELM327 adapters may be too slow for the TP2.0 ACKs; OBDLink is recommended.",
-    "A versão {version} já foi descarregada e verificada.\n\nActualizar agora? O programa fecha, instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar o programa.":
-        "Version {version} has been downloaded and checked.\n\nUpdate now? The program closes, installs the new version and opens again (about 1 minute). Diagnostics, the licence and the settings are kept.\n\nIf you prefer, the update installs itself when you close the program.",
     "Actualizar para a versão {version}":
         "Update to version {version}",
     "Instala-se sozinha quando fechar o programa, ou já, ao carregar aqui.":
         "Installs itself when you close the program, or now if you click here.",
+    "A actualização para a versão {version} não foi instalada porque o Windows não deu autorização. O programa continua a funcionar na versão {VERSION} e volta a tentar quando o fechar.":
+        "The update to version {version} was not installed because Windows did not give permission. The program keeps working on version {VERSION} and tries again when you close it.",
+    "A actualização para a versão {version} não terminou. O programa continua a funcionar na versão {VERSION} e volta a tentar quando o fechar.":
+        "The update to version {version} did not finish. The program keeps working on version {VERSION} and tries again when you close it.",
+    "A versão portátil descarregada está danificada.":
+        "The downloaded portable version is damaged.",
+    "A versão {version} já foi descarregada e verificada.\n\n":
+        "Version {version} has been downloaded and checked.\n\n",
+    "Actualizar agora? O programa fecha, instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar o programa.":
+        "Update now? The program closes, installs the new version and opens again (about 1 minute). Diagnostics, the licence and the settings are kept.\n\nIf you prefer, the update installs itself when you close the program.",
+    "Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão portátil; os diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. Sem internet não acontece nada.":
+        "When it opens, the program looks for a new version. If there is one, it downloads it while you work and installs it when you close the program, also in the portable version; diagnostics, the licence and the settings are kept. If the installation fails, the program stays on the current version. Without internet nothing happens.",
+    "Novidades:":
+        "What's new:",
+    "Não foi possível instalar a versão {version} depois de várias tentativas. O programa continua a funcionar na versão {VERSION}.\n\nPode instalar a versão nova à mão a partir da página de transferências. Se o problema continuar, envie o Pacote de suporte (Opções → Suporte).":
+        "Version {version} could not be installed after several attempts. The program keeps working on version {VERSION}.\n\nYou can install the new version by hand from the downloads page. If the problem continues, send the Support package (Options → Support).",
+    "Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao suporte. Contém os registos dos últimos dias, as últimas gravações da comunicação e a informação do cabo e das actualizações. Não leva o histórico, os dados da oficina nem a licença, e os números de chassis e as matrículas são tirados dos registos.":
+        "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days, the latest communication recordings and information about the cable and updates. It does not include the history, the workshop details or the licence, and chassis numbers and number plates are removed from the logs.",
+    "Descarregar a versão portátil nova?":
+        "Download the new portable version?",
 }

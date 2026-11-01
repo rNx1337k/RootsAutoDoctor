@@ -3,6 +3,24 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] — 2026-11-01
+### Added
+- **Portable version updates itself**: it downloads the signed portable zip (`RootsAutoDoctor_<version>_portatil.zip`
+  + `.sig`), checks it, extracts it to a staging folder and, after the program closes, a script backs up the current
+  folder, copies the new version over it and restores the backup if the copy fails. A read-only copy only notifies.
+- **What's new before updating**: the update questions show customer-facing notes in the interface language, taken
+  from `docs/NOVIDADES.md` (`tools/finish_build.py notes`) and placed between markers in the Release text. Anything
+  else in the Release text (notes for the publisher) is never shown.
+- **Failed update recovery**: on the next start the program says whether the update finished; if not, it keeps
+  working on the current version, says so once (permission refused or did not finish) and tries again on close.
+  After 3 attempts it stops trying that version and points to a manual install and the support package.
+- **Support package**: `LEIA-ME.txt`, safe connection settings, licence state, update state and the last install
+  log; chassis numbers and number plates are removed from logs and reports (recordings stay byte-exact for replay).
+
+### Changed
+- `build_release.bat`, `tools/publicar_release.bat` and `.github/workflows/release.yml` sign the portable zip and
+  write the Release text with the customer notes.
+
 ## [1.12.1] — 2026-11-01
 ### Fixed
 - **Automatic updates never installed by themselves**: no GitHub Release had been published (only tags), so there

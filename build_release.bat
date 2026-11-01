@@ -81,9 +81,14 @@ if errorlevel 1 (echo A assinatura de codigo do instalador falhou. & %PAUSE% & e
 REM A assinatura das actualizacoes (.sig) vem depois da Authenticode: cobre o ficheiro final
 %PY% tools\finish_build.py sign dist\Setup_RootsAutoDoctor_%VER%.exe %VER%
 if errorlevel 1 (echo Nao foi possivel assinar o instalador. & %PAUSE% & exit /b 1)
+%PY% tools\finish_build.py sign dist\RootsAutoDoctor_%VER%_portatil.zip %VER%
+if errorlevel 1 (echo Nao foi possivel assinar a versao portatil. & %PAUSE% & exit /b 1)
+%PY% tools\finish_build.py notes %VER% dist\novidades_%VER%.md
 echo.
 echo Instalador pronto em dist\Setup_RootsAutoDoctor_%VER%.exe
 if exist dist\Setup_RootsAutoDoctor_%VER%.exe.sig echo Assinatura em dist\Setup_RootsAutoDoctor_%VER%.exe.sig - publique-a na Release junto com o instalador.
 echo Versao portatil pronta em dist\RootsAutoDoctor_%VER%_portatil.zip
+if exist dist\RootsAutoDoctor_%VER%_portatil.zip.sig echo Assinatura em dist\RootsAutoDoctor_%VER%_portatil.zip.sig - publique-a na Release junto com o zip.
+echo Texto da Release (novidades para os clientes): dist\novidades_%VER%.md
 echo Teste num Windows limpo (opcional): abra build\teste_pc_limpo.wsb
 %PAUSE%

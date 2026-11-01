@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.12.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.13.0-4F8DFF?style=flat-square" alt="Version">
   <a href="https://github.com/rNx1337k/RootsAutoDoctor/actions/workflows/ci.yml"><img src="https://github.com/rNx1337k/RootsAutoDoctor/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1526?style=flat-square&logo=windows" alt="Windows 10 | 11">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status">
@@ -109,9 +109,10 @@ is uninstalled or updated.
 
 ## Updates
 
-The installed version keeps itself up to date: when a new version is published, it downloads in the background
-and installs when you close the program. Only versions signed by the publisher are installed. The portable
-version shows a notice with a link to the new version. Automatic updates can be switched off in
+Both the installed and the portable version keep themselves up to date: when a new version is published, it
+downloads in the background, shows what is new and installs when you close the program (or straight away with
+**Update to version …**). Only versions signed by the publisher are installed. If an update does not finish, the
+program keeps working on the previous version and tells you. Automatic updates can be switched off in
 **Options → Updates**.
 
 ## Status

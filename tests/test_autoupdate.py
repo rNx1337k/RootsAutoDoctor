@@ -112,6 +112,7 @@ def test_install_on_close_runs_silent_installer_and_gives_up_after_three_tries()
         assert _with_key(lambda: autoupdate.install_pending(launcher=launcher, folder=folder))
     assert len(calls) == autoupdate.MAX_ATTEMPTS
     assert "/VERYSILENT" in calls[0][1] and calls[0][2] is False          # pasta gravável: sem administrador
+    assert any(a.startswith("/LOG=") and a.endswith(autoupdate.LOG_NAME) for a in calls[0][1])
     assert autoupdate.RELAUNCH_ARG not in calls[0][1]                     # ao fechar: não volta a abrir
     assert not _with_key(lambda: autoupdate.install_pending(launcher=launcher, folder=folder))
     assert autoupdate.pending() is None                                    # desistiu e limpou
@@ -140,8 +141,17 @@ def test_first_start_after_update_reports_and_cleans():
     assert autoupdate.pending() is None and not os.listdir(autoupdate.updates_dir())
 
 
-def test_portable_or_source_never_installs_by_itself():
-    assert not _with_key(lambda: autoupdate.can_self_update(installed=False))
+def test_source_or_read_only_copy_never_installs_by_itself():
+    assert not _with_key(lambda: autoupdate.can_self_update(installed=False))           # código-fonte
+    folder = tempfile.mkdtemp()
+    mode = autoupdate.update_mode
+    assert _with_key(lambda: mode(installed=True, platform="win32")) == autoupdate.INSTALLER
+    assert _with_key(lambda: mode(installed=False, frozen=True, folder=folder, platform="win32")) == autoupdate.PORTABLE
+    assert _with_key(lambda: mode(installed=False, frozen=False, folder=folder, platform="win32")) is None
+    assert _with_key(lambda: mode(installed=False, frozen=True, folder=os.path.join(folder, "nao_existe"),
+                                  platform="win32")) is None                          # pasta só de leitura
+    assert _with_key(lambda: mode(installed=True, platform="linux")) is None
+    assert mode(installed=True, platform="win32") is None or autoupdate.public_key()  # sem chave: só avisa
 
 
 def test_release_lists_installer_signature():
@@ -173,3 +183,138 @@ def test_installer_reopens_the_program_only_for_update_now():
                             "RootsAutoDoctor.iss"), encoding="utf-8").read()
     assert "Check: ShouldRelaunch" in iss and "{param:RELAUNCH|0}" in iss and "WizardSilent" in iss
     assert autoupdate.RELAUNCH_ARG == "/RELAUNCH=1"
+
+
+# ------------------------------------------------------------------ resultado no arranque seguinte
+def _launched(attempts=1, launched=True):
+    autoupdate.clear()
+    sig = autoupdate.make_signature(SECRET, _setup_file(), "9.0.0")
+    info, opener = _info(sig)
+    info["notes"] = "• Novidade"
+    _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0"))
+    for _ in range(attempts):
+        _with_key(lambda: autoupdate.install_pending(launcher=lambda *a: launched, folder=tempfile.mkdtemp()))
+
+
+def test_successful_update_reports_the_new_version_with_its_notes():
+    _launched()
+    st = autoupdate.startup_status(current="9.0.0")
+    assert st == {"result": "updated", "version": "9.0.0", "notes": "• Novidade"}
+    assert autoupdate.pending() is None
+
+
+def test_failed_update_is_reported_once_and_the_program_keeps_working():
+    _launched()
+    later = autoupdate.pending()["launched_at"] + autoupdate.SETTLE_SECONDS + 1
+    assert autoupdate.startup_status(current="1.9.0", now=later - 60) is None   # pode estar ainda a instalar
+    st = autoupdate.startup_status(current="1.9.0", now=later)
+    assert st["result"] == "failed" and st["version"] == "9.0.0" and not st["gave_up"] and not st["denied"]
+    assert autoupdate.startup_status(current="1.9.0", now=later) is None        # só avisa uma vez
+    assert autoupdate.pending()                                                  # volta a tentar ao fechar
+    autoupdate.clear()
+
+
+def test_refused_authorisation_and_giving_up_keep_the_installation_log():
+    _launched(launched=False)
+    later = autoupdate.pending()["launched_at"] + autoupdate.SETTLE_SECONDS + 1
+    assert autoupdate.startup_status(current="1.9.0", now=later)["denied"]
+    _launched(attempts=autoupdate.MAX_ATTEMPTS)
+    with open(autoupdate.log_path(), "w") as fh:
+        fh.write("registo do instalador")
+    later = autoupdate.pending()["launched_at"] + autoupdate.SETTLE_SECONDS + 1
+    assert autoupdate.startup_status(current="1.9.0", now=later)["gave_up"]
+    assert autoupdate.pending() is None and os.listdir(autoupdate.updates_dir()) == [autoupdate.LOG_NAME]
+    autoupdate.clear()
+
+
+# ------------------------------------------------------------------ versão portátil
+def _portable_zip(files=None, top="Roots Auto Doctor"):
+    import zipfile
+    path = os.path.join(tempfile.mkdtemp(), "RootsAutoDoctor_9.0.0_portatil.zip")
+    files = files if files is not None else {f"{top}/RootsAutoDoctor.exe": b"MZ novo", f"{top}/LEIA-ME.txt": b"x",
+                                             f"{top}/runtime/py64/python.exe": b"MZ py"}
+    with zipfile.ZipFile(path, "w") as z:
+        for name, data in files.items():
+            z.writestr(name, data)
+    return path
+
+
+def _portable_info(zip_path):
+    sig = autoupdate.make_signature(SECRET, zip_path, "9.0.0")
+    with open(zip_path, "rb") as fh:
+        data = fh.read()
+    files = {"https://dl/p.zip": data, "https://dl/p.zip.sig": json.dumps(sig).encode()}
+    info = {"version": "9.0.0", "download": "https://dl/setup.exe", "signature": "https://dl/setup.exe.sig",
+            "portable": "https://dl/p.zip", "portable_signature": "https://dl/p.zip.sig"}
+    return info, _opener(files)
+
+
+def test_portable_copy_downloads_the_signed_zip_and_applies_it_after_closing():
+    autoupdate.clear()
+    info, opener = _portable_info(_portable_zip())
+    assert autoupdate.downloadable(info, autoupdate.PORTABLE) and not autoupdate.downloadable({}, autoupdate.PORTABLE)
+    st = _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0", mode=autoupdate.PORTABLE))
+    assert st["mode"] == autoupdate.PORTABLE and st["path"].endswith("_portatil.zip")
+    assert os.path.isfile(os.path.join(st["staging"], "RootsAutoDoctor.exe"))
+    calls = []
+    app = os.path.join(tempfile.mkdtemp(), "Pasta do programa")
+    os.makedirs(app)
+    assert _with_key(lambda: autoupdate.install_pending(launcher=lambda p, a, e: calls.append((p, a, e)) or True,
+                                                        folder=app, relaunch=True, pid=4321))
+    script = calls[0][0]
+    assert script.endswith(autoupdate.SCRIPT) and calls[0][2] is False
+    text = open(script, encoding="utf-8").read()
+    assert 'set "PID=4321"' in text and f'set "APP={app}"' in text and f'set "NEW={st["staging"]}"' in text
+    assert 'if "1"=="1" start' in text and "robocopy" in text and ":rollback" in text
+    assert open(script, "rb").read().count(b"\r\n") > 20                      # CRLF: o cmd lê linha a linha
+    autoupdate.clear()
+
+
+def test_portable_zip_with_paths_outside_its_folder_is_refused():
+    autoupdate.clear()
+    for files in ({"Roots Auto Doctor/RootsAutoDoctor.exe": b"MZ", "../fora.txt": b"x"},
+                  {"Outra/coisa.exe": b"MZ"}):
+        info, opener = _portable_info(_portable_zip(files))
+        try:
+            _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0", mode=autoupdate.PORTABLE))
+            assert False
+        except updates.UpdateError as e:
+            assert "danificada" in str(e)
+        assert autoupdate.pending() is None
+
+
+def _dead_pid():
+    import subprocess
+    p = subprocess.Popen(["cmd.exe", "/c", "exit"])
+    p.wait()
+    return p.pid
+
+
+def _run_script(new, app):
+    import subprocess
+    folder = tempfile.mkdtemp()
+    script = autoupdate.portable_script("9.0.0", _dead_pid(), app, new, folder=folder)
+    subprocess.run(["cmd.exe", "/c", script], capture_output=True, timeout=180)
+    with open(os.path.join(folder, autoupdate.LOG_NAME), encoding="utf-8", errors="replace") as fh:
+        return fh.read(), folder
+
+
+def test_portable_script_copies_the_new_version_and_restores_the_old_one_on_failure():
+    if sys.platform != "win32":                       # o script corre no cmd do Windows (robocopy)
+        return
+    base = tempfile.mkdtemp()
+    app, new = os.path.join(base, "Roots Auto Doctor"), os.path.join(base, "nova", "Roots Auto Doctor")
+    for folder, version in ((app, "antiga"), (new, "nova")):
+        os.makedirs(os.path.join(folder, "_internal"))
+        with open(os.path.join(folder, "RootsAutoDoctor.exe"), "w") as fh:
+            fh.write(version)
+    with open(os.path.join(new, "_internal", "novo.dll"), "w") as fh:
+        fh.write("x")
+    log_text, folder = _run_script(new, app)
+    assert "RESULTADO: ok" in log_text, log_text
+    assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"
+    assert os.path.exists(os.path.join(app, "_internal", "novo.dll"))
+    assert not os.path.exists(os.path.join(folder, autoupdate.BACKUP)) and not os.path.exists(new)
+    log_text, _ = _run_script(os.path.join(base, "nao_existe"), app)          # a cópia falha: repõe a anterior
+    assert "RESULTADO: falhou" in log_text, log_text
+    assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"

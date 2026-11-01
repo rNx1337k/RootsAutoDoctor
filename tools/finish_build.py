@@ -6,6 +6,7 @@ tem de abrir à primeira em qualquer PC com Windows 10/11 de 64 bits, sem instal
     python tools\\finish_build.py sandbox  <pasta>          cria build\\teste_pc_limpo.wsb (Windows Sandbox)
     python tools\\finish_build.py sign     <setup.exe> <versão> cria <setup.exe>.sig (actualizações automáticas)
     python tools\\finish_build.py codesign <ficheiro.exe>     assinatura Authenticode (tira o aviso do SmartScreen)
+    python tools\\finish_build.py notes    <versão> [ficheiro]  texto da Release com as novidades (docs/NOVIDADES.md)
 
 codesign: só assina se houver um certificado configurado; sem ele avisa e continua (o programa funciona na mesma,
 o Windows mostra "O Windows protegeu o seu PC" na primeira vez). Configura-se com variáveis de ambiente:
@@ -191,6 +192,46 @@ def sign(setup, version, secret=None, log=print):
     return path
 
 
+NOTES_FILE = os.path.join(ROOT, "docs", "NOVIDADES.md")
+REPO_URL = "https://github.com/rNx1337k/RootsAutoDoctor"
+
+
+def customer_notes(version, path=None):
+    """{"pt": texto, "en": texto} da secção "## <versão>" de docs/NOVIDADES.md ({} se não houver)."""
+    try:
+        with open(path or NOTES_FILE, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return {}
+    notes, section, lang = {}, False, None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line[3:].strip().lstrip("v") == version
+            lang = None
+        elif section and line.startswith("### "):
+            lang = line[4:].strip().lower()
+        elif section and lang:
+            notes[lang] = (notes.get(lang, "") + line + "\n")
+    return {k: v.strip() for k, v in notes.items() if v.strip()}
+
+
+def release_notes(version, path=None, log=print):
+    """Texto da Release: as novidades para os clientes entre as marcas que o programa lê (rad/updates.py)."""
+    sys.path.insert(0, ROOT)
+    from rad.updates import NOTES_END, NOTES_MARK
+    notes = customer_notes(version, path)
+    parts = []
+    for lang in ("pt", "en"):
+        if notes.get(lang):
+            parts += [NOTES_MARK.format(lang=lang), notes[lang], ""]
+    if parts:
+        parts += [NOTES_END, ""]
+    else:
+        log(f"AVISO: docs/NOVIDADES.md não tem a versão {version}: a Release sai sem novidades para os clientes.")
+    parts.append(f"Roots Auto Doctor {version} · [CHANGELOG]({REPO_URL}/blob/v{version}/CHANGELOG.md)")
+    return "\n".join(parts) + "\n"
+
+
 TIMESTAMP_URL = "http://timestamp.digicert.com"
 
 
@@ -250,10 +291,18 @@ def codesign(path, environ=None, run=None, log=print):
 
 
 def main(argv):
-    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign", "codesign"):
+    if len(argv) < 2 or argv[0] not in ("check", "portable", "sandbox", "sign", "codesign", "notes"):
         print(__doc__)
         return 2
     cmd, dist = argv[0], argv[1]
+    if cmd == "notes":
+        text = release_notes(dist, log=lambda m: print(m, file=sys.stderr))
+        if len(argv) > 2:
+            with open(argv[2], "w", encoding="utf-8") as fh:
+                fh.write(text)
+        else:
+            sys.stdout.write(text)
+        return 0
     if cmd == "codesign":
         try:
             codesign(dist)

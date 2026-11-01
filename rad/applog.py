@@ -5,6 +5,7 @@ import logging
 import logging.handlers
 import os
 import platform
+import re
 import sys
 import traceback
 
@@ -77,14 +78,74 @@ def write_crash(exc_type, exc, tb):
     return text
 
 
-def make_support_bundle(dest):
+# Números de chassis (VIN: 17 caracteres, sem I, O e Q) e matrículas portuguesas (AA-00-AA, 00-AA-00, 00-00-AA,
+# AA-00-00) saem dos ficheiros de texto do pacote de suporte: identificam o carro do cliente e não fazem falta para
+# corrigir um erro. Os bytes em hexadecimal (separados por espaços) não são afectados.
+_VIN = re.compile(r"(?<![A-Za-z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Za-z0-9])")
+_PLATE = re.compile(r"(?<![A-Za-z0-9-])(?:[A-Z]{2}-\d{2}-[A-Z]{2}|\d{2}-[A-Z]{2}-\d{2}|\d{2}-\d{2}-[A-Z]{2}|"
+                    r"[A-Z]{2}-\d{2}-\d{2})(?![A-Za-z0-9-])")
+
+
+def _is_vin(text):
+    return any(c.isalpha() for c in text) and any(c.isdigit() for c in text)
+
+
+def scrub(text):
+    """Tira VIN e matrículas de um texto (para o pacote de suporte)."""
+    text = _VIN.sub(lambda m: "[VIN]" if _is_vin(m.group(0)) else m.group(0), text)
+    return _PLATE.sub("[MATRÍCULA]", text)
+
+
+SAFE_SETTINGS = ("adapter", "port", "baud", "echo", "elm_protocol", "raw_log", "ui/language", "ui/scale",
+                 "updates/auto", "updates/gave_up")
+
+BUNDLE_README = """Pacote de suporte — {app} v{version}
+
+sistema.txt          versão, Windows, portas, cabos detectados, definições de ligação e estado das actualizações
+comunicacao_*.log    comunicação com o carro dos últimos dias
+erros.log, crash.log erros do programa
+instalacao.log       registo da última actualização (se houver)
+gravacoes/           últimas gravações da comunicação e relatórios de validação
+
+Não leva o histórico de diagnósticos, os dados da oficina, a licença nem o logótipo. Os números de chassis e as
+matrículas foram tirados dos registos e dos relatórios. As gravações vão tal como foram feitas (para reproduzir o
+problema byte a byte).
+"""
+
+
+def _add_text(z, path, arcname):
+    """Junta um ficheiro de texto ao zip, sem VIN nem matrículas."""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        z.writestr(arcname, scrub(fh.read()))
+
+
+def _update_lines():
+    try:
+        from . import autoupdate
+        mode = autoupdate.update_mode()
+        st = autoupdate.pending() or {}
+        lines = [f"  modo: {mode or 'só aviso'}"]
+        if st:
+            lines.append(f"  pendente: {st.get('version')} ({st.get('mode', 'installer')}), "
+                         f"tentativas {st.get('attempts', 0)}, lançada {st.get('launched')}")
+        return lines
+    except Exception as e:
+        return [f"  erro: {e}"]
+
+
+def make_support_bundle(dest, settings=None, license_state=None):
     """Cria um .zip com os registos dos últimos dias e informação do sistema, para enviar ao suporte.
-    Não inclui histórico de clientes nem dados da oficina."""
+    settings: as definições (QSettings ou dict); só vão as de SAFE_SETTINGS. license_state: "licensed", "demo"...
+    Não inclui histórico de clientes, dados da oficina nem a chave da licença; tira VIN e matrículas dos registos e
+    dos relatórios (as gravações vão inteiras: a reprodução precisa dos bytes exactos)."""
     import glob
     import zipfile
     from .kline import list_serial_ports
     info = [f"{APP_NAME} v{VERSION}", f"Python {sys.version}", f"Sistema: {platform.platform()}",
-            f"Data: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}", "", "Portas:"]
+            f"Data: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}"]
+    if license_state:
+        info.append(f"Licença: {license_state}")
+    info += ["", "Portas:"]
     try:
         info += [f"  {dev}  —  {desc}" for dev, desc in list_serial_ports(technical=True)]
     except Exception as e:
@@ -96,19 +157,36 @@ def make_support_bundle(dest):
         info += [f"  J2534: {d['name']} ({d['vendor']}) {d['dll']}" for d in cable.j2534_devices()]
     except Exception as e:
         info.append(f"  erro: {e}")
+    if settings is not None:
+        info += ["", "Definições:"]
+        for key in SAFE_SETTINGS:
+            try:
+                value = settings.get(key) if isinstance(settings, dict) else settings.value(key)
+            except Exception:
+                value = None
+            if value not in (None, ""):
+                info.append(f"  {key} = {value}")
+    info += ["", "Actualizações:"] + _update_lines()
     logs = sorted(glob.glob(os.path.join(log_dir(), "comunicacao_*.log")))[-3:]
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("sistema.txt", "\n".join(info))
+        z.writestr("LEIA-ME.txt", BUNDLE_README.format(app=APP_NAME, version=VERSION))
+        z.writestr("sistema.txt", scrub("\n".join(info)))
         for p in logs + [os.path.join(log_dir(), n) for n in ("crash.log", "erros.log")]:
             if os.path.exists(p):
-                z.write(p, os.path.basename(p))
+                _add_text(z, p, os.path.basename(p))
+        try:
+            from . import autoupdate
+            if os.path.exists(autoupdate.log_path()):
+                _add_text(z, autoupdate.log_path(), "instalacao.log")
+        except Exception as e:
+            z.writestr("instalacao_erro.txt", str(e))
         try:                                       # gravações da comunicação e relatórios de validação
             from . import capture
-            for p in capture.recent(3):
+            for p in capture.recent(3):            # tal como foram gravadas: a reprodução compara byte a byte
                 z.write(p, "gravacoes/" + os.path.basename(p))
                 report = p[:-len(capture.EXT)] + ".html"
                 if os.path.exists(report):
-                    z.write(report, "gravacoes/" + os.path.basename(report))
+                    _add_text(z, report, "gravacoes/" + os.path.basename(report))
         except Exception as e:
             z.writestr("gravacoes/erro.txt", str(e))
     return dest
