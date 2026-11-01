@@ -1,0 +1,70 @@
+# Release: ao enviar uma tag v<versão> (git push origin v1.12.0), compila o programa num Windows limpo, corre o
+# auto-teste do programa compilado e cria uma Release em RASCUNHO com o instalador e a versão portátil.
+#
+# A chave das actualizações automáticas e o certificado de assinatura nunca vão para o GitHub: a Release fica em
+# rascunho até o instalador ser assinado no PC do fornecedor (ver docs/DEVELOPMENT.md → "Publishing a release").
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Compilar e criar a Release (rascunho)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      CI: "1"
+      QT_QPA_PLATFORM: offscreen
+      RAD_NO_UPDATE_CHECK: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Ambiente do build
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install --disable-pip-version-check -r requirements-build.txt
+      - name: Python portátil das pontes D2XX/J2534
+        run: .venv\Scripts\python tools\get_runtime.py
+      - name: Testes
+        run: .venv\Scripts\python tests\run_all.py
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Versão
+        id: version
+        shell: pwsh
+        run: |
+          $v = (.venv\Scripts\python -c "import rad; print(rad.VERSION)").Trim()
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne "v$v") {
+            throw "A tag ${{ github.ref_name }} não corresponde à versão do programa ($v)"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - name: Compilar (build_release.bat)
+        shell: cmd
+        run: build_release.bat
+      - name: Guardar os ficheiros do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: RootsAutoDoctor_${{ steps.version.outputs.version }}
+          path: |
+            dist/Setup_RootsAutoDoctor_*.exe
+            dist/RootsAutoDoctor_*_portatil.zip
+            build/autoteste_build.txt
+      - name: Release em rascunho
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $v = "${{ steps.version.outputs.version }}"
+          .venv\Scripts\python tools\finish_build.py notes $v build\novidades.md
+          gh release create "${{ github.ref_name }}" --draft --title "Roots Auto Doctor $v" --notes-file build\novidades.md `
+            "dist/Setup_RootsAutoDoctor_$v.exe" "dist/RootsAutoDoctor_$($v)_portatil.zip"
