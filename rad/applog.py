@@ -97,7 +97,7 @@ def scrub(text):
 
 
 SAFE_SETTINGS = ("adapter", "port", "baud", "echo", "elm_protocol", "raw_log", "ui/language", "ui/scale",
-                 "updates/auto", "updates/gave_up")
+                 "updates/gave_up")
 
 BUNDLE_README = """Pacote de suporte — {app} v{version}
 

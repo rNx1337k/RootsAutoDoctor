@@ -3544,8 +3544,6 @@ EN = {
         "Version {version} has no signed installer: update manually.",
     "Actualizado para a versão {version}":
         "Updated to version {version}",
-    "Actualizar automaticamente (precisa de internet)":
-        "Update automatically (needs internet)",
     "Já tem a versão mais recente ({VERSION}).":
         "You already have the latest version ({VERSION}).",
     "Não foi possível descarregar a versão {version}.":
@@ -3847,8 +3845,6 @@ EN = {
         "Version {version} has been downloaded and checked.\n\n",
     "Actualizar agora? O programa fecha, instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar o programa.":
         "Update now? The program closes, installs the new version and opens again (about 1 minute). Diagnostics, the licence and the settings are kept.\n\nIf you prefer, the update installs itself when you close the program.",
-    "Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão portátil; os diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. Sem internet não acontece nada.":
-        "When it opens, the program looks for a new version. If there is one, it downloads it while you work and installs it when you close the program, also in the portable version; diagnostics, the licence and the settings are kept. If the installation fails, the program stays on the current version. Without internet nothing happens.",
     "Novidades:":
         "What's new:",
     "Não foi possível instalar a versão {version} depois de várias tentativas. O programa continua a funcionar na versão {VERSION}.\n\nPode instalar a versão nova à mão a partir da página de transferências. Se o problema continuar, envie o Pacote de suporte (Opções → Suporte).":
@@ -3857,4 +3853,6 @@ EN = {
         "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days, the latest communication recordings and information about the cable and updates. It does not include the history, the workshop details or the licence, and chassis numbers and number plates are removed from the logs.",
     "Descarregar a versão portátil nova?":
         "Download the new portable version?",
+    "O programa actualiza-se sempre sozinho: ao abrir e de algumas em algumas horas procura uma versão nova, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão portátil. Os diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. Sem internet não acontece nada.":
+        "The program always updates itself: when it opens and every few hours it looks for a new version, downloads it while you work and installs it when you close the program, also in the portable version. Diagnostics, the licence and the settings are kept. If the installation fails, the program stays on the current version. Without internet nothing happens.",
 }

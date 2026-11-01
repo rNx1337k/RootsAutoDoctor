@@ -17,7 +17,8 @@ Fluxo (só no programa compilado, com chave de actualizações configurada):
      não terminou (o programa continua na versão anterior e avisa uma vez; tenta outra vez ao fechar, até
      MAX_ATTEMPTS vezes).
 
-O código-fonte nunca se instala sozinho, nem uma cópia portátil numa pasta só de leitura: só avisam.
+As actualizações são sempre automáticas (não há opção para as desligar). Uma cópia portátil numa pasta só de
+leitura também se actualiza: o Windows pede autorização de administrador. O código-fonte nunca se instala sozinho.
 Este módulo não usa Qt, para poder ser testado sem janela nem rede."""
 import hashlib
 import json
@@ -120,7 +121,7 @@ def update_mode(installed=None, frozen=None, folder=None, platform=None):
     if installed:
         return INSTALLER
     frozen = is_frozen() if frozen is None else frozen
-    if frozen and _writable(folder or app_dir()):
+    if frozen and os.path.isdir(folder or app_dir()):     # pasta só de leitura: pede autorização ao Windows
         return PORTABLE
     return None
 
@@ -277,7 +278,13 @@ def _launch(path, args, elevate):
 
 
 def _launch_script(path, args, elevate):
-    """Corre o script da versão portátil sem janela, fora deste processo."""
+    """Corre o script da versão portátil sem janela, fora deste processo. elevate: a pasta do programa não é
+    gravável (ex.: dentro de "Programas"), o Windows pede autorização de administrador."""
+    if elevate:
+        import ctypes
+        params = "/c " + subprocess.list2cmdline([path] + list(args))
+        rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", "cmd.exe", params, None, 0)
+        return rc > 32                                       # ≤ 32 = erro (ex.: autorização recusada)
     flags = 0x08000000 | 0x00000200                          # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
     subprocess.Popen(["cmd.exe", "/c", path] + args, creationflags=flags, close_fds=True)
     return True
@@ -358,17 +365,20 @@ goto done
 :busy
 echo %DATE% %TIME% RESULTADO: falhou (o programa nao fechou)>>"%LOG%"
 :done
-if "{relaunch}"=="1" start "" "%APP%\{exe}"
+if not "{relaunch}"=="1" goto end
+REM com autorizacao de administrador, o explorer abre o programa como o utilizador normal
+if "{elevated}"=="1" (start "" explorer.exe "%APP%\{exe}") else (start "" "%APP%\{exe}")
+:end
 """
 
 
-def portable_script(version, pid, app, new, folder=None, relaunch=False):
+def portable_script(version, pid, app, new, folder=None, relaunch=False, elevated=False):
     """Escreve o script que aplica a versão portátil e devolve o caminho."""
     folder = folder or updates_dir()
     text = SCRIPT_TEMPLATE.format(version=version, pid=int(pid), app=os.path.abspath(app),
                                   new=os.path.abspath(new), old=os.path.join(folder, BACKUP),
                                   log=os.path.join(folder, LOG_NAME), relaunch="1" if relaunch else "0",
-                                  exe=EXE_NAME)
+                                  elevated="1" if elevated else "0", exe=EXE_NAME)
     path = os.path.join(folder, SCRIPT)
     with open(path, "w", encoding="utf-8", newline="\r\n") as fh:
         fh.write(text)
@@ -406,9 +416,9 @@ def install_pending(launcher=None, folder=None, relaunch=False, pid=None):
             new = st.get("staging")
             if not new or not os.path.isfile(os.path.join(new, EXE_NAME)):
                 new = extract_portable(st["path"])
-            script = portable_script(version, pid or os.getpid(), folder, new, relaunch=relaunch)
-            elevate = False
-            ok = (launcher or _launch_script)(script, [], False)
+            elevate = not _writable(folder)
+            script = portable_script(version, pid or os.getpid(), folder, new, relaunch=relaunch, elevated=elevate)
+            ok = (launcher or _launch_script)(script, [], elevate)
         else:
             elevate = not _writable(folder)
             args = list(SILENT_ARGS) + [f"/LOG={log_path()}"] + ([RELAUNCH_ARG] if relaunch else [])

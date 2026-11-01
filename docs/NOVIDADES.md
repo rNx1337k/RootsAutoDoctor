@@ -9,14 +9,14 @@ Uma versão sem secção aqui é publicada sem novidades (o programa só diz que
 ## 1.13.0
 
 ### pt
-- A versão portátil também passa a actualizar-se sozinha.
+- O programa actualiza-se sempre sozinho, também na versão portátil.
 - Antes de actualizar, o programa mostra o que há de novo.
 - Se uma actualização não terminar, o programa continua a funcionar na versão anterior e avisa.
 - O pacote de suporte tira os números de chassis e as matrículas dos registos e leva mais informação para
   resolver problemas mais depressa.
 
 ### en
-- The portable version now updates itself too.
+- The program always updates itself, also in the portable version.
 - Before updating, the program shows what is new.
 - If an update does not finish, the program keeps working on the previous version and tells you.
 - The support package removes chassis numbers and number plates from the logs and includes more information to

@@ -28,6 +28,7 @@ from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
 from ..i18n import tr, tr_data
 
 log = logging.getLogger(__name__)
+UPDATE_INTERVAL_H = 6                  # com o programa aberto, procura uma versão nova de 6 em 6 horas
 
 
 class MainWindow(QMainWindow):
@@ -235,9 +236,12 @@ class MainWindow(QMainWindow):
         self._downloading = False
         self.update_downloaded.connect(self._update_downloaded)
         self._after_update()
-        if self.options.auto_update_enabled() and not os.environ.get("RAD_NO_UPDATE_CHECK"):
+        if not os.environ.get("RAD_NO_UPDATE_CHECK"):             # actualizações sempre automáticas
             from PySide6.QtCore import QTimer
             QTimer.singleShot(5000, self.options.check_updates)     # depois de a janela abrir
+            self._update_timer = QTimer(self)                       # e de UPDATE_INTERVAL_H em UPDATE_INTERVAL_H horas
+            self._update_timer.timeout.connect(self.options.check_updates)
+            self._update_timer.start(UPDATE_INTERVAL_H * 3600 * 1000)
 
     # ---------------------------------------------------------- navegação
     def show_page(self, key):
@@ -319,10 +323,18 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1500, lambda: QMessageBox.warning(self, APP_NAME, text))
 
     def on_update_found(self, info):
+        # A procura periódica volta a encontrar a mesma versão: se já está descarregada não faz nada; se a descarga
+        # tinha falhado (ex.: sem internet), tenta outra vez; o aviso "versão disponível" não se repete.
+        announced = (self.update_info or {}).get("version") == info.get("version") and self.update_btn.isVisible()
         self.update_info = info
+        st = autoupdate.pending()
+        if announced and st and st.get("version") == info.get("version"):
+            return
         gave_up = str(self.settings.value("updates/gave_up", "") or "") == info.get("version")
-        if self.options.auto_update_enabled() and not gave_up and autoupdate.downloadable(info):
+        if not gave_up and autoupdate.downloadable(info):
             self._download_update(info)
+            return
+        if announced:
             return
         self.update_btn.setText(tr("Nova versão {version} disponível", version=info['version']))
         self.update_btn.setToolTip(tr("Abre a página da versão nova no navegador."))

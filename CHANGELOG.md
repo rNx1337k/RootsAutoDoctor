@@ -7,10 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 ### Added
 - **Portable version updates itself**: it downloads the signed portable zip (`RootsAutoDoctor_<version>_portatil.zip`
   + `.sig`), checks it, extracts it to a staging folder and, after the program closes, a script backs up the current
-  folder, copies the new version over it and restores the backup if the copy fails. A read-only copy only notifies.
+  folder, copies the new version over it and restores the backup if the copy fails.
 - **What's new before updating**: the update questions show customer-facing notes in the interface language, taken
   from `docs/NOVIDADES.md` (`tools/finish_build.py notes`) and placed between markers in the Release text. Anything
   else in the Release text (notes for the publisher) is never shown.
+- **Updates are always automatic**: the on/off option is gone; the program checks when it opens and every 6 hours
+  while open, retries a failed download on the next check and never repeats the same notice. A portable copy in a
+  read-only folder (e.g. Program Files) updates too: the script runs with Windows permission and reopens the program
+  as the normal user.
 - **Failed update recovery**: on the next start the program says whether the update finished; if not, it keeps
   working on the current version, says so once (permission refused or did not finish) and tries again on close.
   After 3 attempts it stops trying that version and points to a manual install and the support package.

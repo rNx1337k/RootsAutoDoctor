@@ -180,19 +180,17 @@ class OptionsPage(QWidget):
         uf.setContentsMargins(20, 18, 20, 18)
         uf.setVerticalSpacing(10)
         uf.addRow(lbl(tr("Actualizações"), "h2"))
-        self.upd_auto = QCheckBox(tr("Actualizar automaticamente (precisa de internet)"))
-        self.upd_auto.toggled.connect(lambda on: self.settings.setValue("updates/auto", "true" if on else "false"))
-        uf.addRow(lbl(tr("Automático"), "muted"), self.upd_auto)
         urow = QHBoxLayout()
         self.upd_btn = btn(tr("Procurar agora"), None, lambda: self.check_updates(manual=True))
         urow.addWidget(self.upd_btn)
         self.upd_lbl = lbl(tr("Versão instalada: {VERSION}", VERSION=VERSION), "muted", wrap=True)
         urow.addWidget(self.upd_lbl, 1)
         uf.addRow(lbl(tr("Versão"), "muted"), urow)
-        uf.addRow(lbl(tr("Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e "
-                         "instala-a quando o fechar, também na versão portátil; os diagnósticos, a licença e as "
-                         "definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. "
-                         "Sem internet não acontece nada."), "muted", wrap=True))
+        uf.addRow(lbl(tr("O programa actualiza-se sempre sozinho: ao abrir e de algumas em algumas horas procura uma "
+                         "versão nova, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão "
+                         "portátil. Os diagnósticos, a licença e as definições ficam guardados. Se a instalação "
+                         "falhar, o programa continua na versão actual. Sem internet não acontece nada."), "muted",
+                      wrap=True))
         v.addWidget(uc)
 
         sc = card()
@@ -293,7 +291,6 @@ class OptionsPage(QWidget):
                 combo.setCurrentIndex(i)
         self.raw.setChecked(self.settings.value("raw_log", "false") == "true")
         self.scale.setCurrentIndex(max(0, self.scale.findData(ui_scale(self.settings))))
-        self.upd_auto.setChecked(self.settings.value("updates/auto", "true") == "true")
         lang = str(self.settings.value("ui/language", i18n.DEFAULT))
         self.language.setCurrentIndex(max(0, self.language.findData(lang if lang in i18n.LANGUAGES else
                                                                      i18n.DEFAULT)))
@@ -379,9 +376,6 @@ class OptionsPage(QWidget):
         self.saved.emit(c)
 
     # -------------------------------------------------------- actualizações
-    def auto_update_enabled(self):
-        return self.upd_auto.isChecked()
-
     def check_updates(self, manual=False):
         """Procura numa thread à parte (a rede pode demorar ou não existir)."""
         if self._checking:

@@ -265,8 +265,34 @@ def test_portable_copy_downloads_the_signed_zip_and_applies_it_after_closing():
     assert script.endswith(autoupdate.SCRIPT) and calls[0][2] is False
     text = open(script, encoding="utf-8").read()
     assert 'set "PID=4321"' in text and f'set "APP={app}"' in text and f'set "NEW={st["staging"]}"' in text
-    assert 'if "1"=="1" start' in text and "robocopy" in text and ":rollback" in text
+    assert 'if not "1"=="1" goto end' in text and "robocopy" in text and ":rollback" in text
+    assert 'if "0"=="1" (start "" explorer.exe' in text                       # sem administrador: abre directo
     assert open(script, "rb").read().count(b"\r\n") > 20                      # CRLF: o cmd lê linha a linha
+    autoupdate.clear()
+
+
+def test_portable_copy_in_a_read_only_folder_asks_windows_for_permission():
+    autoupdate.clear()
+    info, opener = _portable_info(_portable_zip())
+    _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0", mode=autoupdate.PORTABLE))
+    app = os.path.join(tempfile.mkdtemp(), "Programas", "Roots Auto Doctor")
+    os.makedirs(app)
+    assert _with_key(lambda: autoupdate.update_mode(installed=False, frozen=True, folder=app,
+                                                    platform="win32")) == autoupdate.PORTABLE
+    calls, writable = [], autoupdate._writable
+    autoupdate._writable = lambda folder: False
+    try:
+        assert not _with_key(lambda: autoupdate.install_pending(launcher=lambda p, a, e: calls.append(e) or False,
+                                                                folder=app, relaunch=True, pid=4321))
+    finally:
+        autoupdate._writable = writable
+    assert calls == [True]                                                    # pede autorização de administrador
+    text = open(os.path.join(autoupdate.updates_dir(), autoupdate.SCRIPT), encoding="utf-8").read()
+    assert 'if "1"=="1" (start "" explorer.exe' in text                       # reabre como o utilizador normal
+    st = autoupdate.pending()
+    assert st["attempts"] == 1 and st["launched"] is False                     # autorização recusada: avisa no arranque
+    res = autoupdate.startup_status(current="1.9.0", now=st["launched_at"] + autoupdate.SETTLE_SECONDS + 1)
+    assert res["result"] == "failed" and res["denied"]
     autoupdate.clear()
 
 
