@@ -72,3 +72,11 @@ Name: "{autodesktop}\Roots Auto Doctor"; Filename: "{app}\RootsAutoDoctor.exe"; 
 Filename: "{sys}\pnputil.exe"; Parameters: "/add-driver ""{app}\drivers\ftdi\*.inf"" /subdirs"; Flags: runhidden waituntilterminated; StatusMsg: "{cm:DriverStatus}"; Check: IsAdminInstallMode
 #endif
 Filename: "{app}\RootsAutoDoctor.exe"; Description: "{cm:LaunchProgram,Roots Auto Doctor}"; Flags: nowait postinstall skipifsilent
+; Actualização automática com "Actualizar agora" (/RELAUNCH=1): o programa volta a abrir já actualizado.
+Filename: "{app}\RootsAutoDoctor.exe"; Flags: nowait postinstall runasoriginaluser; Check: ShouldRelaunch
+
+[Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;

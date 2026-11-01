@@ -3,6 +3,18 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.12.1] — 2026-11-01
+### Fixed
+- **Automatic updates never installed by themselves**: no GitHub Release had been published (only tags), so there
+  was no installer or `.sig` to download and the program fell back to "new version available", sending the customer
+  to a tag page with nothing to download. Versions are now announced only when a published Release has an
+  installer; a tag on its own is ignored. Publishing a Release with the installer and its `.sig`
+  (`.github/workflows/release.yml` + `tools/publicar_release.bat`, or by hand) is what turns automatic updates on
+### Added
+- **Update now**: once the new version is downloaded, the button "Update to version …" offers to install it
+  straight away; the program closes, installs silently and opens again (`/RELAUNCH=1`, handled by the installer).
+  Closing the program still installs it without reopening
+
 ## [1.12.0] — 2026-11-01
 ### Added
 - **KWP2000 basic settings and output tests** (K-line, J2534 and CAN): basic settings enter the group once

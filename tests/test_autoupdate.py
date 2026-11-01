@@ -112,6 +112,7 @@ def test_install_on_close_runs_silent_installer_and_gives_up_after_three_tries()
         assert _with_key(lambda: autoupdate.install_pending(launcher=launcher, folder=folder))
     assert len(calls) == autoupdate.MAX_ATTEMPTS
     assert "/VERYSILENT" in calls[0][1] and calls[0][2] is False          # pasta gravável: sem administrador
+    assert autoupdate.RELAUNCH_ARG not in calls[0][1]                     # ao fechar: não volta a abrir
     assert not _with_key(lambda: autoupdate.install_pending(launcher=launcher, folder=folder))
     assert autoupdate.pending() is None                                    # desistiu e limpou
 
@@ -153,3 +154,22 @@ def test_release_lists_installer_signature():
         return _Resp(json.dumps(rel).encode())
     r = updates.check("1.9.0", opener=opener)
     assert r["download"] == "https://dl/s.exe" and r["signature"] == "https://dl/s.sig"
+
+
+def test_update_now_asks_the_installer_to_reopen_the_program():
+    autoupdate.clear()
+    sig = autoupdate.make_signature(SECRET, _setup_file(), "9.0.0")
+    info, opener = _info(sig)
+    _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0"))
+    calls = []
+    assert _with_key(lambda: autoupdate.install_pending(launcher=lambda p, a, e: calls.append(a) or True,
+                                                        folder=tempfile.mkdtemp(), relaunch=True))
+    assert autoupdate.RELAUNCH_ARG in calls[0] and "/VERYSILENT" in calls[0]
+    autoupdate.clear()
+
+
+def test_installer_reopens_the_program_only_for_update_now():
+    iss = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer",
+                            "RootsAutoDoctor.iss"), encoding="utf-8").read()
+    assert "Check: ShouldRelaunch" in iss and "{param:RELAUNCH|0}" in iss and "WizardSilent" in iss
+    assert autoupdate.RELAUNCH_ARG == "/RELAUNCH=1"

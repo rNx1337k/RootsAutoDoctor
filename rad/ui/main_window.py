@@ -337,17 +337,22 @@ class MainWindow(QMainWindow):
             self.update_btn.setToolTip(tr("Abre a página da versão nova no navegador."))
             self.update_btn.show()
             return
-        self.update_btn.setText(tr("Versão {version} pronta", version=res['version']))
-        self.update_btn.setToolTip(tr("Instala-se sozinha quando fechar o programa."))
+        self.update_btn.setText(tr("Actualizar para a versão {version}", version=res['version']))
+        self.update_btn.setToolTip(tr("Instala-se sozinha quando fechar o programa, ou já, ao carregar aqui."))
         self.update_btn.show()
         self.toast.show_msg(tr("Versão {version} descarregada: instala-se quando fechar o programa",
                                version=res['version']))
 
     def _open_update(self):
-        if autoupdate.pending():
-            QMessageBox.information(self, APP_NAME, tr("A versão nova já foi descarregada e verificada. Instala-se "
-                                                       "sozinha quando fechar o programa; os diagnósticos, a "
-                                                       "licença e as definições ficam guardados."))
+        st = autoupdate.pending()
+        if st:
+            if QMessageBox.question(self, APP_NAME, tr(
+                    "A versão {version} já foi descarregada e verificada.\n\nActualizar agora? O programa fecha, "
+                    "instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as "
+                    "definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar "
+                    "o programa.", version=st["version"])) == QMessageBox.Yes:
+                self._relaunch_after_update = True
+                self.close()
             return
         info = self.update_info or {}
         notes = info.get("notes", "")
@@ -974,8 +979,8 @@ class MainWindow(QMainWindow):
         self.worker.submit("disconnect")
         self.worker.stop()
         if autoupdate.can_self_update():
-            try:
-                autoupdate.install_pending()           # corre o instalador em silêncio depois de fechar
+            try:                                       # corre o instalador em silêncio depois de fechar
+                autoupdate.install_pending(relaunch=getattr(self, "_relaunch_after_update", False))
             except Exception:
                 log.exception("Não foi possível instalar a actualização ao fechar")
         super().closeEvent(ev)

@@ -5,9 +5,10 @@ Fluxo (só na versão instalada e compilada, com chave de actualizações config
   2. download() descarrega os dois para %APPDATA%\\RootsAutoDoctor\\actualizacoes e verifica a assinatura:
      SHA-256 do instalador + versão, assinados com a chave privada do fornecedor (Ed25519). Um ficheiro trocado
      ou corrompido é apagado e nunca corre.
-  3. Ao fechar o programa, install_pending() volta a verificar o ficheiro e corre o instalador em silêncio
-     (/VERYSILENT). Se a pasta do programa não for gravável (instalação para todos os utilizadores), o Windows
-     pede autorização de administrador uma vez.
+  3. Ao fechar o programa (ou já, com "Actualizar agora"), install_pending() volta a verificar o ficheiro e corre o
+     instalador em silêncio (/VERYSILENT); com "Actualizar agora" o instalador reabre o programa no fim. Se a
+     pasta do programa não for gravável (instalação para todos os utilizadores), o Windows pede autorização de
+     administrador uma vez.
   4. No arranque seguinte, after_start() vê que a versão mudou, limpa a pasta e devolve a versão nova (aviso).
 
 A versão portátil e o código-fonte nunca se instalam sozinhos: só avisam (o resto do programa não muda).
@@ -206,8 +207,12 @@ def _launch(path, args, elevate):
     return True
 
 
-def install_pending(launcher=None, folder=None):
+RELAUNCH_ARG = "/RELAUNCH=1"          # o instalador volta a abrir o programa no fim (installer/RootsAutoDoctor.iss)
+
+
+def install_pending(launcher=None, folder=None, relaunch=False):
     """Chamado ao fechar o programa. Instala a versão descarregada, se houver e se ainda for válida.
+    relaunch=True ("Actualizar agora"): o programa volta a abrir já actualizado.
     Devolve True se o instalador foi lançado."""
     st = pending()
     if not st:
@@ -225,7 +230,8 @@ def install_pending(launcher=None, folder=None):
     folder = folder or app_dir()
     elevate = not _writable(folder)
     try:
-        ok = (launcher or _launch)(st["path"], list(SILENT_ARGS), elevate)
+        args = list(SILENT_ARGS) + ([RELAUNCH_ARG] if relaunch else [])
+        ok = (launcher or _launch)(st["path"], args, elevate)
     except Exception:
         log.exception("Não foi possível lançar o instalador da versão %s", version)
         return False

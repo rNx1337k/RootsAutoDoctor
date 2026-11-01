@@ -1,5 +1,5 @@
-"""Verificação de actualizações: compara versões, usa a release do GitHub (ou as tags) e nunca rebenta sem
-internet. Sem rede: o GitHub é simulado."""
+"""Verificação de actualizações: compara versões, usa só a release publicada no GitHub (com instalador) e nunca
+rebenta sem internet. Sem rede: o GitHub é simulado."""
 import io
 import json
 import os
@@ -44,17 +44,22 @@ def test_release_with_installer():
     assert not updates.check("1.9.0", opener=_opener({"/releases/latest": rel}))["available"]
 
 
-def test_without_releases_uses_highest_tag():
-    tags = [{"name": "v1.7.0"}, {"name": "v1.10.0"}, {"name": "v1.9.2"}, {"name": "experimental"}]
-    r = updates.check("1.7.0", opener=_opener({"/releases/latest": _http(404), "/tags": tags}))
-    assert r["available"] and r["version"] == "1.10.0" and r["download"] is None
-    assert r["url"] == updates.RELEASES_PAGE + "/tag/v1.10.0"
+def test_tags_without_a_published_installer_are_not_announced():
+    # só tags (sem release) ou uma release sem instalador: o cliente não tinha nada para descarregar
+    for routes in ({"/releases/latest": _http(404)},
+                   {"/releases/latest": {"tag_name": "v1.12.0", "assets": [{"name": "notas.txt",
+                                                                           "browser_download_url": "a"}]}}):
+        try:
+            updates.check("1.7.0", opener=_opener(routes))
+            assert False, routes
+        except updates.UpdateError as e:
+            assert "nenhuma versão" in str(e)
 
 
 def test_failures_become_update_errors():
     cases = [({"/releases/latest": urllib.error.URLError("offline")}, "internet"),
              ({"/releases/latest": _http(403)}, "403"),
-             ({"/releases/latest": _http(404), "/tags": []}, "nenhuma versão"),
+             ({"/releases/latest": _http(404)}, "nenhuma versão"),
              ({"/releases/latest": TimeoutError()}, "internet"),
              ({"/releases/latest": ["não", "é", "um", "objecto"]}, "inesperada")]
     for routes, text in cases:

@@ -4,8 +4,9 @@ Diz se há uma versão nova. A descarga e a instalação automáticas (versão i
 estão em rad/autoupdate.py. Funciona sem internet: falha em silêncio no arranque e explica o erro quando se
 procura à mão.
 
-Usa a última release publicada do repositório (com o instalador e a sua assinatura .sig como anexos); se não
-houver releases, usa a tag de versão mais alta."""
+Usa só a última release publicada do repositório, com o instalador e a sua assinatura .sig como anexos. Uma tag
+sem release não conta: não há nada para o cliente descarregar, por isso não se anuncia (antes avisava e mandava
+o cliente para uma página vazia)."""
 import json
 import logging
 import re
@@ -53,23 +54,22 @@ def latest(opener=None):
     try:
         try:
             rel = _get_json(API + "/releases/latest", opener)
-            version = rel.get("tag_name", "")
-            if parse_version(version):
-                assets = {str(a.get("name", "")): a.get("browser_download_url") for a in rel.get("assets") or []}
-                exe_name = next((n for n in assets if n.lower().endswith(".exe")), None)
-                return {"version": version.lstrip("v"), "url": rel.get("html_url") or RELEASES_PAGE,
-                        "download": assets.get(exe_name), "signature": assets.get(f"{exe_name}.sig"),
-                        "notes": (rel.get("body") or "").strip()}
         except urllib.error.HTTPError as e:
-            if e.code != 404:            # 404 = o repositório ainda não tem releases: usa as tags
-                raise
-        tags = _get_json(API + "/tags?per_page=100", opener)
-        versions = [t.get("name", "") for t in tags if parse_version(t.get("name", ""))]
-        if not versions:
+            if e.code == 404:            # o repositório ainda não tem nenhuma release publicada
+                raise UpdateError(tr("Ainda não há nenhuma versão publicada.")) from e
+            raise
+        version = rel.get("tag_name", "")
+        if not parse_version(version):
             raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
-        best = max(versions, key=parse_version)
-        return {"version": best.lstrip("v"), "url": f"{RELEASES_PAGE}/tag/{best}", "download": None,
-                "signature": None, "notes": ""}
+        assets = {str(a.get("name", "")): a.get("browser_download_url") for a in rel.get("assets") or []}
+        exe_name = next((n for n in assets if n.lower().startswith("setup") and n.lower().endswith(".exe")),
+                        next((n for n in assets if n.lower().endswith(".exe")), None))
+        if exe_name is None:
+            log.warning("Release %s sem instalador anexado: não é anunciada", version)
+            raise UpdateError(tr("Ainda não há nenhuma versão publicada."))
+        return {"version": version.lstrip("v"), "url": rel.get("html_url") or RELEASES_PAGE,
+                "download": assets.get(exe_name), "signature": assets.get(f"{exe_name}.sig"),
+                "notes": (rel.get("body") or "").strip()}
     except UpdateError:
         raise
     except urllib.error.HTTPError as e:

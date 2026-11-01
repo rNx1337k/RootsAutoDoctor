@@ -3538,8 +3538,6 @@ EN = {
         "{v:.1f} V — low: weak battery, ignition off or poor contact in the socket",
     "{v} centralina(s)":
         "{v} control unit(s)",
-    "A versão nova já foi descarregada e verificada. Instala-se sozinha quando fechar o programa; os diagnósticos, a licença e as definições ficam guardados.":
-        "The new version has already been downloaded and verified. It installs itself when you close the program; diagnostics, the licence and settings are kept.",
     "A versão {version} descarregada não passou na verificação de segurança e foi apagada.":
         "The downloaded version {version} failed the security check and was deleted.",
     "A versão {version} não tem instalador assinado: actualize à mão.":
@@ -3550,16 +3548,12 @@ EN = {
         "Update automatically (needs internet)",
     "Ao abrir, o programa procura uma versão nova. Se houver, descarrega-a enquanto trabalha e instala-a quando o fechar; os diagnósticos, a licença e as definições ficam guardados. Na versão portátil só avisa. Sem internet não acontece nada.":
         "When it opens, the program looks for a new version. If there is one, it downloads it while you work and installs it when you close the program; diagnostics, the licence and settings are kept. The portable version only notifies. Without internet nothing happens.",
-    "Instala-se sozinha quando fechar o programa.":
-        "It installs itself when you close the program.",
     "Já tem a versão mais recente ({VERSION}).":
         "You already have the latest version ({VERSION}).",
     "Não foi possível descarregar a versão {version}.":
         "Version {version} could not be downloaded.",
     "Versão {version} descarregada: instala-se quando fechar o programa":
         "Version {version} downloaded: it installs when you close the program",
-    "Versão {version} pronta":
-        "Version {version} ready",
     "Adaptador ELM327 / OBDLink em modo CAN cru (ATCAF0)":
         "ELM327 / OBDLink adapter in raw CAN mode (ATCAF0)",
     "Adaptador OBD — VAG desde ~2004 e todas as marcas":
@@ -3843,4 +3837,10 @@ EN = {
         "Identification (with coding and workshop code), faults (read/clear), measuring blocks, coding (3B 9A, read back), adaptation (read/test/save, read back), security access (27 03/04), basic settings (31 B8/BA 00 + group), output tests (31 B8/B9/BA 01 02)",
     "Sem validação num carro nem num adaptador físico. A escrita só é oferecida quando a identificação tem o formato conhecido e cada valor gravado é lido outra vez. Os ELM327 baratos podem ser lentos para os ACK do TP2.0; recomenda-se OBDLink.":
         "No validation on a car or with a physical adapter. Writing is only offered when the identification has the known format, and every saved value is read back. Cheap ELM327 adapters may be too slow for the TP2.0 ACKs; OBDLink is recommended.",
+    "A versão {version} já foi descarregada e verificada.\n\nActualizar agora? O programa fecha, instala a versão nova e volta a abrir (cerca de 1 minuto). Os diagnósticos, a licença e as definições ficam guardados.\n\nSe preferir, a actualização instala-se sozinha quando fechar o programa.":
+        "Version {version} has been downloaded and checked.\n\nUpdate now? The program closes, installs the new version and opens again (about 1 minute). Diagnostics, the licence and the settings are kept.\n\nIf you prefer, the update installs itself when you close the program.",
+    "Actualizar para a versão {version}":
+        "Update to version {version}",
+    "Instala-se sozinha quando fechar o programa, ou já, ao carregar aqui.":
+        "Installs itself when you close the program, or now if you click here.",
 }
