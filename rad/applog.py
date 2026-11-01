@@ -102,4 +102,13 @@ def make_support_bundle(dest):
         for p in logs + [os.path.join(log_dir(), n) for n in ("crash.log", "erros.log")]:
             if os.path.exists(p):
                 z.write(p, os.path.basename(p))
+        try:                                       # gravações da comunicação e relatórios de validação
+            from . import capture
+            for p in capture.recent(3):
+                z.write(p, "gravacoes/" + os.path.basename(p))
+                report = p[:-len(capture.EXT)] + ".html"
+                if os.path.exists(report):
+                    z.write(report, "gravacoes/" + os.path.basename(report))
+        except Exception as e:
+            z.writestr("gravacoes/erro.txt", str(e))
     return dest

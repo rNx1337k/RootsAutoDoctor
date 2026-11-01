@@ -327,6 +327,73 @@ def test_custom_widgets_paint():
     app.processEvents()
 
 
+def test_recording_and_validation_from_the_interface():
+    app, w = _window()
+    from rad import capture
+    from rad.ui.pages.validation import ValidationDialog
+    try:
+        assert w.options.capture_btn.text() == "Gravar comunicação"
+        w.options.capture_btn.click()
+        assert _wait(app, lambda: w.options.recording), "a gravação não começou"
+        assert w.options.capture_btn.text() == "Parar gravação" and capture.active() is not None
+        w.options.capture_btn.click()
+        assert _wait(app, lambda: not w.options.recording), "a gravação não parou"
+        assert capture.active() is None and capture.recent(1)
+        dlg = ValidationDialog(w.worker, {"plate": "VA-11-DA"}, w)
+        dlg.show()
+        dlg.start()
+        assert dlg.running and not dlg.close_btn.isEnabled()
+        dlg.reject()                                     # não fecha a meio
+        assert dlg.isVisible()
+        assert _wait(app, lambda: not dlg.running, 30), "a validação não terminou"
+        assert dlg.tree.topLevelItemCount() == 8 and dlg.report_btn.isEnabled()
+        assert dlg.report["report_path"].endswith(".html") and dlg.verdict.text()
+        dlg.reject()
+        assert not dlg.isVisible()
+    finally:
+        w.close()
+        app.processEvents()
+
+
+def test_report_dialog_preview_and_vehicle_register():
+    app, w = _window()
+    from rad import history, vag_data
+    from rad.ui.pages.report_dialog import ReportDialog, build_function
+    try:
+        items = [{"address": 0x03, "module": "ABS", "status": "ok",
+                  "info": {"part": "1C0907379K", "component": "ABS", "protocol": "KWP2000", "baud": 10400,
+                           "coding": 18719, "coding_digits": 7},
+                  "faults": [vag_data.decode_fault(283, 0x23)]}]
+        dlg = ReportDialog(build_function({"name": "Oficina"}, items, {"simulated": True}, None),
+                           {"plate": "rp-12-34", "client": "Rui"}, "", None, w)
+        text = dlg.preview.toPlainText()
+        assert "Relatório de diagnóstico" in text and "estado 0x23" not in text
+        dlg.tech_rb.setChecked(True)
+        app.processEvents()
+        assert dlg.variant == "technical" and "estado 0x23" in dlg.preview.toPlainText()
+        dlg.edits["vin"].setText("wauzzz8l71a123456")
+        dlg.refresh()
+        assert dlg.vehicle()["plate"] == "RP-12-34" and dlg.vehicle()["vin"] == "WAUZZZ8L71A123456"
+        dlg.reject()
+        # registo de veículos: o diagnóstico guardado aparece em Histórico → Veículos e volta ao Início
+        history.save_session("modulo", {"plate": "RP-12-34", "client": "Rui", "vin": "WAUZZZ8L71A123456"}, items)
+        w.hist.refresh()
+        w.hist.search.setText("123456")                       # pesquisa pelo VIN
+        app.processEvents()
+        assert w.hist.vtable.rowCount() == 1 and w.hist.table.rowCount() == 1
+        w.home.clear_vehicle()
+        w.hist.vtable.setCurrentCell(0, 0)
+        w.hist._use_vehicle()
+        app.processEvents()
+        assert w.home.vehicle()["client"] == "Rui" and "visita" in w.home.known_lbl.text()
+        w.home.clear_vehicle()
+        w.home.vehicle_edits["plate"].setText("rp12 34")
+        assert w.home.fill_known("plate")["client"] == "Rui" and w.home.vehicle()["client"] == "Rui"
+    finally:
+        w.close()
+        app.processEvents()
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

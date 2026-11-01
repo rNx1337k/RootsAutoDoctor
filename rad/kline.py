@@ -15,6 +15,7 @@ import logging
 import sys
 import time
 
+from . import capture
 from .errors import InterfaceError, KLineError, KLineTimeout
 from .hexmcu import HEX_LINES, is_hex_port
 from .i18n import tr
@@ -37,7 +38,8 @@ from .vagcan import SIM_PORT as SIM_VAGCAN_PORT  # noqa: E402  (VAG por CAN simu
 def is_simulated_port(port):
     """True para todas as portas que falam com o simulador em vez de um carro (K-line, J2534, D2XX e ELM327).
     Os dados lidos por estas portas nunca podem aparecer como dados de um veículo real."""
-    return port in (SIM_PORT, SIM_J2534_PORT, SIM_D2XX_PORT, SIM_ELM_PORT, SIM_VAGCAN_PORT)
+    return (port in (SIM_PORT, SIM_J2534_PORT, SIM_D2XX_PORT, SIM_ELM_PORT, SIM_VAGCAN_PORT)
+            or capture.is_replay_port(port))
 
 
 def is_elm_sim_port(port):
@@ -48,6 +50,8 @@ def port_label(port):
     """Nome curto da porta escolhida, para mostrar ao cliente (sem caminhos de DLL, VID/PID ou nº de série)."""
     if not port:
         return ""
+    if capture.is_replay_port(port):
+        return tr("Gravação")
     if is_simulated_port(port):
         return tr("Simulador")
     if port.upper().startswith("COM"):
@@ -138,6 +142,8 @@ def list_serial_ports(technical=None):
 
 
 class KLine:
+    capture_channel = "kline"              # nome do canal nas gravações (rad/capture.py)
+
     def __init__(self, port, echo="auto", log=None, raw_log=False):
         self.port_name = port
         self.echo_mode = echo                      # "auto" | "on" | "off"
@@ -166,6 +172,11 @@ class KLine:
         if self.is_simulator:
             from .simulator import SimSerial
             self.ser = SimSerial()
+        elif capture.is_replay_port(self.port_name):
+            try:
+                self.ser = capture.ReplaySerial.open(capture.replay_path(self.port_name), "kline")
+            except (OSError, ValueError) as e:
+                raise KLineError(tr("Não foi possível abrir a gravação: {e}", e=e)) from e
         elif self.port_name.startswith("FTDI:"):
             from .ftdi_direct import FtdiSerial      # chip FTDI sem porta COM (WinUSB), ex.: clone HEX-USB
             self.ser = FtdiSerial(self.port_name, 10400, timeout=0.5)
@@ -181,6 +192,7 @@ class KLine:
                 self.ser = None
                 raise KLineError(tr("Não foi possível abrir a porta {port_name}: {e}",
                                     port_name=self.port_name, e=e)) from e
+        self.ser = capture.wrap_serial(self.ser, "kline")
         if not self.is_simulator:
             _timer_resolution(True)
         self.set_lines(*self.lines)
@@ -299,6 +311,9 @@ class KLine:
             ser.baudrate = baud
             ser.sim_five_baud(address)
         else:
+            mark = getattr(ser, "capture_init", None)    # gravação activa: marca o endereço do init
+            if mark is not None:
+                mark(address, baud)
             ser.break_condition = False
             precise_sleep(0.35)                      # barramento em repouso (W5 ≥ 300 ms)
             try:

@@ -6,7 +6,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rad import cable
 
-FTDI_COM = {"name": "USB Serial Port (COM5)", "id": "FTDIBUS\\VID_0403+PID_6001+A5\\0000", "status": "OK", "cls": "Ports"}
+FTDI_COM = {"name": "USB Serial Port (COM5)", "id": "FTDIBUS\\VID_0403+PID_6001+A5\\0000", "status": "OK",
+            "cls": "Ports"}
 FTDI_USB = {"name": "USB Serial Converter", "id": "USB\\VID_0403&PID_6001\\A5", "status": "OK", "cls": "USB"}
 CH340 = {"name": "USB-SERIAL CH340 (COM7)", "id": "USB\\VID_1A86&PID_7523\\5&1", "status": "OK", "cls": "Ports"}
 HEX = {"name": "Ross-Tech Direct USB Interface", "id": "USB\\VID_0403&PID_FA24\\RT1", "status": "OK", "cls": "USB"}

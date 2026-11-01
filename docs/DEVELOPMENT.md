@@ -12,7 +12,9 @@ and **KWP2000** (`rad/protocols/`), through a KKL cable (`rad/kline.py`), an FTD
 **OBD-II / EOBD** through an **ELM327** adapter, plus read-only **UDS** identification on CAN (`rad/obd/`).
 VAG cars from ~2004 are reached over CAN with **VW TP 2.0** carrying KWP2000 (`rad/vagcan/`): the same ELM327 /
 OBDLink adapter in raw CAN mode (`elmcan.py`), a TP2.0 channel per module (`tp20.py`) and the K-line KWP2000
-decoding reused on top (`kwp.py`); `simbus.py` simulates the modules (port `VAGCAN:SIMULADOR`).
+decoding reused on top (`kwp.py`); `simbus.py` simulates the modules (port `VAGCAN:SIMULADOR`). A J2534 interface
+can also open a **raw CAN channel** (`J2534CanBus` in `rad/j2534.py`): with the "OBD adapter" equipment selected,
+the same ISO-TP (OBD-II/UDS) and TP2.0 (VAG) code runs over it.
 32-bit drivers (RT-USB.DLL, many J2534 DLLs) are loaded by a bridge process running on a portable 32/64-bit
 Python shipped in `runtime/` (`rad/bridge.py`, `rad/*_bridge.py`).
 
@@ -21,7 +23,7 @@ Python shipped in `runtime/` (`rad/bridge.py`, `rad/*_bridge.py`).
 | Interface | Support |
 |---|---|
 | KKL 409.1 / K-line cables (FTDI, CH340) | KW1281 and KWP2000 |
-| J2534 PassThru (04.04) | KWP2000 only |
+| J2534 PassThru (04.04) | KWP2000 over the K-line ("VAG cable" equipment); raw CAN for OBD-II/UDS and VAG over CAN ("OBD adapter" equipment) |
 | ELM327 and compatibles (USB / Bluetooth) | OBD-II / EOBD (CAN, ISO 9141-2, ISO 14230-4, SAE J1850) and read-only UDS on CAN — see [OBD.md](OBD.md) |
 | HEX-USB / HEX-V2 clones (FTDI, VID 0403 PID FA2x) | Not supported for ECU access: only the cable's own status (firmware, mode, K-line voltage) — see [HEX_USB.md](HEX_USB.md) |
 | Genuine HEX-V2 / HEX-NET, other firmware-based interfaces | Not supported |
@@ -36,13 +38,47 @@ For FTDI cables, a latency timer of 1 ms (Device Manager) makes live data much f
 | Identification | ✓ | ✓ |
 | Read and clear faults (clearing is confirmed by reading the memory again) | ✓ | ✓ |
 | Measuring blocks | ✓ | ✓ |
-| Basic settings, adaptation, coding (the value the ECU returns is checked) | ✓ | Planned |
-| Login (sent; KW1281 does not report whether the code is correct) and output tests | ✓ | Planned |
+| Adaptation and coding (the value is read back from the ECU before it is reported as saved) | ✓ | ✓ (K-line and J2534) |
+| Login — KW1281: login block (the ECU does not report whether the code is correct); KWP2000: security access 27 03/04 (key = seed + code) | ✓ | ✓ |
+| Basic settings and output tests | ✓ | Planned |
+
+KWP2000 writing follows the EDC16 captures published by [kw1281test](https://github.com/gmenounos/kw1281test)
+(MIT): coding is `3B 9A` with the workshop code and software version the ECU itself returned in `1A 9B`; adaptation
+uses the `31 B8`…`BB` / `32 B8` routines with the fixed `01 03` selector. It is offered only when the `1A 9B` record
+has that known layout, and it is not offered over CAN yet.
 
 The full matrix, with the evidence for each stage (detection, initialisation, ECU communication, interpretation),
 is in [COVERAGE.md](COVERAGE.md). **No interface has yet been confirmed on a vehicle with this app**: K-line fault
 decoding is validated against a real ECU response captured over USB; everything else is tested against the
 simulators. [AUDITORIA.md](AUDITORIA.md) is the technical audit of v1.2.0.
+
+## Recordings and on-car validation
+
+**Recording** (`rad/capture.py`): while a recording is active, every byte sent and received through the VAG cable
+or the OBD adapter, and every J2534 bridge request, is written to a `.radrec` file (JSON lines, readable in a text
+editor) together with the commands the program ran and a stable summary of each result. **Options → Record
+communication** starts and stops it; recordings live in `%APPDATA%\RootsAutoDoctor\gravacoes` and the latest three
+go into the support package.
+
+**Replay** (`rad/replay.py`): the port `REPLAY:<file>` (or `J2534:REPLAY:<file>`) answers with the recording and
+checks that the program sends exactly the same bytes. `replay.run(path)` re-runs the recorded commands with the
+current code and reports byte divergences and changed results. **Every file in `tests/captures/` is replayed by
+`tests/test_captures.py`**, so a session recorded on a real car becomes a permanent regression test: copy the
+`.radrec` there and commit it. In technician mode, **Options → Check recording…** does the same from the app.
+
+**On-car validation** (`rad/validation.py`, technician mode → **Options → On-car validation**): a fixed sequence —
+cable and ignition, engine (identification, faults, block 001 three times, optional clear and re-read),
+instrument cluster, ABS — always recorded, with an HTML report next to the recording. The report lists each fault
+with the **raw status byte** and how VCDS should show it, which is how the open question about the KWP2000 status
+byte gets settled on the first KWP2000 car.
+
+## Quality checks
+
+- `run_tests.bat` (or `python tests/run_all.py`) runs every test; the UI tests run without a screen
+  (`QT_QPA_PLATFORM=offscreen`).
+- `ruff check .` — style and common errors (`ruff.toml`).
+- **GitHub Actions** (`.github/workflows/ci.yml`) runs Ruff and the whole test suite on Windows for every push and
+  pull request; the README badge shows the result.
 
 ## Customer-facing language
 
@@ -89,6 +125,7 @@ portable 32/64-bit Python used by the bridges (`runtime/`) and starts the app.
 | `run_tests.bat` | Run the test suite (simulator-based, no car needed) |
 | `build_release.bat` | Build the compiled app, check it, self-test it, and create the installer and the portable zip |
 | `python tools/i18n_check.py` | List interface texts that still have no English translation |
+| `ruff check .` | Style and common errors (also run by GitHub Actions) |
 | `tools\screenshots.bat` | Regenerate the README screenshots (`docs/screenshots/`) with the simulator |
 | `python tools/make_brand.py` | Regenerate the logo, icon and banner from the SVG source |
 | `python tools/license_tool.py` | Create licence keys (vendor only, see [LICENSING.md](LICENSING.md)) |
@@ -144,7 +181,8 @@ same `{placeholders}` and HTML tags.
 
 ## Data and logs
 
-History, logs, the change journal, the licence and the workshop logo are kept in `%APPDATA%\RootsAutoDoctor`
+History, the vehicle and customer register (`vehicles` table in `historico.db`, `rad/vehicles.py`), logs,
+recordings, the change journal, the licence and the workshop logo are kept in `%APPDATA%\RootsAutoDoctor`
 (uninstalling keeps them); settings are in the Windows registry (`HKCU\Software\Roots\RootsAutoDoctor`). Logs and
 crash reports are in `%APPDATA%\RootsAutoDoctor\registos`; **Options → Support package** zips them for support.
 

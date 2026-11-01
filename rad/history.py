@@ -130,6 +130,9 @@ def save_session(kind, vehicle, items, notes="", directory=None, meta=None):
     Devolve o id da sessão."""
     now = datetime.datetime.now()
     base = f"{now:%Y%m%d_%H%M%S}_{_slug(vehicle.get('plate'))}"
+    # antes de gravar a sessão: na primeira vez o registo de veículos importa as sessões antigas e esta não pode
+    # contar duas vezes
+    _remember_vehicle(vehicle, directory, visit=True)
     db = _open(directory)
     try:
         sid, n = base, 1
@@ -150,6 +153,17 @@ def save_session(kind, vehicle, items, notes="", directory=None, meta=None):
     finally:
         db.close()
     return sid
+
+
+def _remember_vehicle(vehicle, directory, visit):
+    """Mantém o registo de veículos e clientes (rad/vehicles.py). Uma falha aqui não impede guardar o diagnóstico."""
+    if not vehicle:
+        return
+    try:
+        from . import vehicles
+        vehicles.remember(vehicle, directory, visit=visit)
+    except Exception:
+        log.warning("Não foi possível actualizar o registo de veículos", exc_info=True)
 
 
 def update_session(sid, vehicle=None, notes=None, directory=None, meta=None):
@@ -174,6 +188,8 @@ def update_session(sid, vehicle=None, notes=None, directory=None, meta=None):
                        (s["plate"], s["client"], s["model"], json.dumps(data, ensure_ascii=False), sid))
     finally:
         db.close()
+    if vehicle is not None:
+        _remember_vehicle(vehicle, directory, visit=False)
     return data
 
 

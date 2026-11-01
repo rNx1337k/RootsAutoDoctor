@@ -67,6 +67,8 @@ class Block:
 class KW1281:
     name = "KW1281"
     keep_alive_interval = 0.3
+    features = ("basic", "adaptation", "coding", "login", "outputs")
+    coding_digits = 5
 
     def __init__(self, kl, address, log=None):
         self.kl = kl

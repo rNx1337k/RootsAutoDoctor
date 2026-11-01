@@ -209,15 +209,23 @@ class SimKW1281:
 
 
 class SimKWP2000:
+    """Centralina KWP2000 da VAG (formato EDC16 / ABS Mk60): identificação com codificação e código de oficina,
+    codificação 3B 9A, acesso de segurança 27 03/04 e adaptação pelas rotinas 31 B8…BB (ver rad/protocols/kwp2000.py).
+    Como o controlador KW1281 simulado, o que for gravado dura até fechar a ligação."""
     kb = (0xEF, 0x8F)
 
     def __init__(self, address, profile):
         self.address = address
-        self.p = profile
+        self.p = dict(profile, adapt=dict(profile.get("adapt", {})))
         self.baud = profile["baud"]
         self.state = "await_kb2"
         self.buf = []
         self.faults = list(profile["faults"])
+        self.seed = None
+        self.unlocked = False
+        self.adapt_on = False
+        self.channel = None
+        self.test_value = None
 
     def on_byte(self, b, out):
         if self.state == "await_kb2":
@@ -252,9 +260,32 @@ class SimKWP2000:
         if sid == 0x10:
             return [0x50, p[1] if len(p) > 1 else 0x89]
         if sid == 0x1A:
-            txt = _ascii(self.p["part"].ljust(12)) + _ascii("0101") + [0x00, 0x05, 0x00, 0x00] + \
-                  _ascii(self.p["component"].ljust(20))
+            c = self.p.get("coding", 0)
+            txt = (_ascii(self.p["part"].ljust(12)) + _ascii(self.p.get("software", "0101")) + [0x03]
+                   + [(c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF] + list(self.p.get("wsc6", [0] * 6))
+                   + _ascii(self.p["component"].ljust(20)))
             return [0x5A, 0x9B] + txt
+        if sid == 0x3B and len(p) >= 2 and p[1] == 0x9A:
+            rec = p[2:]
+            if len(rec) != 14 or rec[10] != 0x03 or rec[:6] != list(self.p.get("wsc6", [0] * 6)):
+                return [0x7F, 0x3B, 0x31]
+            self.p["coding"] = (rec[11] << 16) | (rec[12] << 8) | rec[13]
+            return [0x7B, 0x9A]
+        if sid == 0x27 and len(p) >= 2:
+            if p[1] == 0x03:
+                self.seed = [random.randint(0, 255) for _ in range(4)]
+                return [0x67, 0x03] + self.seed
+            if p[1] == 0x04 and self.seed and len(p) >= 6:
+                want = (int.from_bytes(bytes(self.seed), "big") + self.p.get("security_code", 12233)) & 0xFFFFFFFF
+                if int.from_bytes(bytes(p[2:6]), "big") != want:
+                    return [0x7F, 0x27, 0x35]
+                self.unlocked = True
+                return [0x67, 0x04]
+        if sid == 0x31 and len(p) >= 2:
+            return self._routine(p[1], p[2:])
+        if sid == 0x32 and len(p) >= 2 and p[1] == 0xB8:
+            self.adapt_on, self.channel, self.test_value = False, None, None
+            return [0x72, 0xB8] + list(p[2:])
         if sid == 0x18:
             flat = []
             for code, st in self.faults:
@@ -277,6 +308,39 @@ class SimKWP2000:
             self.state = "dead"
             return [0xC2]
         return [0x7F, sid, 0x11]
+
+    def _routine(self, rid, args):
+        adapt = self.p["adapt"]
+        if rid == 0xB8:
+            if args[:2] == [0x01, 0x03]:
+                self.adapt_on = True
+            return [0x71, 0xB8] + list(args)
+        if not self.adapt_on or args[:2] != [0x01, 0x03]:
+            return [0x7F, 0x31, 0x22]                   # condições incorrectas: não entrou na adaptação
+        if rid == 0xB9:
+            if self.channel is None:                    # 31 B9 01 03 <canal>
+                if self.p.get("security_code") is not None and not self.unlocked:
+                    return [0x7F, 0x31, 0x33]           # como a EDC16: sem acesso de segurança não escolhe canal
+                if len(args) < 3 or args[2] not in adapt:
+                    return [0x7F, 0x31, 0x31]
+                self.channel, self.test_value = args[2], None
+                return [0x71, 0xB9] + list(args)
+            if len(args) < 4:                           # 31 B9 01 03 <valor:2>
+                return [0x7F, 0x31, 0x12]
+            self.test_value = (args[2] << 8) | args[3]
+            return [0x71, 0xB9] + list(args)
+        if self.channel is None:
+            return [0x7F, 0x31, 0x22]
+        if rid == 0xBA:
+            v = self.test_value if self.test_value is not None else adapt[self.channel]
+            return [0x71, 0xBA, 0x01, 0x03, 0x00, 0x03, (v >> 8) & 0xFF, v & 0xFF, 0x00, 0x00, 0x00]
+        if rid == 0xBB:
+            if len(args) < 10 or args[4:10] != list(self.p.get("wsc6", [0] * 6)):
+                return [0x7F, 0x31, 0x31]
+            adapt[self.channel] = (args[2] << 8) | args[3]
+            self.test_value = None
+            return [0x71, 0xBB, 0x01, 0x03]
+        return [0x7F, 0x31, 0x12]
 
 
 ENGINE = {
@@ -302,7 +366,12 @@ CLUSTER = {
 ABS = {
     "baud": 10400,
     "part": "1C0907379K",
+    "software": "0001",
     "component": "ABS/ESP 20 IE CAN",
+    "coding": 18719,
+    "wsc6": [0x00, 0x00, 0x00, 0x00, 0x30, 0x39],     # oficina 12345, importador 0, equipamento 0
+    "security_code": 40168,
+    "adapt": {1: 0, 5: 120},
     "faults": [(283, 0x23)],
 }
 

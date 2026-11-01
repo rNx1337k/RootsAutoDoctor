@@ -1,11 +1,11 @@
 """Página inicial: dados do veículo, estatísticas e veículos recentes."""
 import datetime
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, QStringListModel, Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QVBoxLayout,
-    QWidget,
+    QCompleter, QFrame, QGridLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QScrollArea,
+    QVBoxLayout, QWidget,
 )
 
 from ... import VERSION
@@ -178,6 +178,18 @@ class HomePage(QWidget):
             form.addWidget(lbl(name, "muted"), (i // 2) * 2, i % 2)
             form.addWidget(e, (i // 2) * 2 + 1, i % 2)
         vl.addLayout(form)
+        # Veículos já conhecidos (rad/vehicles.py): a matrícula completa-se enquanto se escreve e, ao sair do campo
+        # da matrícula ou do VIN, os campos vazios enchem-se com os dados guardados.
+        self.plate_model = QStringListModel(self)
+        completer = QCompleter(self.plate_model, self)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        self.vehicle_edits["plate"].setCompleter(completer)
+        completer.activated.connect(lambda _t: self.fill_known("plate"))
+        self.vehicle_edits["plate"].editingFinished.connect(lambda: self.fill_known("plate"))
+        self.vehicle_edits["vin"].editingFinished.connect(lambda: self.fill_known("vin"))
+        self.known_lbl = lbl("", "muted")
+        vl.addWidget(self.known_lbl)
         vl.addStretch(1)
 
         rc = card()
@@ -256,6 +268,7 @@ class HomePage(QWidget):
                 break
         self.recent.setVisible(bool(seen))
         self.recent_empty.setVisible(not seen)
+        self.refresh_known()
 
     def set_interface(self, text):
         self.link_iface.setText(text)
@@ -277,9 +290,46 @@ class HomePage(QWidget):
     def vehicle(self):
         return {k: e.text().strip() for k, e in self.vehicle_edits.items()}
 
+    def set_vehicle(self, vehicle):
+        for k, e in self.vehicle_edits.items():
+            value = str((vehicle or {}).get(k) or "")
+            if e.text().strip() != value:
+                e.setText(value)
+
     def clear_vehicle(self):
         for e in self.vehicle_edits.values():
             e.clear()
+        self.known_lbl.setText("")
+
+    def refresh_known(self):
+        """Actualiza a lista de matrículas para completar o campo."""
+        from ... import vehicles
+        try:
+            self.plate_model.setStringList(vehicles.plates())
+        except Exception:
+            self.plate_model.setStringList([])
+
+    def fill_known(self, key):
+        """Se a matrícula ou o VIN já são conhecidos, completa os campos vazios. Devolve o veículo (ou None)."""
+        from ... import vehicles
+        text = self.vehicle_edits[key].text().strip()
+        if not text:
+            self.known_lbl.setText("")
+            return None
+        try:
+            known = vehicles.lookup(plate=text) if key == "plate" else vehicles.lookup(vin=text)
+        except Exception:
+            known = None
+        if not known:
+            self.known_lbl.setText("")
+            return None
+        for k, e in self.vehicle_edits.items():
+            if not e.text().strip() and known.get(k):
+                e.setText(str(known[k]))
+        last = str(known.get("last") or "")[:10]
+        self.known_lbl.setText(tr("Cliente conhecido · {n} visita(s) · última em {date}",
+                                  n=known.get("visits") or 0, date=f"{last[8:10]}/{last[5:7]}/{last[:4]}"))
+        return known
 
 
 # ------------------------------------------------------- selecção de módulo

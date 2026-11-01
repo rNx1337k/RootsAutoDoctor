@@ -42,8 +42,8 @@ class OperationUnconfirmed(RequestRejected):
 # ------------------------------------------------------------------ mensagens para o cliente
 # As camadas de comunicação descrevem os erros com o detalhe técnico (protocolo, bytes, ponte, driver…), que é o
 # que interessa ao suporte e fica no registo. O cliente vê uma explicação de oficina: o que aconteceu e o que fazer.
-import logging as _logging
-import re as _re
+import logging as _logging  # noqa: E402  (secção à parte, ver comentário acima)
+import re as _re  # noqa: E402  (secção à parte, ver comentário acima)
 
 _log = _logging.getLogger(__name__)
 

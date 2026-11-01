@@ -20,6 +20,7 @@ respondem "?" são registados e ignorados; os essenciais (E0, H1, SP) têm de re
 import logging
 import time
 
+from .. import capture
 from ..errors import InterfaceError, KLineError, NoResponse, NotSupported, ProtocolError
 from . import isotp
 from .link import Response
@@ -78,11 +79,18 @@ def _open_serial(port, baud):
     if port == ELM_SIM_PORT:
         from .sim_elm import SimElm327Serial
         return SimElm327Serial()
+    if capture.is_replay_port(port):
+        try:
+            return capture.ReplaySerial.open(capture.replay_path(port), "elm")
+        except ValueError as e:
+            raise OSError(str(e)) from e
     import serial
     return serial.Serial(port, baud, timeout=0.05, write_timeout=1.0)
 
 
 class Elm327Link:
+    capture_channel = "elm"                # nome do canal nas gravações (rad/capture.py)
+
     def __init__(self, port, log=None, raw_log=False, protocol="0", serial_factory=None,
                  timeout=4.0, search_timeout=20.0):
         self.port_name = port
@@ -111,7 +119,10 @@ class Elm327Link:
     def is_simulator(self):
         return self.port_name == ELM_SIM_PORT
 
-    simulated = is_simulator
+    @property
+    def simulated(self):
+        """Simulador ou gravação: os dados nunca podem aparecer como lidos de um veículo real."""
+        return self.is_simulator or capture.is_replay_port(self.port_name)
 
     @property
     def is_can(self):
@@ -124,7 +135,7 @@ class Elm327Link:
     def describe(self):
         return {"adapter": "ELM327", "port": self.port_name, "version": self.version, "device": self.device,
                 "baud": self.baud, "protocol": self.protocol, "protocol_number": self.proto,
-                "voltage": self.voltage, "simulated": self.is_simulator, "warnings": list(self.warnings)}
+                "voltage": self.voltage, "simulated": self.simulated, "warnings": list(self.warnings)}
 
     # ------------------------------------------------------------------ série
     def _write(self, text):
@@ -196,7 +207,7 @@ class Elm327Link:
         last_err = None
         for baud in BAUDS:
             try:
-                self.ser = self._factory(self.port_name, baud)
+                self.ser = capture.wrap_serial(self._factory(self.port_name, baud), "elm")
             except Exception as e:
                 last_err = e
                 if baud == BAUDS[0]:

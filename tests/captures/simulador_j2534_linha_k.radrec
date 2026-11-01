@@ -1,0 +1,18 @@
+{"rad_capture": 1, "app": "Roots Auto Doctor", "version": "1.11.0", "started": "2026-11-01T11:28:01", "port": "Simulador", "adapter": "kline", "simulated": true, "transport": "j2534", "echo": "auto", "baud": "auto", "elm_protocol": "0", "technical_port": "", "note": "Gravação de referência feita com o simulador (não é um carro real)."}
+{"t": 0.0001, "note": "cmd", "cmd": "connect", "args": [3]}
+{"t": 0.0584, "c": "j2534", "call": "open", "kw": {"dll": "SIMULADOR-J2534"}, "res": {"ok": true}}
+{"t": 0.0589, "c": "j2534", "call": "connect", "kw": {"baud": 10400}, "res": {"ok": true}}
+{"t": 0.0593, "c": "j2534", "call": "five_baud_init", "kw": {"address": 3}, "res": {"ok": true, "kb": [239, 143]}}
+{"t": 0.0597, "c": "j2534", "call": "write", "kw": {"data": [130, 3, 241, 16, 137]}, "res": {"ok": true}}
+{"t": 0.0601, "c": "j2534", "call": "read", "kw": {"timeout_ms": 1000}, "res": {"ok": true, "data": [130, 241, 3, 80, 137]}}
+{"t": 0.0605, "c": "j2534", "call": "write", "kw": {"data": [130, 3, 241, 26, 155]}, "res": {"ok": true}}
+{"t": 0.0608, "c": "j2534", "call": "read", "kw": {"timeout_ms": 1000}, "res": {"ok": true, "data": [176, 241, 3, 90, 155, 49, 67, 48, 57, 48, 55, 51, 55, 57, 75, 32, 32, 48, 48, 48, 49, 3, 0, 73, 31, 0, 0, 0, 0, 48, 57, 65, 66, 83, 47, 69, 83, 80, 32, 50, 48, 32, 73, 69, 32, 67, 65, 78, 32, 32, 32]}}
+{"t": 0.0609, "note": "result", "cmd": "connect", "summary": {"address": 3, "protocol": "KWP2000 (J2534)", "part": "1C0907379K", "component": "ABS/ESP 20 IE CAN", "coding": 18719, "wsc": 12345}}
+{"t": 0.061, "note": "cmd", "cmd": "read_faults", "args": []}
+{"t": 0.0613, "c": "j2534", "call": "write", "kw": {"data": [132, 3, 241, 24, 2, 255, 0]}, "res": {"ok": true}}
+{"t": 0.0616, "c": "j2534", "call": "read", "kw": {"timeout_ms": 1000}, "res": {"ok": true, "data": [133, 241, 3, 88, 1, 1, 27, 35]}}
+{"t": 0.0616, "note": "result", "cmd": "read_faults", "summary": [["00283", 35]]}
+{"t": 0.0617, "note": "cmd", "cmd": "disconnect", "args": []}
+{"t": 0.0619, "c": "j2534", "call": "write", "kw": {"data": [129, 3, 241, 130]}, "res": {"ok": true}}
+{"t": 0.0621, "c": "j2534", "call": "read", "kw": {"timeout_ms": 300}, "res": {"ok": true, "data": [129, 241, 3, 194]}}
+{"t": 0.0622, "end": true}

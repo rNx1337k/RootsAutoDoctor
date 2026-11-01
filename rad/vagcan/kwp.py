@@ -6,7 +6,7 @@ por isso esta classe herda a interpretação das respostas e troca apenas o envi
 import logging
 import time
 
-from ..errors import NoResponse, RequestRejected
+from ..errors import NoResponse, NotSupported, RequestRejected
 from ..i18n import tr
 from ..protocols.kwp2000 import KWP2000, NegativeResponse
 from .tp20 import KEEPALIVE_INTERVAL, Tp20Channel
@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 class VagCanKWP(KWP2000):
     name = "KWP2000 (CAN)"
     keep_alive_interval = KEEPALIVE_INTERVAL
+    features = ()                       # escrita por CAN: ainda não (falta validar num carro)
+
+    def _ns(self, *a, **k):
+        raise NotSupported(tr("A escrita nos controladores por CAN ainda não está disponível nesta versão"))
+
+    recode = login = adaptation_read = adaptation_test = adaptation_save = basic_setting = output_test = _ns
 
     def __init__(self, bus, address, log=None):
         super().__init__(None, address, log, address)

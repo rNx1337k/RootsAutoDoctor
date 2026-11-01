@@ -3,6 +3,47 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] — 2026-11-01
+### Added
+- **Communication recording** (`rad/capture.py`): Options → Support → *Record communication* writes every byte
+  exchanged with the VAG cable or the OBD adapter, every J2534 request, the commands run and a stable summary of
+  each result to a `.radrec` file (JSON lines). The support package includes the last three recordings
+- **Replay** (`rad/replay.py`, ports `REPLAY:` / `J2534:REPLAY:`): re-runs a recording with the current code and
+  reports byte divergences and changed results. `tests/test_captures.py` replays every file in `tests/captures/`,
+  so each session recorded on a car becomes a permanent test; five reference recordings from the simulators are
+  included. Technician mode: Options → *Check recording…*
+- **On-car validation** (technician mode, `rad/validation.py`): cable and ignition, engine (identification,
+  faults, block 001 three times, optional clear and re-read), instrument cluster and ABS, always recorded, with an
+  HTML report listing each fault's **raw status byte** next to how VCDS should show it (settles the open KWP2000
+  status byte question on the first KWP2000 car). Technician mode also shows the raw status byte in the fault list
+- **KWP2000 coding, adaptation and security access** on the K-line and through J2534: coding `3B 9A` (keeps the
+  module's workshop code and software version), adaptation read/test/save with the `31 B8…BB` routines, security
+  access `27 03/04` (key = seed + code), following the EDC16 captures published by kw1281test (MIT). Every write is
+  read back before it is reported as saved; offered only when the identification has the known layout. The module
+  page enables only the tabs the module supports and shows 7-digit coding for KWP2000. Simulated ABS supports it
+- **Raw CAN through J2534** (`J2534CanBus`): with the "OBD adapter" equipment and a J2534 interface, the OBD — all
+  makes page (ISO-TP OBD-II/UDS) and VAG modules over CAN (TP2.0) work through the J2534 bridge; the J2534
+  simulator imitates both
+- **Reports in two versions** with a live preview (`rad/ui/pages/report_dialog.py`): customer (plain language) or
+  technical (protocol, baud, coding, workshop code, fault type and raw status, interface); edit the vehicle details
+  and notes, then save as PDF or web page, or print. Replaces the two separate questions asked before
+- **Vehicle and customer register** (`rad/vehicles.py`, `vehicles` table in `historico.db`): each car once, kept
+  up to date by every saved diagnostic (existing history imported on first use). The plate field completes as you
+  type and fills the other fields of a known car; a VIN read over OBD finds the car too. History → *Vehicles* tab,
+  searchable by plate, VIN, customer or model; history search also finds sessions by VIN
+- **GitHub Actions** (`.github/workflows/ci.yml`): Ruff and the full test suite on Windows on every push and pull
+  request; README badge
+- **Ruff** configuration (`ruff.toml`); the code base passes `ruff check .`
+- Tests: `test_captures`, `test_kwp2000_write`, `test_j2534_can`, `test_vehicles`, `test_report_variants`, UI tests
+  for recording, validation, the report dialog and the vehicle register
+### Changed
+- Options: new *Support* card (record communication, support package; technician: on-car validation, check
+  recording, logs folder)
+- Compatibility matrix and `docs/COBERTURA.md` / `docs/COVERAGE.md`: KWP2000 writing and J2534 raw CAN
+### Not yet
+- None of the new communication paths has been confirmed on a car: KWP2000 writing, J2534 CAN and the recordings are
+  tested with the simulators. Writing over CAN, KWP2000 basic settings and output tests are still not available
+
 ## [1.10.1] — 2026-10-31
 ### Changed
 - **New brand**: logo, program icon, splash and README banner redrawn (`tools/make_brand.py` generates every size

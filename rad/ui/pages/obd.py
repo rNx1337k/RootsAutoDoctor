@@ -426,7 +426,8 @@ class ObdPage(QWidget):
         rows = []
         for name, ok, detail in steps:
             color = OK if ok else BAD
-            rows.append(f"<span style='color:{color}'><b>{'✔' if ok else '✖'}</b></span>&nbsp; <b>{html.escape(name)}</b>"
+            mark = "✔" if ok else "✖"
+            rows.append(f"<span style='color:{color}'><b>{mark}</b></span>&nbsp; <b>{html.escape(name)}</b>"
                         + (f" <span style='color:{MUTED}'>— {html.escape(str(detail))}</span>" if detail else ""))
         self.steps_lbl.setText("<br>".join(rows))
         self.steps_box.show()
@@ -573,7 +574,8 @@ class ObdPage(QWidget):
         if not ff:
             QMessageBox.information(self, APP_NAME, tr("Nenhuma imagem congelada guardada na centralina principal."))
             return
-        rows = "".join(f"<tr><td>{html.escape(v['name'])}</td><td><b>{v['value']:g}</b> {html.escape(v['unit'])}</td></tr>"
+        rows = "".join(f"<tr><td>{html.escape(v['name'])}</td><td><b>{v['value']:g}</b> "
+                       f"{html.escape(v['unit'])}</td></tr>"
                        if isinstance(v["value"], (int, float)) else
                        f"<tr><td>{html.escape(v['name'])}</td><td><b>{html.escape(str(v['value']))}</b></td></tr>"
                        for v in ff["values"].values())

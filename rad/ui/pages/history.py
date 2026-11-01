@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView, QHBoxLayout, QHeaderView, QLineEdit, QMessageBox, QTableWidget, QTableWidgetItem,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 from ... import APP_NAME
@@ -14,11 +14,14 @@ from ...i18n import tr
 
 class HistoryPage(QWidget):
     report_req = Signal(object)
+    vehicle_req = Signal(dict)            # usar este veículo no diagnóstico (preenche os dados no Início)
 
     # traduzidas ao importar: o idioma é escolhido antes de criar a janela (main.py)
     COLS = [tr("Data"), tr("Matrícula"), tr("Cliente"), tr("Veículo"), tr("Tipo"), tr("Módulos"), tr("Avarias"),
             tr("Origem")]
     ORIGIN = {1: tr("Simulação"), 0: tr("Interface real"), None: "—"}   # None: gravado antes da v1.3 (desconhecido)
+    VCOLS = [tr("Matrícula"), "VIN", tr("Cliente"), tr("Veículo"), tr("Quilómetros"), tr("Visitas"),
+             tr("Última visita")]
 
     def __init__(self):
         super().__init__()
@@ -29,18 +32,26 @@ class HistoryPage(QWidget):
         v.setContentsMargins(30, 24, 30, 24)
         v.addWidget(page_header(tr("Histórico"),
                                 tr("Todos os Auto-Scans e relatórios ficam guardados neste computador. "
-                                   "Procure pela matrícula ou pelo nome do cliente."),
+                                   "Procure pela matrícula, pelo VIN ou pelo nome do cliente."),
                                 tr("Oficina")))
         row = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText(tr("Procurar matrícula, cliente ou modelo"))
+        self.search.setPlaceholderText(tr("Procurar matrícula, VIN, cliente ou modelo"))
         self.search.textChanged.connect(self._fill)
+        self.search.textChanged.connect(self._fill_vehicles)
         row.addWidget(self.search, 1)
         row.addWidget(btn(tr("Relatório"), "primary", self._report))
         row.addWidget(btn(tr("Comparar com anterior"), None, self._compare))
         row.addWidget(btn(tr("Apagar"), "danger", self._delete))
         row.addWidget(btn(tr("Abrir pasta"), None, self._open_dir))
         v.addLayout(row)
+        self.tabs = QTabWidget()
+        v.addWidget(self.tabs, 1)
+        sessions = QWidget()
+        sv = QVBoxLayout(sessions)
+        sv.setContentsMargins(0, 10, 0, 0)
+        self.tabs.addTab(sessions, tr("Diagnósticos"))
+        v = sv                                        # o resto da página fica no separador Diagnósticos
         self.table = QTableWidget(0, len(self.COLS))
         self.table.setHorizontalHeaderLabels(self.COLS)
         hh = self.table.horizontalHeader()
@@ -62,6 +73,75 @@ class HistoryPage(QWidget):
         v.addWidget(self.detail, 2)
         self.empty = lbl(tr("Ainda não há diagnósticos guardados. Faça um Auto-Scan para começar."), "muted")
         v.addWidget(self.empty)
+        self.vehicles = []
+        self._build_vehicles()
+
+    def _build_vehicles(self):
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 10, 0, 0)
+        row = QHBoxLayout()
+        row.addWidget(lbl(tr("Cada carro fica registado uma vez, com o cliente e os dados da última visita."),
+                          "muted"), 1)
+        row.addWidget(btn(tr("Usar no diagnóstico"), "primary", self._use_vehicle))
+        row.addWidget(btn(tr("Ver diagnósticos"), None, self._vehicle_sessions))
+        v.addLayout(row)
+        self.vtable = QTableWidget(0, len(self.VCOLS))
+        self.vtable.setHorizontalHeaderLabels(self.VCOLS)
+        hh = self.vtable.horizontalHeader()
+        for i in range(len(self.VCOLS)):
+            hh.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(3, QHeaderView.Stretch)
+        self.vtable.verticalHeader().setVisible(False)
+        self.vtable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.vtable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.vtable.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.vtable.setAlternatingRowColors(True)
+        self.vtable.cellDoubleClicked.connect(lambda *_: self._use_vehicle())
+        v.addWidget(self.vtable, 1)
+        self.vempty = lbl(tr("Os veículos aparecem aqui depois do primeiro diagnóstico guardado."), "muted")
+        v.addWidget(self.vempty)
+        self.tabs.addTab(w, tr("Veículos"))
+
+    def _fill_vehicles(self, *_):
+        from ... import vehicles
+        try:
+            self.vehicles = vehicles.search(self.search.text())
+            total = bool(self.vehicles) or bool(vehicles.search(limit=1))
+        except Exception:
+            self.vehicles, total = [], False
+        self.vtable.setRowCount(0)
+        self.vempty.setVisible(not total)
+        for veh in self.vehicles:
+            r = self.vtable.rowCount()
+            self.vtable.insertRow(r)
+            last = str(veh.get("last") or "")
+            vals = [veh["plate"] or "—", veh["vin"] or "—", veh["client"] or "—", veh["model"] or "—",
+                    veh["km"] or "—", str(veh["visits"]), f"{last[8:10]}/{last[5:7]}/{last[:4]}" if last else "—"]
+            for c, t in enumerate(vals):
+                it = QTableWidgetItem(t)
+                if c == 0:
+                    it.setData(Qt.UserRole, veh["id"])
+                    it.setForeground(QBrush(QColor(CYAN)))
+                self.vtable.setItem(r, c, it)
+
+    def _selected_vehicle(self):
+        r = self.vtable.currentRow()
+        if r < 0 or r >= len(self.vehicles):
+            QMessageBox.information(self, APP_NAME, tr("Escolha um veículo da lista."))
+            return None
+        return self.vehicles[r]
+
+    def _use_vehicle(self):
+        veh = self._selected_vehicle()
+        if veh:
+            self.vehicle_req.emit({k: veh.get(k) or "" for k in ("plate", "vin", "client", "model", "km")})
+
+    def _vehicle_sessions(self):
+        veh = self._selected_vehicle()
+        if veh:
+            self.search.setText(veh["plate"] or veh["vin"])
+            self.tabs.setCurrentIndex(0)
 
     def refresh(self):
         try:
@@ -69,13 +149,22 @@ class HistoryPage(QWidget):
         except Exception:
             self.sessions = []
         self._fill()
+        self._fill_vehicles()
 
     def _visible(self):
         q = self.search.text().strip().lower()
         if not q:
             return self.sessions
+        plates = set()
+        if len(q) >= 4:                               # pesquisa pelo VIN: passa pelo registo de veículos
+            from ... import vehicles
+            try:
+                plates = {self.history.plate_key(v["plate"]) for v in vehicles.search(q) if q in v["vin"].lower()}
+            except Exception:
+                plates = set()
         return [s for s in self.sessions
-                if q in f"{s['plate']} {s['client']} {s['model']}".lower()]
+                if q in f"{s['plate']} {s['client']} {s['model']}".lower()
+                or (plates and self.history.plate_key(s["plate"]) in plates)]
 
     def _fill(self):
         rows = self._visible()
@@ -128,7 +217,8 @@ class HistoryPage(QWidget):
                 top.setText(2, tr("OK") if n == 0 else tr("{n} avaria(s)", n=n))
                 top.setForeground(2, QBrush(QColor(OK if n == 0 else WARN)))
                 for f in item.get("faults", []):
-                    QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
+                    elab = f"  —  {f['elab']}" if f["elab"] not in ("-", "") else ""
+                    QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}{elab}",
                                           tr("Intermitente") if f.get("intermittent") else ""])
             else:
                 top.setText(2, tr("Erro"))

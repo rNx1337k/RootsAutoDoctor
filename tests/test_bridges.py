@@ -38,7 +38,8 @@ def test_j2534_driver_error_is_not_a_timeout():
 
 def _garbage_bridge(name):
     from rad.bridge import BridgeProcess
-    code = "import sys; sys.stdin.readline(); print('PassThru driver v1.0 loaded'); sys.stdout.flush(); sys.stdin.read()"
+    code = ("import sys; sys.stdin.readline(); print('PassThru driver v1.0 loaded'); sys.stdout.flush(); "
+            "sys.stdin.read()")
     return BridgeProcess([sys.executable, "-c", code], name)
 
 

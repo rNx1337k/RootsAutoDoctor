@@ -283,7 +283,8 @@ def test_uds_over_raw_can_with_pending_response():
     dt = u.read_dtcs()
     codes = {d["code"]: d for d in dt}
     assert set(codes) == {"P0401", "P2002", "P0299"}
-    assert codes["P0401"]["ftb_text"] == "circuito aberto" and "confirmada (memorizada)" in codes["P0401"]["status_text"]
+    assert codes["P0401"]["ftb_text"] == "circuito aberto"
+    assert "confirmada (memorizada)" in codes["P0401"]["status_text"]
     assert u.dtc_count() == 3
     try:
         u.session(0x02)

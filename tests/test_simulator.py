@@ -89,7 +89,7 @@ def test_abs_kwp2000():
     assert g["fields"][0]["unit"] == "km/h"
     s.keep_alive()
     try:
-        s.recode(1, 1)
+        s.basic_setting(1)                    # ajustes básicos em KWP2000: ainda não
         assert False
     except NotSupported:
         pass

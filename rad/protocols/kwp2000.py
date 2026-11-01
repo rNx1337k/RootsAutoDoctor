@@ -3,6 +3,18 @@
 
 Trama: [fmt] [destino] [origem] [dados...] [checksum]
   fmt = 0x80 | comprimento (endereçamento físico); checksum = soma mod 256.
+
+Escrita (codificação, adaptação, acesso de segurança) — sequências da VAG em KWP2000, tal como documentadas a partir
+de capturas reais de uma EDC16 pelo projecto kw1281test (licença MIT, github.com/gmenounos/kw1281test):
+  identificação 1A 9B → 5A 9B | peça(12) | software(4) | 03 | codificação(3) | código de oficina(6) | descrição
+  codificar     3B 9A | código de oficina(6) | software(4) | 03 | codificação(3)   (o código de oficina e o
+                software são os que a centralina devolveu: só muda a codificação)
+  acesso        27 03 → 67 03 semente(4);  27 04 chave(4), chave = semente + código (32 bits)
+  adaptação     31 B8 00 00 e 31 B8 01 03 (entrar), 31 B9 01 03 <canal> (escolher), 31 B9 01 03 <valor:2> (testar),
+                31 BA 01 03 → 71 BA 01 03 estado 03 <valor:2> ... (ler), 31 BB 01 03 <valor:2> <oficina:6>
+                (gravar), 32 B8 01 03 (sair)
+Validado por nós só no simulador: cada escrita é confirmada lendo outra vez o valor; sem essa confirmação o resultado
+é "desconhecido", nunca "gravado".
 """
 import logging
 import time
@@ -13,6 +25,40 @@ from .. import vag_data
 from ..i18n import tr
 
 log = logging.getLogger(__name__)
+
+ADAPT_SUB = [0x01, 0x03]           # sub-selector fixo das rotinas de adaptação
+CODING_MAX = 0xFFFFFF              # 3 bytes (o VCDS mostra 7 algarismos)
+
+
+def decode_wsc6(raw):
+    """Código de oficina de 6 bytes → (oficina, importador, equipamento). 48 bits big-endian:
+    bits 0–16 oficina, 17–26 importador, 27–46 equipamento."""
+    v = int.from_bytes(bytes(raw[:6]), "big")
+    return v & 0x1FFFF, (v >> 17) & 0x3FF, (v >> 27) & 0xFFFFF
+
+
+def encode_wsc6(wsc, importer=0, equipment=0):
+    if not (0 <= wsc <= 0x1FFFF and 0 <= importer <= 0x3FF and 0 <= equipment <= 0xFFFFF):
+        raise ValueError("código de oficina fora de gama")
+    v = (wsc & 0x1FFFF) | ((importer & 0x3FF) << 17) | ((equipment & 0xFFFFF) << 27)
+    return list(v.to_bytes(6, "big"))
+
+
+def _ascii(data):
+    return "".join(chr(c) if 0x20 <= c < 0x7F else " " for c in data)
+
+
+def parse_ident_9b(data):
+    """Registo 1A 9B no formato conhecido (peça, software, 03, codificação, oficina, descrição) ou None."""
+    data = list(data)
+    if len(data) < 26 or data[16] != 0x03:
+        return None
+    wsc, importer, equipment = decode_wsc6(data[20:26])
+    return {"part": _ascii(data[:12]).strip(), "software": _ascii(data[12:16]).strip(),
+            "coding": (data[17] << 16) | (data[18] << 8) | data[19], "wsc": wsc, "importer": importer,
+            "equipment": equipment, "wsc_raw": data[20:26], "sw_raw": data[12:16],
+            "description": " ".join(_ascii(data[26:]).split())}
+
 
 NRC = {
     0x10: "rejeição geral", 0x11: "serviço não suportado", 0x12: "sub-função não suportada",
@@ -30,6 +76,8 @@ class NegativeResponse(RequestRejected):
 class KWP2000:
     name = "KWP2000"
     keep_alive_interval = 2.0
+    features = ("adaptation", "coding", "login")      # o que a página do controlador pode oferecer
+    coding_digits = 7
 
     def __init__(self, kl, address, log=None, address_byte=None):
         self.kl = kl
@@ -116,8 +164,17 @@ class KWP2000:
             r = self.request([0x1A, 0x9B])
         except RequestRejected as e:
             self.log(f"Identificação 9B indisponível: {e}")
+            self.features = ()
             return {"part": "", "component": "", "extra": "", "coding": None, "wsc": None, "raw": []}
         data = r[2:]
+        known = parse_ident_9b(data)
+        # Escrita só com a identificação no formato conhecido (é dela que saem o código de oficina e o software).
+        self.features = type(self).features if known is not None else ()
+        if known is not None:
+            return {"part": known["part"], "component": known["description"],
+                    "extra": tr("Software {v}", v=known["software"]) if known["software"] else "",
+                    "coding": known["coding"], "wsc": known["wsc"], "coding_digits": self.coding_digits,
+                    "raw": [" ".join(f"{b:02X}" for b in data)]}
         # Segmentos de texto imprimível
         segments, cur = [], ""
         for c in data:
@@ -176,8 +233,122 @@ class KWP2000:
     def _ns(self, *a, **k):
         raise NotSupported(tr("Função ainda não disponível em KWP2000 nesta versão"))
 
-    basic_setting = adaptation_read = adaptation_test = adaptation_save = _ns
-    login = recode = output_test = _ns
+    basic_setting = output_test = _ns
+
+    # --------------------------------------------------------------- escrita
+    def _record_9b(self):
+        """Registo 1A 9B actual (precisa de estar no formato conhecido para se poder escrever)."""
+        r = self.request([0x1A, 0x9B])
+        known = parse_ident_9b(r[2:])
+        if known is None:
+            raise NotSupported(tr("A identificação deste controlador não está no formato conhecido: a codificação e "
+                                  "a adaptação ainda não estão disponíveis para ele."))
+        return known
+
+    def _settle(self, seconds):
+        if not getattr(self.kl, "is_simulator", False):
+            time.sleep(seconds)
+
+    def recode(self, coding, wsc):
+        """Grava a codificação (3B 9A) mantendo o código de oficina e o software da centralina; depois lê outra vez a
+        identificação. Devolve a identificação lida (com "coding") ou None se não foi possível confirmar."""
+        if not 0 <= coding <= min(CODING_MAX, 9_999_999):
+            raise RequestRejected(tr("A codificação tem de estar entre 0000000 e 9999999"))
+        rec = self._record_9b()
+        record = list(rec["wsc_raw"]) + list(rec["sw_raw"]) + [0x03, (coding >> 16) & 0xFF, (coding >> 8) & 0xFF,
+                                                                coding & 0xFF]
+        self.request([0x3B, 0x9A] + record, timeout=2.0)
+        self._settle(3.0)                     # a EDC16 reinicia depois de codificar e não responde durante ~2-3 s
+        try:
+            return self.read_ident()
+        except (ProtocolError, RequestRejected) as e:
+            self.log(f"Codificação: não foi possível voltar a ler a identificação ({e})")
+            return None
+
+    def login(self, code, wsc):
+        """Acesso de segurança (27 03 / 27 04, chave = semente + código). Devolve "granted" se a centralina aceitou;
+        uma chave errada chega como resposta negativa (RequestRejected)."""
+        r = self.request([0x27, 0x03])
+        seed = list(r[2:6])
+        if len(seed) < 4:
+            raise ProtocolError(tr("Semente de segurança incompleta"))
+        if not any(seed):
+            return "granted"                  # semente 0: a centralina já está desbloqueada
+        key = (int.from_bytes(bytes(seed), "big") + code) & 0xFFFFFFFF
+        try:
+            self.request([0x27, 0x04] + list(key.to_bytes(4, "big")))
+        except NegativeResponse as e:
+            if e.code in (0x35, 0x36, 0x37):
+                raise RequestRejected(tr("O controlador recusou o código de acesso. Depois de várias tentativas "
+                                         "erradas a centralina pode bloquear o acesso durante uns minutos: confirme "
+                                         "o código antes de tentar outra vez.")) from e
+            raise
+        return "granted"
+
+    def _routine(self, rid, args):
+        return self.request([0x31, rid] + list(args))[1:]       # [rid, ...] sem o 0x71
+
+    def _adapt_value(self, channel):
+        body = self._routine(0xBA, ADAPT_SUB)
+        if len(body) < 7:
+            return None
+        return {"channel": channel, "value": (body[5] << 8) | body[6], "raw": body}
+
+    def _adaptation(self, channel, action):
+        """Entra na adaptação, escolhe o canal, faz action() e sai sempre (32 B8 01 03)."""
+        if not 0 <= channel <= 0xFF:
+            raise RequestRejected(tr("Canal de adaptação inválido"))
+        self._routine(0xB8, [0x00, 0x00])
+        self._routine(0xB8, ADAPT_SUB)
+        try:
+            try:
+                self._routine(0xB9, ADAPT_SUB + [channel & 0xFF])
+            except NegativeResponse as e:
+                if e.code == 0x33:
+                    raise RequestRejected(tr("O controlador pede o código de acesso: faça primeiro o Login (separador "
+                                             "Login) e repita.")) from e
+                if e.code == 0x31:
+                    raise RequestRejected(tr("O controlador não tem o canal {ch:02d}.", ch=channel)) from e
+                raise
+            return action()
+        finally:
+            try:
+                self.request([0x32, 0xB8] + ADAPT_SUB)
+            except (RequestRejected, ProtocolError) as e:
+                self.log(f"Adaptação: saída da rotina sem confirmação ({e})")
+
+    @staticmethod
+    def _value_bytes(value):
+        if not 0 <= value <= 0xFFFF:
+            raise RequestRejected(tr("O valor de adaptação tem de estar entre 0 e 65535"))
+        return [(value >> 8) & 0xFF, value & 0xFF]
+
+    def adaptation_read(self, channel):
+        return self._adaptation(channel, lambda: self._adapt_value(channel))
+
+    def adaptation_test(self, channel, value):
+        vb = self._value_bytes(value)
+
+        def test():
+            self._routine(0xB9, ADAPT_SUB + vb)
+            return self._adapt_value(channel)
+        return self._adaptation(channel, test)
+
+    def adaptation_save(self, channel, value, wsc):
+        """Grava e volta a ler o canal. Devolve o canal/valor lido depois de gravar, ou None se a leitura falhar
+        (resultado desconhecido). O código de oficina gravado é o que a centralina já tem."""
+        vb = self._value_bytes(value)
+
+        def save():
+            self._routine(0xB9, ADAPT_SUB + vb)
+            rec = self._record_9b()
+            self._routine(0xBB, ADAPT_SUB + vb + list(rec["wsc_raw"]))
+            try:
+                return self._adapt_value(channel)
+            except (ProtocolError, RequestRejected) as e:
+                self.log(f"Adaptação: gravada, mas não foi possível voltar a ler o canal ({e})")
+                return None
+        return self._adaptation(channel, save)
 
 
 class KWP2000J2534(KWP2000):

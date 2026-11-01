@@ -44,6 +44,11 @@ from the HEX cable's proprietary protocol. When replayed by the emulator the sou
 
 ## On-car validation (once you have the KKL cable)
 
+The quickest way is the built-in validation (start the app with `--tecnico`, then **Options → On-car validation**):
+it runs the steps below on its own, records every byte and writes a report with the raw status byte of each fault
+next to how VCDS should show it. Send the `.radrec` recording and the report; the recording then goes into
+`tests/captures/` as a permanent test. The manual procedure:
+
 1. Plug the cable into a USB port. In **Options → Detect cable**, check that it shows up as a COM port
    (FTDI/CH340). For FTDI, set the Latency Timer to 1 ms (Device Manager → Ports (COM & LPT) → Properties →
    Advanced).

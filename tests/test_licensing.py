@@ -44,7 +44,8 @@ def test_key_from_another_pc_is_refused():
 def test_tampered_or_forged_key_is_refused():
     key = licensing.make_key(SECRET, "Oficina", PC)
     body, sig = key[len(licensing.PREFIX):].split(".")
-    import base64, json
+    import base64
+    import json
     data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
     data["expires"] = None
     data["workshop"] = "Outra"

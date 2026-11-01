@@ -10,7 +10,9 @@ import struct
 import subprocess
 import sys
 
+from . import capture
 from .errors import ConnectError, InterfaceError, KLineError, KLineTimeout
+from .obd.isotp import CanBus
 from .i18n import tr
 
 log = logging.getLogger(__name__)
@@ -112,6 +114,10 @@ class J2534Link:
         return self.dll == SIM_DLL
 
     @property
+    def is_replay(self):
+        return capture.is_replay_port(self.dll)
+
+    @property
     def is_open(self):
         return self.proc is not None
 
@@ -123,20 +129,33 @@ class J2534Link:
         if self.proc is None:
             raise InterfaceError(tr("Interface J2534 não está aberta"))
         limit = self.OP_TIMEOUT.get(op, 10.0)
-        if op == "read":
+        if op in ("read", "can_read"):
             limit = kw.get("timeout_ms", 1000) / 1000 + 5.0
+        rec = capture.active()
         try:
             res = self.proc.call(dict(op=op, **kw), limit)
-        except InterfaceError:
+        except InterfaceError as e:
+            if rec is not None:
+                rec.call(op, kw, error=e)
             self.proc = None                       # a ponte já foi terminada
             self.connected = False
             raise
+        if rec is not None:
+            rec.call(op, kw, res)
         if not res.get("ok"):
             raise KLineError(res.get("error", "erro J2534"))
         return res
 
-    def open(self):
+    def start(self):
+        """Arranca a ponte e abre o driver (sem abrir nenhum canal)."""
         if self.proc is not None:
+            return
+        if self.is_replay:                         # gravação feita com uma interface J2534 (rad/capture.py)
+            try:
+                self.proc = capture.ReplayBridge.open(capture.replay_path(self.dll))
+            except (OSError, ValueError) as e:
+                raise KLineError(tr("Não foi possível abrir a gravação: {e}", e=e)) from e
+            self._call("open", dll=self.dll)
             return
         if not self.is_simulator and not os.path.exists(self.dll):
             raise KLineError(tr("Driver J2534 não encontrado: {dll}", dll=self.dll))
@@ -147,6 +166,16 @@ class J2534Link:
         self.log(f"J2534: ponte iniciada ({bits or 'simulada'} bits) — {self.dll}")
         try:
             self._call("open", dll=self.dll)
+        except Exception:
+            self.close()
+            raise
+
+    def open(self):
+        """Linha K (ISO 14230, KWP2000 com init a 5 baud)."""
+        if self.proc is not None:
+            return
+        self.start()
+        try:
             self._call("connect", baud=10400)
             self.connected = True
         except Exception:
@@ -187,6 +216,56 @@ class J2534Link:
         """Para J2534 o teste é conseguir abrir e ligar o canal."""
         self.open()
         return self.connected
+
+
+class J2534CanBus(CanBus):
+    """Barramento CAN cru (500 kbit/s) através de uma interface J2534. O ISO-TP do OBD-II/UDS (rad/obd/isotp.py) e o
+    TP2.0 da VAG (rad/vagcan/tp20.py) correm por cima, iguais aos dos outros adaptadores.
+    purpose: "obd" ou "vag" — só muda o carro que a interface simulada imita."""
+    bitrate = 500000
+
+    def __init__(self, port, log=None, raw_log=False, purpose="obd", bitrate=500000):
+        self.port_name = port
+        self.link = J2534Link(port, log=log, raw_log=False)
+        self.log = log or (lambda m: None)
+        self.raw_log = raw_log
+        self.purpose = purpose
+        self.bitrate = bitrate
+
+    @property
+    def simulated(self):
+        return self.link.is_simulator or capture.is_replay_port(self.port_name)
+
+    @property
+    def is_open(self):
+        return self.link.is_open
+
+    def open(self):
+        if self.link.is_open:
+            return {"adapter": "J2534", "simulated": self.simulated}
+        self.link.start()
+        try:
+            self.link._call("can_connect", baud=self.bitrate, sim=self.purpose)
+        except Exception:
+            self.link.close()
+            raise
+        self.log(f"J2534: canal CAN a {self.bitrate // 1000} kbit/s aberto ({self.port_name})")
+        return {"adapter": "J2534", "simulated": self.simulated}
+
+    def send(self, arb_id, data):
+        self.link._call("can_write", id=int(arb_id), data=list(bytes(data)))
+
+    def recv(self, timeout):
+        frame = self.link._call("can_read", timeout_ms=max(0, int(timeout * 1000)))["frame"]
+        if not frame:
+            return None
+        return int(frame[0]), bytes(frame[1])
+
+    def close(self):
+        self.link.close()
+
+    def kill(self):
+        self.link.kill()
 
 
 def list_ports():

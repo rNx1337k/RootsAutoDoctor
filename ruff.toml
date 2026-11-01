@@ -1,0 +1,18 @@
+# Verificação de estilo e erros comuns (https://docs.astral.sh/ruff/). Corre no GitHub Actions em cada commit:
+#     pip install ruff==0.16.9 && ruff check .
+line-length = 120
+target-version = "py313"
+extend-exclude = ["runtime", "build", "dist", ".venv", "venv", "keys"]
+
+[lint]
+select = ["E", "F", "W"]
+# l/O/I como nomes curtos (linhas, ciclos) e lambdas curtas atribuídas são usados de propósito no código existente
+ignore = ["E741", "E731"]
+
+[lint.per-file-ignores]
+"rad/i18n_en.py" = ["E501"]           # catálogo de traduções: uma frase por linha
+"rad/fault_advice.py" = ["E501"]      # tabela de dados
+"rad/ui/style.py" = ["E501"]          # folha de estilo Qt (QSS)
+"rad/ui/widgets.py" = ["E702"]        # cálculos de geometria agrupados por linha
+"tools/make_brand.py" = ["E501", "E701"]   # desenho SVG do logótipo
+"tests/*" = ["E402"]                  # os testes acertam o sys.path antes de importar o programa

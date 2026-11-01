@@ -10,7 +10,13 @@ Protocolo: uma linha JSON por pedido no stdin, uma linha JSON por resposta no st
   {"op": "five_baud_init", "address": 1}           → {"ok": true, "kb": [kb1, kb2]}
   {"op": "write", "data": [...]}                   → {"ok": true}            (cabeçalho + dados, sem checksum)
   {"op": "read", "timeout_ms": 1000}               → {"ok": true, "data": [...] | null}
+  {"op": "can_connect", "baud": 500000, "sim": "obd"} → {"ok": true}        (canal CAN cru, 11/29 bits)
+  {"op": "can_write", "id": 2015, "data": [...]}   → {"ok": true}
+  {"op": "can_read", "timeout_ms": 50}             → {"ok": true, "frame": [id, [...]] | null}
   {"op": "close"}                                  → {"ok": true}
+
+O canal CAN é cru (ProtocolID CAN): o ISO-TP (OBD/UDS) e o TP2.0 (VAG) são feitos no programa, iguais para todas
+as interfaces. "sim" só é usado pela interface simulada ("obd" = carro OBD-II, "vag" = VAG por CAN).
 Erros: {"ok": false, "error": "..."}
 """
 import ctypes
@@ -19,6 +25,8 @@ import os
 import sys
 
 ISO14230 = 4
+CAN = 5
+CAN_29BIT_ID = 0x0100
 PASS_FILTER = 1
 FIVE_BAUD_INIT = 0x04
 SET_CONFIG = 0x02
@@ -58,6 +66,8 @@ class PassThruBackend:
         self.device = ctypes.c_uint32(0)
         self.channel = ctypes.c_uint32(0)
         self.connected = False
+        self.can_channel = ctypes.c_uint32(0)
+        self.can_connected = False
 
     def _check(self, ret, what):
         if ret != 0:
@@ -123,15 +133,61 @@ class PassThruBackend:
                 continue                       # eco das nossas mensagens / indicações
             return [msg.Data[i] for i in range(msg.DataSize)]
 
+    # ------------------------------------------------------------------ CAN cru
+    def can_connect(self, baud, sim=None):
+        self._check(self.dll.PassThruConnect(self.device, CAN, 0, baud, ctypes.byref(self.can_channel)),
+                    "PassThruConnect CAN")
+        self.can_connected = True
+        cfg = (SCONFIG * 1)(SCONFIG(LOOPBACK, 0))
+        lst = SCONFIG_LIST(1, cfg)
+        self.dll.PassThruIoctl(self.can_channel, SET_CONFIG, ctypes.byref(lst), None)   # nem todos aceitam: opcional
+        mask, pattern = PASSTHRU_MSG(), PASSTHRU_MSG()
+        for m in (mask, pattern):
+            m.ProtocolID, m.DataSize = CAN, 4             # máscara 0: aceita todos os identificadores
+        fid = ctypes.c_uint32(0)
+        self._check(self.dll.PassThruStartMsgFilter(self.can_channel, PASS_FILTER, ctypes.byref(mask),
+                                                    ctypes.byref(pattern), None, ctypes.byref(fid)),
+                    "PassThruStartMsgFilter CAN")
+
+    def can_write(self, can_id, data):
+        msg = PASSTHRU_MSG()
+        msg.ProtocolID = CAN
+        msg.TxFlags = CAN_29BIT_ID if can_id > 0x7FF else 0
+        frame = list(can_id.to_bytes(4, "big")) + list(data)
+        msg.DataSize = len(frame)
+        for i, b in enumerate(frame):
+            msg.Data[i] = b
+        n = ctypes.c_uint32(1)
+        self._check(self.dll.PassThruWriteMsgs(self.can_channel, ctypes.byref(msg), ctypes.byref(n), 100),
+                    "PassThruWriteMsgs CAN")
+
+    def can_read(self, timeout_ms):
+        msg = PASSTHRU_MSG()
+        while True:
+            n = ctypes.c_uint32(1)
+            ret = self.dll.PassThruReadMsgs(self.can_channel, ctypes.byref(msg), ctypes.byref(n), timeout_ms)
+            if ret in (ERR_BUFFER_EMPTY, ERR_TIMEOUT):
+                return None
+            self._check(ret, "PassThruReadMsgs CAN")
+            if n.value == 0:
+                return None
+            if msg.RxStatus & (TX_MSG_TYPE | START_OF_MESSAGE) or msg.DataSize < 4:
+                continue                       # eco das nossas tramas / indicações
+            raw = [msg.Data[i] for i in range(msg.DataSize)]
+            return [int.from_bytes(bytes(raw[:4]), "big") & 0x1FFFFFFF, raw[4:]]
+
     def close(self):
         if self.dll is None:
             return
         try:
             if self.connected:
                 self.dll.PassThruDisconnect(self.channel)
+            if self.can_connected:
+                self.dll.PassThruDisconnect(self.can_channel)
             self.dll.PassThruClose(self.device)
         finally:
             self.connected = False
+            self.can_connected = False
 
 
 class SimBackend:
@@ -169,8 +225,31 @@ class SimBackend:
     def read(self, timeout_ms):
         return self.rx.pop(0) if self.rx else None
 
+    def can_connect(self, baud, sim=None):
+        """Barramento CAN simulado: carro OBD-II (sim="obd") ou VAG por CAN (sim="vag"). Precisa do código-fonte do
+        programa ao lado (não existe na versão compilada, onde o simulador J2534 só serve a linha K)."""
+        try:
+            if sim == "vag":
+                from rad.vagcan.simbus import SimVagCanBus
+                self.bus = SimVagCanBus()
+            else:
+                from rad.obd.simvehicle import SimCanBus
+                self.bus = SimCanBus()
+        except ImportError as e:
+            raise RuntimeError(f"simulador CAN indisponível nesta instalação ({e})") from e
+
+    def can_write(self, can_id, data):
+        self.bus.send(can_id, bytes(data))
+
+    def can_read(self, timeout_ms):
+        m = self.bus.recv(timeout_ms / 1000)
+        return [m[0], list(m[1])] if m else None
+
     def close(self):
         self.ecu = None
+        bus = getattr(self, "bus", None)
+        if bus is not None:
+            bus.close()
 
 
 def main():
@@ -193,6 +272,14 @@ def main():
                 res = {"ok": True}
             elif op == "read":
                 res = {"ok": True, "data": backend.read(int(req.get("timeout_ms", 1000)))}
+            elif op == "can_connect":
+                backend.can_connect(int(req.get("baud", 500000)), req.get("sim"))
+                res = {"ok": True}
+            elif op == "can_write":
+                backend.can_write(int(req["id"]), req["data"])
+                res = {"ok": True}
+            elif op == "can_read":
+                res = {"ok": True, "frame": backend.can_read(int(req.get("timeout_ms", 50)))}
             elif op == "close":
                 if backend:
                     backend.close()

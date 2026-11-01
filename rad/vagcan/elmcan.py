@@ -56,7 +56,7 @@ class ElmCanBus(CanBus):
 
     @property
     def simulated(self):
-        return self.link.is_simulator
+        return self.link.simulated
 
     def open(self):
         desc = self.link.open()                  # identifica o adaptador (ATZ/ATI) e desliga o eco

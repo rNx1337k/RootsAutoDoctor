@@ -374,8 +374,6 @@ EN = {
         "1 fault",
     "{n} avarias":
         "{n} faults",
-    "Codificação {coding:05d}":
-        "Coding {coding:05d}",
     "intermitente":
         "intermittent",
     "permanente":
@@ -546,18 +544,12 @@ EN = {
         "<p><b>The connection failed at the marked step.</b> If you cannot solve it, use <i>Support package</i> in Options and send the file.</p>",
     "Ainda não há dados para o relatório.\nFaça um Auto-Scan ou ligue a um controlador e leia as avarias.":
         "There is no data for the report yet.\nRun an Auto-Scan or connect to a module and read the faults.",
-    "Matrícula do veículo (opcional):":
-        "Vehicle licence plate (optional):",
-    "Observações para o cliente (opcional):":
-        "Notes for the customer (optional):",
     "Registo de alterações: não foi possível ler ({e})":
         "Change log: could not be read ({e})",
     "Histórico: não foi possível guardar ({e})":
         "History: could not be saved ({e})",
     "Guardar relatório":
         "Save report",
-    "PDF (*.pdf);;Página web (*.html)":
-        "PDF (*.pdf);;Web page (*.html)",
     "Não foi possível gravar o relatório:\n{e}":
         "Could not save the report:\n{e}",
     "Relatório guardado":
@@ -766,12 +758,8 @@ EN = {
         "Real interface",
     "Simulação":
         "Simulation",
-    "Todos os Auto-Scans e relatórios ficam guardados neste computador. Procure pela matrícula ou pelo nome do cliente.":
-        "Every Auto-Scan and report is kept on this computer. Search by licence plate or customer name.",
     "Oficina":
         "Workshop",
-    "Procurar matrícula, cliente ou modelo":
-        "Search plate, customer or model",
     "Relatório":
         "Report",
     "Comparar com anterior":
@@ -1056,8 +1044,6 @@ EN = {
         "WARNING: channel 00 resets ALL adaptations of {name} to factory values.\n\nBasic settings may need to be redone afterwards (e.g. throttle, gearbox). Continue?",
     "Codificação inválida (0 a 32767).":
         "Invalid coding (0 to 32767).",
-    "Codificar o controlador com {v:05d}?\nActual: {v2}":
-        "Code the module with {v:05d}?\nCurrent: {v2}",
     "Código de login inválido (00000 a 65535).":
         "Invalid login code (00000 to 65535).",
     "Iniciar o teste de saídas em {name}?\n\nOs actuadores vão ser activados um a um (relés, electroválvulas…). Motor DESLIGADO, ignição ligada e ninguém a mexer no compartimento do motor.":
@@ -2144,8 +2130,6 @@ EN = {
         "IOBD I",
     "IOBD II":
         "IOBD II",
-    "ISO 15765-4 CAN / UDS":
-        "ISO 15765-4 CAN / UDS",
     "ISO-TP (ISO 15765-2) + OBD-II / UDS":
         "ISO-TP (ISO 15765-2) + OBD-II / UDS",
     "ISO-TP completo (segmentação, Flow Control, STmin, pendente 0x78) e os mesmos serviços":
@@ -2154,10 +2138,6 @@ EN = {
         "Standard identification (F187/F189/F18C/F190/F197…), UDS faults with failure type and status; handling of 'response pending' (NRC 78)",
     "Identificação, avarias (ler/apagar com releitura), blocos de medição, ajuste básico, adaptação (com verificação), codificação (com verificação), login, teste de saídas":
         "Identification, faults (read/clear with re-read), measuring blocks, basic settings, adaptation (with verification), coding (with verification), login, output tests",
-    "Identificação, avarias (ler/apagar), blocos de medição":
-        "Identification, faults (read/clear), measuring blocks",
-    "Identificação, avarias, blocos de medição":
-        "Identification, faults, measuring blocks",
     "Ignição":
         "Ignition",
     "Ignição / canhão":
@@ -2450,8 +2430,6 @@ EN = {
         "OBDBr-2",
     "Os mesmos serviços OBD-II (o adaptador escolhe o protocolo)":
         "The same OBD-II services (the adapter chooses the protocol)",
-    "Os serviços OBD-II/UDS já existem (independentes da interface); falta o canal ISO15765 na ponte J2534.":
-        "The OBD-II/UDS services already exist (independent of the interface); the ISO15765 channel on the J2534 bridge is missing.",
     "Outra unidade foi substituída e a codificação ficou desactualizada":
         "Another unit was replaced and the coding is now out of date",
     "Painel de instrumentos":
@@ -2880,8 +2858,6 @@ EN = {
         "Replace the seal/clip when changing the sensor",
     "Só detecção e explicação":
         "Detection and explanation only",
-    "Só leitura (escrita devolve 'não suportado' por desenho). Byte de estado das avarias KWP2000 descodificado com a tabela KW1281 — por confirmar num carro.":
-        "Read-only (writing returns 'not supported' by design). KWP2000 fault status byte decoded with the KW1281 table — to be confirmed on a car.",
     "Tejadilho eléctrico":
         "Electric sunroof",
     "Telemática":
@@ -2954,8 +2930,6 @@ EN = {
         "Thermostat — coolant temperature below regulating temperature",
     "Testado com simulador":
         "Tested with simulator",
-    "Testado só com o simulador J2534. KW1281 é recusado (a norma J2534 não permite os tempos por byte). ISO 15765 / UDS por J2534 ainda não implementado.":
-        "Tested only with the J2534 simulator. KW1281 is refused (the J2534 standard does not allow per-byte timing). ISO 15765 / UDS over J2534 not yet implemented.",
     "Testar com resistência de simulação (~2–3 Ω) no lugar do detonador — nunca medir o airbag com multímetro":
         "Test with a simulation resistor (~2–3 Ω) in place of the igniter — never measure the airbag with a multimeter",
     "Teste de carga à bateria":
@@ -3510,8 +3484,6 @@ EN = {
         "OBD — all makes",
     "Os dados vêm do simulador OBD, não de um veículo.":
         "The data comes from the OBD simulator, not from a vehicle.",
-    "Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao suporte. Contém os registos dos últimos dias e a informação do cabo; não contém dados de clientes.":
-        "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days and the cable information; it does not contain customer data.",
     "Porta do adaptador":
         "Adapter port",
     "Procurar (Ctrl+K): páginas, controladores, acções e avarias":
@@ -3616,4 +3588,249 @@ EN = {
         "VAG CAN simulator (2004 onwards) — try without a car",
     "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 a ~2012":
         "VW TP 2.0 + KWP2000 (CAN 500 kbit/s) — VAG ~2004 to ~2012",
+    # --- 1.11.0: gravação e validação no carro, KWP2000 (escrita), J2534 CAN, relatório e veículos
+    " — {plate}":
+        " — {plate}",
+    "A codificação tem de estar entre 0000000 e 9999999":
+        "The coding must be between 0000000 and 9999999",
+    "A escrita nos controladores por CAN ainda não está disponível nesta versão":
+        "Writing to modules over CAN is not available in this version yet",
+    "A gravar a comunicação":
+        "Recording the communication",
+    "A gravar toda a comunicação com o carro. Repita o que falhou e depois carregue em Parar gravação.":
+        "Recording all communication with the car. Repeat what failed and then click Stop recording.",
+    "A identificação deste controlador não está no formato conhecido: a codificação e a adaptação ainda não estão disponíveis para ele.":
+        "This module's identification is not in the known format: coding and adaptation are not available for it yet.",
+    "A interface de diagnóstico está a responder.\n\nA ligação ao veículo faz-se na página OBD — todas as marcas, ou em Controladores e Auto-Scan para os VAG por CAN.":
+        "The diagnostic interface is responding.\n\nConnect to the vehicle on the OBD — all makes page, or in Modules and Auto-Scan for VAG cars over CAN.",
+    "A interface respondeu.":
+        "The interface responded.",
+    "A pré-visualização mostra o relatório tal como vai sair.":
+        "The preview shows the report exactly as it will come out.",
+    "A validar… não desligue o cabo nem a ignição.":
+        "Validating… do not unplug the cable or switch the ignition off.",
+    "A verificar…":
+        "Checking…",
+    "Abrir a interface":
+        "Open the interface",
+    "Abrir pasta das gravações":
+        "Open recordings folder",
+    "Abrir relatório":
+        "Open report",
+    "Avarias com o byte de estado":
+        "Faults with the status byte",
+    "Byte de estado":
+        "Status byte",
+    "Bytes: {what} (evento {event})":
+        "Bytes: {what} (event {event})",
+    "CAN cru 500 kbit/s: ISO-TP + OBD-II / UDS e VW TP 2.0 + KWP2000":
+        "Raw CAN 500 kbit/s: ISO-TP + OBD-II / UDS and VW TP 2.0 + KWP2000",
+    "Cabo e ignição":
+        "Cable and ignition",
+    "Cada carro fica registado uma vez, com o cliente e os dados da última visita.":
+        "Each car is registered once, with the customer and the details of the last visit.",
+    "Canal de adaptação inválido":
+        "Invalid adaptation channel",
+    "Centralina KWP2000: o significado do byte de estado ainda não está confirmado. Escreva ao lado de cada código o estado que o VCDS mostra (ex.: 35-10) — é isso que fecha esta dúvida.":
+        "KWP2000 module: the meaning of the status byte is not confirmed yet. Write next to each code the status VCDS shows (e.g. 35-10) — that settles this question.",
+    "Cliente conhecido · {n} visita(s) · última em {date}":
+        "Known customer · {n} visit(s) · last on {date}",
+    "Codificar o controlador com {v}?\nActual: {v2}":
+        "Code the module with {v}?\nCurrent: {v2}",
+    "Codificação inválida (0000000 a 9999999).":
+        "Invalid coding (0000000 to 9999999).",
+    "Codificação {coding}":
+        "Coding {coding}",
+    "Com o cabo no carro e a ignição ligada (motor parado), o programa liga ao motor, ao painel e ao ABS, lê a identificação, as avarias e o bloco 001, e grava toda a comunicação. No fim, compare as avarias com o VCDS e envie a gravação e o relatório.":
+        "With the cable in the car and the ignition on (engine off), the program connects to the engine, the instrument cluster and the ABS, reads the identification, the faults and block 001, and records all the communication. At the end, compare the faults with VCDS and send the recording and the report.",
+    "Com o equipamento \"Adaptador OBD\": página OBD — todas as marcas (os mesmos serviços OBD-II/UDS) e controladores VAG por CAN (TP2.0, os mesmos serviços de leitura)":
+        "With the \"OBD adapter\" equipment: OBD — all makes page (the same OBD-II/UDS services) and VAG modules over CAN (TP2.0, the same reading services)",
+    "Como o VCDS deve mostrar":
+        "How VCDS should show it",
+    "Compare cada linha com o VCDS no mesmo carro: o código e o estado (por exemplo 35-10) têm de ser iguais.":
+        "Compare each line with VCDS on the same car: the code and the status (for example 35-10) must match.",
+    "Código aceite: o controlador concedeu o acesso.":
+        "Code accepted: the module granted access.",
+    "Detalhe":
+        "Detail",
+    "Diagnósticos":
+        "Diagnostics",
+    "Enviar ao suporte":
+        "Send to support",
+    "Envie a gravação e este relatório ao suporte.":
+        "Send the recording and this report to support.",
+    "Erro novo em {cmd}: {msg}":
+        "New error in {cmd}: {msg}",
+    "Escolha um veículo da lista.":
+        "Choose a vehicle from the list.",
+    "Escrita baseada nas capturas de uma EDC16 publicadas pelo kw1281test; só disponível quando a identificação tem o formato conhecido. Sem ajustes básicos nem teste de saídas. Byte de estado das avarias descodificado com a tabela KW1281 — por confirmar num carro (a validação no carro mostra o byte cru).":
+        "Writing based on the EDC16 captures published by kw1281test; only available when the identification has the known format. No basic settings or output tests. Fault status byte decoded with the KW1281 table — to be confirmed on a car (the on-car validation shows the raw byte).",
+    "Falhou":
+        "Failed",
+    "Ficaram {n} avaria(s) (provavelmente ainda presentes).":
+        "{n} fault(s) remained (probably still present).",
+    "Ficheiros":
+        "Files",
+    "Gravar comunicação":
+        "Record communication",
+    "Gravação":
+        "Recording",
+    "Gravação da comunicação: {path}":
+        "Communication recording: {path}",
+    "Gravação guardada":
+        "Recording saved",
+    "Gravação guardada: {path}\nEnvie-a com o Pacote de suporte.":
+        "Recording saved: {path}\nSend it with the Support package.",
+    "Gravação: {capture}\nRelatório: {report}":
+        "Recording: {capture}\nReport: {report}",
+    "Gravações (*.radrec)":
+        "Recordings (*.radrec)",
+    "Guardar PDF…":
+        "Save PDF…",
+    "Guardar página…":
+        "Save web page…",
+    "Identificação":
+        "Identification",
+    "Identificação (com codificação e código de oficina), avarias (ler/apagar), blocos de medição, codificação (3B 9A, com releitura), adaptação (ler/testar/gravar, com releitura), acesso de segurança (27 03/04)":
+        "Identification (with coding and workshop code), faults (read/clear), measuring blocks, coding (3B 9A, read back), adaptation (read/test/save, read back), security access (27 03/04)",
+    "Identificação, avarias, blocos de medição, codificação e adaptação (as mesmas do KWP2000 pela linha K)":
+        "Identification, faults, measuring blocks, coding and adaptation (the same as KWP2000 over the K-line)",
+    "Imprimir…":
+        "Print…",
+    "Iniciar validação":
+        "Start validation",
+    "Memória limpa.":
+        "Memory cleared.",
+    "Nenhuma avaria lida.":
+        "No faults read.",
+    "No fim, apagar as avarias do motor e voltar a ler (escreve no carro)":
+        "At the end, clear the engine faults and read them again (writes to the car)",
+    "Nova codificação (7 algarismos)":
+        "New coding (7 digits)",
+    "Não feito":
+        "Not done",
+    "Não foi possível abrir a gravação: {e}":
+        "Could not open the recording: {e}",
+    "Não foi possível ler a gravação {name}:\n{e}":
+        "Could not read the recording {name}:\n{e}",
+    "Não instalado":
+        "Not fitted",
+    "Não respondeu (o carro pode não ter este controlador).":
+        "No answer (the car may not have this module).",
+    "O controlador não tem o canal {ch:02d}.":
+        "The module does not have channel {ch:02d}.",
+    "O controlador pede o código de acesso: faça primeiro o Login (separador Login) e repita.":
+        "The module asks for the access code: do the Login first (Login tab) and try again.",
+    "O controlador recusou o código de acesso. Depois de várias tentativas erradas a centralina pode bloquear o acesso durante uns minutos: confirme o código antes de tentar outra vez.":
+        "The module refused the access code. After several wrong attempts the module may lock access for a few minutes: check the code before trying again.",
+    "O motor não comunicou: a validação não está completa.":
+        "The engine did not communicate: the validation is not complete.",
+    "O valor de adaptação tem de estar entre 0 e 65535":
+        "The adaptation value must be between 0 and 65535",
+    "Observações para o cliente":
+        "Notes for the customer",
+    "Opcional: trabalho feito, peças recomendadas, próxima revisão…":
+        "Optional: work done, recommended parts, next service…",
+    "Os veículos aparecem aqui depois do primeiro diagnóstico guardado.":
+        "Vehicles appear here after the first saved diagnostic.",
+    "PDF (*.pdf)":
+        "PDF (*.pdf)",
+    "Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao suporte. Contém os registos dos últimos dias, as últimas gravações da comunicação e a informação do cabo; não contém dados de clientes.":
+        "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days, the latest communication recordings and the cable information; it does not contain customer data.",
+    "Para o cliente — linguagem simples":
+        "For the customer — plain language",
+    "Parar gravação":
+        "Stop recording",
+    "Passo":
+        "Step",
+    "Passos":
+        "Steps",
+    "Peça":
+        "Part",
+    "Procurar matrícula, VIN, cliente ou modelo":
+        "Search plate, VIN, customer or model",
+    "Página web (*.html)":
+        "Web page (*.html)",
+    "Quando algo não funcionar num carro: carregue em Gravar comunicação, repita o que falhou, pare a gravação e envie o Pacote de suporte (leva as últimas gravações).":
+        "When something does not work on a car: click Record communication, repeat what failed, stop the recording and send the Support package (it includes the latest recordings).",
+    "Relatório enviado para a impressora":
+        "Report sent to the printer",
+    "Relatório técnico":
+        "Technical report",
+    "Repetir validação":
+        "Repeat validation",
+    "Resultado":
+        "Result",
+    "Resultado diferente em {cmd}":
+        "Different result in {cmd}",
+    "Sem avarias.":
+        "No faults.",
+    "Sem resposta do cabo.":
+        "No answer from the cable.",
+    "Semente de segurança incompleta":
+        "Incomplete security seed",
+    "Software {v}":
+        "Software {v}",
+    "Suporte":
+        "Support",
+    "Testado só com a interface J2534 simulada. O ISO-TP e o TP2.0 são feitos pelo programa sobre o canal CAN cru (não usa o ISO15765 do driver). Na versão compilada a interface J2534 simulada só imita a linha K.":
+        "Tested only with the simulated J2534 interface. ISO-TP and TP2.0 are done by the program over the raw CAN channel (the driver's ISO15765 is not used). In the compiled version the simulated J2534 interface only imitates the K-line.",
+    "Testado só com o simulador J2534. KW1281 é recusado (a norma J2534 não permite os tempos por byte).":
+        "Tested only with the J2534 simulator. KW1281 is refused (the J2534 standard does not allow per-byte timing).",
+    "Todos os Auto-Scans e relatórios ficam guardados neste computador. Procure pela matrícula, pelo VIN ou pelo nome do cliente.":
+        "Every Auto-Scan and report is kept on this computer. Search by number plate, VIN or customer name.",
+    "Todos os passos feitos passaram. Compare as avarias com o VCDS e envie a gravação.":
+        "Every step that ran passed. Compare the faults with VCDS and send the recording.",
+    "Técnico":
+        "Technician",
+    "Técnico — protocolos, codificação e estado das avarias":
+        "Technical — protocols, coding and fault status",
+    "Usar no diagnóstico":
+        "Use in diagnostic",
+    "Validação interrompida.":
+        "Validation stopped.",
+    "Validação no carro":
+        "On-car validation",
+    "Valores recebidos.":
+        "Values received.",
+    "Ver diagnósticos":
+        "Show diagnostics",
+    "Verificar gravação":
+        "Check recording",
+    "Verificar gravação…":
+        "Check recording…",
+    "Veículo {plate} pronto para o diagnóstico":
+        "Vehicle {plate} ready for the diagnostic",
+    "Veículos":
+        "Vehicles",
+    "Visitas":
+        "Visits",
+    "estado 0x{v:02X}":
+        "status 0x{v:02X}",
+    "interface pronta":
+        "interface ready",
+    "tipo {n:02d}":
+        "type {n:02d}",
+    "{addr:02X} {name}: ligar":
+        "{addr:02X} {name}: connect",
+    "{name}: há diferenças em relação à gravação.":
+        "{name}: there are differences from the recording.",
+    "{name}: o programa actual repete a gravação sem diferenças ({commands} comandos, {results} resultados).":
+        "{name}: the current program repeats the recording with no differences ({commands} commands, {results} results).",
+    "{n} avaria(s): {codes}":
+        "{n} fault(s): {codes}",
+    "{n} passo(s) falharam: veja o detalhe e envie a gravação.":
+        "{n} step(s) failed: see the detail and send the recording.",
+    "{prefix}: apagar avarias e voltar a ler":
+        "{prefix}: clear faults and read again",
+    "{prefix}: bloco de medição 001 ({n} leituras)":
+        "{prefix}: measuring block 001 ({n} readings)",
+    "{prefix}: ler avarias":
+        "{prefix}: read faults",
+    "{prefix}: ligar":
+        "{prefix}: connect",
+    "{prefix}: ligar e identificar":
+        "{prefix}: connect and identify",
+    "Última visita":
+        "Last visit",
 }

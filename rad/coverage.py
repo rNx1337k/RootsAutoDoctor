@@ -42,28 +42,35 @@ MATRIX = [
         "interface": "Cabo KKL 409.1 (FTDI / CH340, porta COM)",
         "protocol": "KWP2000 / ISO 14230 (linha K) — VAG",
         "detect": IMPL, "init": SIM, "ecu": SIM, "interpret": SIM,
-        "services": "Identificação, avarias (ler/apagar), blocos de medição",
-        "limits": "Só leitura (escrita devolve 'não suportado' por desenho). Byte de estado das avarias KWP2000 "
-                  "descodificado com a tabela KW1281 — por confirmar num carro.",
-        "tests": ["test_simulator", "test_robustness"],
+        "services": "Identificação (com codificação e código de oficina), avarias (ler/apagar), blocos de medição, "
+                    "codificação (3B 9A, com releitura), adaptação (ler/testar/gravar, com releitura), acesso de "
+                    "segurança (27 03/04)",
+        "limits": "Escrita baseada nas capturas de uma EDC16 publicadas pelo kw1281test; só disponível quando a "
+                  "identificação tem o formato conhecido. Sem ajustes básicos nem teste de saídas. Byte de estado das "
+                  "avarias descodificado com a tabela KW1281 — por confirmar num carro (a validação no carro mostra o "
+                  "byte cru).",
+        "tests": ["test_simulator", "test_robustness", "test_kwp2000_write"],
     },
     {
         "interface": "Interface J2534 04.04 (PassThru)",
         "protocol": "KWP2000 / ISO 14230 com init 5 baud",
         "detect": IMPL, "init": SIM, "ecu": SIM, "interpret": SIM,
-        "services": "Identificação, avarias, blocos de medição",
+        "services": "Identificação, avarias, blocos de medição, codificação e adaptação (as mesmas do KWP2000 pela "
+                    "linha K)",
         "limits": "Testado só com o simulador J2534. KW1281 é recusado (a norma J2534 não permite os tempos por "
-                  "byte). ISO 15765 / UDS por J2534 ainda não implementado.",
+                  "byte).",
         "tests": ["test_j2534", "test_bridges"],
     },
     {
         "interface": "Interface J2534 04.04 (PassThru)",
-        "protocol": "ISO 15765-4 CAN / UDS",
-        "detect": IMPL, "init": NONE, "ecu": NONE, "interpret": SIM,
-        "services": "—",
-        "limits": "Os serviços OBD-II/UDS já existem (independentes da interface); falta o canal ISO15765 na ponte "
-                  "J2534.",
-        "tests": [],
+        "protocol": "CAN cru 500 kbit/s: ISO-TP + OBD-II / UDS e VW TP 2.0 + KWP2000",
+        "detect": IMPL, "init": SIM, "ecu": SIM, "interpret": SIM,
+        "services": "Com o equipamento \"Adaptador OBD\": página OBD — todas as marcas (os mesmos serviços OBD-II/UDS) "
+                    "e controladores VAG por CAN (TP2.0, os mesmos serviços de leitura)",
+        "limits": "Testado só com a interface J2534 simulada. O ISO-TP e o TP2.0 são feitos pelo programa sobre o "
+                  "canal CAN cru (não usa o ISO15765 do driver). Na versão compilada a interface J2534 simulada só "
+                  "imita a linha K.",
+        "tests": ["test_j2534_can"],
     },
     {
         "interface": "Clone HEX-USB+CAN (FTDI 0403:FA24, driver RT-USB ou WinUSB)",

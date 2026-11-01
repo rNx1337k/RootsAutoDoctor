@@ -1,4 +1,7 @@
-"""Relatório de diagnóstico para entregar ao cliente (HTML → PDF)."""
+"""Relatório de diagnóstico (HTML → PDF), em duas versões:
+  cliente  — linguagem simples, sem pormenores de comunicação (o que se entrega ao dono do carro);
+  técnico  — o mesmo mais protocolo, velocidade, codificação, código de oficina, byte de estado de cada avaria e
+             equipamento usado (para a oficina guardar ou enviar a outro técnico)."""
 import base64
 import datetime
 import html
@@ -55,22 +58,36 @@ def verdict_lines(items, meta=None):
     return color, out
 
 
-def _no_comm(item):
+VARIANTS = ("client", "technical")
+
+
+def format_coding(info):
+    """Codificação com os algarismos que o controlador usa (5 no KW1281, 7 no KWP2000), como no VCDS."""
+    coding = (info or {}).get("coding")
+    if coding is None:
+        return "—"
+    digits = int((info or {}).get("coding_digits") or 5)
+    return f"{coding:0{digits}d}"
+
+
+def _no_comm(item, technical=False):
     """Linha de um controlador que não comunicou. O cliente vê só que não houve comunicação; a causa técnica
-    (interface, protocolo) aparece apenas no modo técnico."""
-    if technician_mode():
+    (interface, protocolo) aparece apenas no relatório técnico ou no modo técnico."""
+    if technical or technician_mode():
         return tr("Sem comunicação: {error}", error=item.get("error", ""))
     return tr("Sem comunicação com este controlador.")
 
 
 def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_size=(64, 64), meta=None,
-               date=None):
+               date=None, variant="client"):
     """items: lista no formato do Auto-Scan
        [{"address", "module", "status": ok|error, "info", "faults", "error"}].
     meta: {"interface", "simulated", "aborted", "scanned", "total", "changes"} da sessão (opcional);
     changes = alterações do registo (rad/journal.py) feitas durante a visita.
-    date: data da sessão (datetime ou texto ISO); por omissão, agora."""
+    date: data da sessão (datetime ou texto ISO); por omissão, agora.
+    variant: "client" (para o dono do carro) ou "technical" (com os pormenores de comunicação)."""
     meta = meta or {}
+    technical = variant == "technical"
     if isinstance(date, str):
         try:
             date = datetime.datetime.fromisoformat(date)
@@ -105,7 +122,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
         addr = f"{it['address']:02X}"
         if it.get("status") != "ok":
             rows.append(f"<tr><td class='addr'>{addr}</td><td><b>{_e(it['module'])}</b><br>"
-                        f"<span class='muted'>{_e(_no_comm(it))}"
+                        f"<span class='muted'>{_e(_no_comm(it, technical))}"
                         f"</span></td><td style='color:{RED}'><b>{_e(tr('Erro'))}</b></td></tr>")
             continue
         info = it["info"]
@@ -114,10 +131,16 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
         status = (f"<span style='color:{OK}'><b>OK</b></span>" if not faults else
                   f"<span style='color:{WARN}'><b>"
                   + _e(tr("1 avaria") if n_f == 1 else tr("{n} avarias", n=n_f)) + "</b></span>")
-        coding = ("  ·  " + _e(tr("Codificação {coding:05d}", coding=info["coding"]))
+        coding = ("  ·  " + _e(tr("Codificação {coding}", coding=format_coding(info)))
                   if info.get("coding") is not None else "")
         cell = (f"<b>{_e(it['module'])}</b><br><span class='muted'>{_e(info.get('part'))} "
                 f"{_e(info.get('component'))}{coding}</span>")
+        if technical:
+            tech = [x for x in (info.get("protocol"), tr("{baud} baud", baud=info["baud"]) if info.get("baud") else "",
+                                tr("Código de oficina {wsc:05d}", wsc=info["wsc"]) if info.get("wsc") is not None
+                                else "", info.get("extra")) if x]
+            if tech:
+                cell += f"<br><span class='tech'>{_e('  ·  '.join(tech))}</span>"
         for f in faults:
             kind = _e(tr("intermitente") if f.get("intermittent") else tr("permanente"))
             pc = f" ({_e(f['pcode'])})" if f.get("pcode") and f.get("pcode") != f.get("vag") else ""
@@ -129,9 +152,19 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                           + _e(tr("Possíveis causas (sugestão do programa, a confirmar pelo técnico): {causes}.",
                                   causes="; ".join(c[0].lower() + c[1:] for c in adv["causes"][:2])))
                           + "</span>")
-            cell += (f"<div class='fault' style='border-left-color:{sev_color}'><b>{_e(f['vag'])}{pc}</b> — {_e(f['desc'])}<br>"
+            raw = ""
+            if technical:
+                bits = [tr("tipo {n:02d}", n=f["elab_code"]) if f.get("elab_code") is not None else "",
+                        tr("estado 0x{v:02X}", v=f["status"]) if isinstance(f.get("status"), int) else "",
+                        f.get("ecu") or ""]
+                bits = [b for b in bits if b]
+                if bits:
+                    raw = f" · <span class='tech'>{_e(' · '.join(bits))}</span>"
+            cell += (f"<div class='fault' style='border-left-color:{sev_color}'><b>{_e(f['vag'])}{pc}</b> — "
+                     f"{_e(f['desc'])}<br>"
                      f"<span class='muted'>{(_e(f['elab']) + ' · ') if f['elab'] not in ('-', '') else ''}{kind}"
-                     f" · <span style='color:{sev_color}'>{_e(adv['severity_text'].lower())}</span></span>{causes}</div>")
+                     f" · <span style='color:{sev_color}'>{_e(adv['severity_text'].lower())}</span>{raw}</span>"
+                     f"{causes}</div>")
         rows.append(f"<tr><td class='addr'>{addr}</td><td>{cell}</td><td>{status}</td></tr>")
 
     changes_html = ""
@@ -159,9 +192,10 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
     read_line = tr("{n} controlador(es) lido(s)", n=len(ok_items))
     if n_err:
         read_line += " · " + tr("{n} sem comunicação", n=n_err)
-    if interface and technician_mode():          # a porta/interface só interessa ao técnico, não ao cliente
+    if interface and (technical or technician_mode()):   # a porta/interface só interessa ao técnico
         read_line += " · " + tr("Interface: {interface}", interface=interface)
-    T = {"Relatório de diagnóstico": _e(tr("Relatório de diagnóstico")), "Veículo": _e(tr("Veículo")),
+    title = tr("Relatório técnico") if technical else tr("Relatório de diagnóstico")
+    T = {"Relatório de diagnóstico": _e(title), "Veículo": _e(tr("Veículo")),
          "Resumo": _e(tr("Resumo")), "Controladores": _e(tr("Controladores")),
          "Nenhum controlador lido.": _e(tr("Nenhum controlador lido."))}
     footer = _e(tr("Gerado por {app} v{version}. Os códigos de avaria e o seu estado são os que os controladores "
@@ -186,6 +220,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
  .cause {{ color: #3B4A6B; font-size: 9pt; }}
  .verdict {{ padding: 10px 12px; border-left: 5px solid {verdict_color}; background: #F3F6FC; font-size: 11pt; }}
  .sim {{ padding: 8px 12px; border: 2px solid {RED}; color: {RED}; font-size: 11pt; }}
+ .tech {{ color: #4A5880; font-size: 8.5pt; font-family: Consolas, 'Courier New', monospace; }}
 </style></head><body>
 {sim_html}
 <table><tr>

@@ -142,10 +142,14 @@ SANDBOX = """<Configuration>
     </MappedFolder>
   </MappedFolders>
   <LogonCommand>
-    <Command>cmd /c start "" /wait C:\\RootsAutoDoctor\\RootsAutoDoctor.exe --selftest C:\\Resultado\\autoteste.txt</Command>
+    <Command>{command}</Command>
   </LogonCommand>
 </Configuration>
 """
+
+
+SANDBOX_COMMAND = ('cmd /c start "" /wait C:\\RootsAutoDoctor\\RootsAutoDoctor.exe '
+                   '--selftest C:\\Resultado\\autoteste.txt')
 
 
 def sandbox(dist, log=print):
@@ -154,7 +158,7 @@ def sandbox(dist, log=print):
     os.makedirs(result, exist_ok=True)
     path = os.path.join(ROOT, "build", "teste_pc_limpo.wsb")
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(SANDBOX.format(dist=dist, result=result))
+        fh.write(SANDBOX.format(dist=dist, result=result, command=SANDBOX_COMMAND))
     log(f"Teste em PC limpo: abra {path} (precisa do Windows Sandbox activo).")
     return path
 

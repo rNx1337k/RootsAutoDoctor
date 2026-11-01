@@ -306,8 +306,8 @@ class AutoScanPage(QWidget):
                 a = fault_advice.advice(f, item["address"])
                 state = tr("Intermitente") if f["intermittent"] else a["severity_text"]
                 tag = self._fault_tag(item["address"], f)
-                child = QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}" + (f"  —  {f['elab']}" if f['elab'] not in ("-", "") else ""),
-                                              f"{tag}  {state}".strip()])
+                elab = f"  —  {f['elab']}" if f["elab"] not in ("-", "") else ""
+                child = QTreeWidgetItem(top, ["", f"{f['vag']}  {f['desc']}{elab}", f"{tag}  {state}".strip()])
                 child.setForeground(2, QBrush(QColor(CYAN if tag else severity_color(a["severity"]))))
                 child.setData(0, Qt.UserRole, (item["address"], f))
                 child.setToolTip(1, tr("Seleccione para ver as causas prováveis"))
@@ -395,7 +395,8 @@ class AutoScanPage(QWidget):
                 lines.append(tr("   {v} avaria(s)", v=len(fl)))
                 for f in fl:
                     lines.append(f"   {f['vag']} - {f['desc']}")
-                    lines.append(f"      {f['elab_code']:02d} - {f['elab']}{' - Intermitente' if f['intermittent'] else ''}")
+                    intermittent = " - Intermitente" if f["intermittent"] else ""
+                    lines.append(f"      {f['elab_code']:02d} - {f['elab']}{intermittent}")
             else:
                 lines.append(tr("   Erro: {v}", v=client_text(it.get('error', ''))))
             lines.append("-" * 60)

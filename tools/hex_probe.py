@@ -14,7 +14,8 @@
 
 Nunca escreve nada na centralina: o --ecu só lê identificação, avarias e o grupo de medição 1.
 Só o --set-mode (com --yes) muda uma definição do cabo: o modo de arranque do microcontrolador, o mesmo
-que a opção "Boot in Intelligent Mode" do VCDS; reverte-se com --set-mode inteligente. Guarde o resultado (copiar/colar) para comparar entre cabos e carros.
+que a opção "Boot in Intelligent Mode" do VCDS; reverte-se com --set-mode inteligente. Guarde o resultado
+(copiar/colar) para comparar entre cabos e carros.
 """
 import argparse
 import os

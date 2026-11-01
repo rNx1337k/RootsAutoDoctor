@@ -182,12 +182,15 @@ class MainWindow(QMainWindow):
         self.scan.report_req.connect(lambda: self.export_report("scan"))
         self.module.report_req.connect(lambda: self.export_report("module"))
         self.hist.report_req.connect(self.export_session)
+        self.hist.vehicle_req.connect(self._use_vehicle)
         self.options.saved.connect(self.apply_config)
         self.options.test_req.connect(lambda: self.worker.submit("test_interface"))
         self.options.link_check_req.connect(self.run_link_check)
         self.options.hex_mode_req.connect(self.run_hex_mode)
         self.options.coverage_req.connect(self.show_coverage)          # botão só existe no modo técnico
         self.options.license_changed.connect(self.apply_license)
+        self.options.capture_req.connect(lambda on: self.worker.submit("capture_start" if on else "capture_stop"))
+        self.options.validation_req.connect(self.open_validation)
         self.options.update_found.connect(self.on_update_found)
         self.obd.report_req.connect(lambda: self.export_report("obd"))
         self.obd.vin_found.connect(self._vin_from_vehicle)
@@ -481,7 +484,10 @@ class MainWindow(QMainWindow):
         e = self.home.vehicle_edits["vin"]
         if not e.text().strip():
             e.setText(vin)
-            self.toast.show_msg(tr("VIN lido do veículo: {vin}", vin=vin), "info")
+            known = self.home.fill_known("vin")           # carro já conhecido: completa matrícula e cliente
+            self.toast.show_msg(tr("VIN lido do veículo: {vin}", vin=vin)
+                                + (tr(" — {plate}", plate=known["plate"]) if known and known.get("plate") else ""),
+                                "info")
 
     def show_coverage(self):
         """Matriz de compatibilidade (interfaces × protocolos, com o nível de prova): só no modo técnico."""
@@ -608,14 +614,6 @@ class MainWindow(QMainWindow):
                 "Faça um Auto-Scan ou ligue a um controlador e leia as avarias."))
             return
         vehicle = self.home.vehicle()
-        if not vehicle.get("plate"):
-            plate, ok = QInputDialog.getText(self, APP_NAME, tr("Matrícula do veículo (opcional):"))
-            if ok and plate.strip():
-                self.home.vehicle_edits["plate"].setText(plate.strip().upper())
-                vehicle = self.home.vehicle()
-        notes, ok = QInputDialog.getMultiLineText(self, APP_NAME, tr("Observações para o cliente (opcional):"))
-        if not ok:
-            return
         from_scan = source == "scan"
         from_obd = source == "obd"
         if from_scan:
@@ -634,8 +632,11 @@ class MainWindow(QMainWindow):
                 self.append_log(tr("Registo de alterações: não foi possível ler ({e})", e=e))
         if not self.license.get("licensed") and not meta.get("simulated"):
             meta["demo"] = True
-        if not self._write_report(items, vehicle, notes, meta):
+        done = self._write_report(items, vehicle, "", meta)
+        if not done:
             return
+        vehicle, notes = done
+        self.home.set_vehicle(vehicle)
         try:
             if from_scan and self.scan.session_id:
                 # o Auto-Scan já ficou no histórico quando terminou: actualiza-o em vez de criar outro
@@ -648,17 +649,19 @@ class MainWindow(QMainWindow):
             self.append_log(tr("Histórico: não foi possível guardar ({e})", e=e))
 
     def export_session(self, data):
-        self._write_report(data.get("items", []), data.get("vehicle", {}), data.get("notes", ""),
-                           data.get("meta") or {}, data.get("date"))
+        done = self._write_report(data.get("items", []), data.get("vehicle", {}), data.get("notes", ""),
+                                  data.get("meta") or {}, data.get("date"))
+        if done and data.get("id") and (done[0] != data.get("vehicle") or done[1] != data.get("notes", "")):
+            try:                                      # dados corrigidos na janela do relatório: ficam no histórico
+                history.update_session(data["id"], done[0], done[1])
+                self.hist.refresh()
+            except Exception as e:
+                self.append_log(tr("Histórico: não foi possível guardar ({e})", e=e))
 
     def _write_report(self, items, vehicle, notes, meta=None, date=None):
-        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-        name = f"Diagnostico_{vehicle.get('plate') or 'veiculo'}_{stamp}.pdf".replace(" ", "")
-        path, _flt = QFileDialog.getSaveFileName(
-            self, tr("Guardar relatório"), os.path.join(os.path.expanduser("~"), name),
-            tr("PDF (*.pdf);;Página web (*.html)"))
-        if not path:
-            return False
+        """Janela do relatório (versão, dados do veículo, observações, pré-visualização) e depois PDF, página ou
+        impressora. Devolve (veículo, observações) como ficaram, ou None se foi cancelado."""
+        from .pages.report_dialog import HTML_FILTER, PDF_FILTER, PRINT, SAVE_HTML, ReportDialog, build_function
         workshop = self.options.workshop()
         logo_path = self.options.workshop_logo() or asset_path("logo.png")
         logo_img = QImage(logo_path)
@@ -667,31 +670,56 @@ class MainWindow(QMainWindow):
         lh = 64
         lw = max(1, min(220, round(logo_img.width() * lh / max(1, logo_img.height()))))
         logo_size = (lw, round(lw * logo_img.height() / max(1, logo_img.width())))
+        dlg = ReportDialog(build_function(workshop, items, meta, date, logo_size), vehicle, notes, logo_img, self)
+        dlg.exec()
+        if dlg.action is None:                        # cancelado (o botão escolhido fica em dlg.action)
+            return None
+        vehicle, notes = dlg.vehicle(), dlg.notes()
+        from PySide6.QtPrintSupport import QPrintDialog, QPrinter
         try:
-            if path.lower().endswith(".html"):
-                html = report.build_html(workshop, vehicle, items,
-                                         report.logo_data_uri(logo_path), notes, logo_size, meta, date)
+            if dlg.action == PRINT:
+                printer = QPrinter(QPrinter.HighResolution)
+                printer.setPageSize(QPageSize(QPageSize.A4))
+                if not QPrintDialog(printer, self).exec():
+                    return None
+                self._report_document(dlg.html(), logo_img).print_(printer)
+                self.toast.show_msg(tr("Relatório enviado para a impressora"))
+                return vehicle, notes
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+            prefix = "Relatorio_tecnico" if dlg.variant == "technical" else "Diagnostico"
+            ext = ".html" if dlg.action == SAVE_HTML else ".pdf"
+            name = f"{prefix}_{vehicle.get('plate') or 'veiculo'}_{stamp}{ext}".replace(" ", "")
+            path, _flt = QFileDialog.getSaveFileName(
+                self, tr("Guardar relatório"), os.path.join(os.path.expanduser("~"), name),
+                HTML_FILTER() if dlg.action == SAVE_HTML else PDF_FILTER())
+            if not path:
+                return None
+            if dlg.action == SAVE_HTML:
+                if not path.lower().endswith((".html", ".htm")):
+                    path += ".html"
                 with open(path, "w", encoding="utf-8") as fh:
-                    fh.write(html)
+                    fh.write(dlg.html(report.logo_data_uri(logo_path)))
             else:
                 if not path.lower().endswith(".pdf"):
                     path += ".pdf"
-                from PySide6.QtPrintSupport import QPrinter
-                html = report.build_html(workshop, vehicle, items, "logo.png", notes, logo_size, meta, date)
-                doc = QTextDocument()
-                doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), logo_img)
-                doc.setHtml(html)
                 printer = QPrinter(QPrinter.HighResolution)
                 printer.setOutputFormat(QPrinter.PdfFormat)
                 printer.setPageSize(QPageSize(QPageSize.A4))
                 printer.setOutputFileName(path)
-                doc.print_(printer)
+                self._report_document(dlg.html(), logo_img).print_(printer)
         except Exception as e:
             QMessageBox.warning(self, APP_NAME, tr("Não foi possível gravar o relatório:\n{e}", e=e))
-            return False
+            return None
         self.toast.show_msg(tr("Relatório guardado"))
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))
-        return True
+        return vehicle, notes
+
+    @staticmethod
+    def _report_document(html, logo_img):
+        doc = QTextDocument()
+        doc.addResource(QTextDocument.ImageResource, QUrl("logo.png"), logo_img)
+        doc.setHtml(html)
+        return doc
 
     # ------------------------------------------------------------ sinais
     def append_log(self, msg):
@@ -792,6 +820,10 @@ class MainWindow(QMainWindow):
                                 + (tr(", {v} controlador(es) por confirmar",
                                       v=errs + unknown) if errs or unknown else ""),
                                 "ok" if not (left or errs or unknown) else "warn")
+        elif cmd == "capture":
+            self.options.set_recording(data["recording"], data.get("path"))
+            self.toast.show_msg(tr("A gravar a comunicação") if data["recording"] else tr("Gravação guardada"),
+                                "warn" if data["recording"] else "ok")
         elif cmd == "link_check":
             self.show_link_check(data)
         elif cmd == "output_test":
@@ -824,6 +856,21 @@ class MainWindow(QMainWindow):
                                                                                                   "interrompido"))
             self.toast.show_msg(tr("Auto-Scan concluído") if not data["aborted"] else tr("Auto-Scan interrompido"),
                                 "ok" if not data["aborted"] else "warn")
+
+    def _use_vehicle(self, vehicle):
+        """Histórico → Veículos → Usar no diagnóstico: preenche os dados do veículo e volta ao Início."""
+        self.home.set_vehicle(vehicle)
+        self.home.fill_known("plate" if vehicle.get("plate") else "vin")
+        self.show_page("home")
+        self.toast.show_msg(tr("Veículo {plate} pronto para o diagnóstico", plate=vehicle.get("plate") or
+                               vehicle.get("vin") or ""), "info")
+
+    def open_validation(self):
+        """Validação no carro (modo técnico): passos fixos, gravação e relatório para enviar."""
+        from .pages.validation import ValidationDialog
+        self.apply_config(self.options.config(), quiet=True)
+        dlg = ValidationDialog(self.worker, self.home.vehicle(), self)
+        dlg.exec()
 
     def _on_obd_result(self, cmd, data):
         o = self.obd

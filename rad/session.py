@@ -59,7 +59,7 @@ class ECUSession:
         ident = self.proto.start()
         self.connected = True
         self.info = {"address": address, "module": vag_data.module_name(address), "protocol": "KWP2000 (J2534)",
-                     "baud": 10400, "echo": None, **ident, **_interface_info(link)}
+                     "baud": 10400, "echo": None, **ident, **_interface_info(link), **self._capabilities()}
         return self.info
 
     def _connect_can(self, address, retry=False):
@@ -78,7 +78,7 @@ class ECUSession:
                 time.sleep(0.3 if not self.kl.is_simulator else 0)
         self.connected = True
         self.info = {"address": address, "module": vag_data.module_name(address), "protocol": "KWP2000 (CAN TP2.0)",
-                     "baud": 500000, "echo": None, **ident, **_interface_info(self.kl)}
+                     "baud": 500000, "echo": None, **ident, **_interface_info(self.kl), **self._capabilities()}
         return self.info
 
     def connect(self, address, retry=False):
@@ -135,8 +135,14 @@ class ECUSession:
             "echo": self.kl.echo,
             **ident,
             **_interface_info(self.kl),
+            **self._capabilities(),
         }
         return self.info
+
+    def _capabilities(self):
+        """O que este controlador permite fazer na página do controlador (depende do protocolo)."""
+        return {"features": list(getattr(self.proto, "features", ())),
+                "coding_digits": getattr(self.proto, "coding_digits", 5)}
 
     def _call(self, name, *args):
         if not self.connected or not self.proto:
@@ -229,7 +235,9 @@ class ECUSession:
         return self.adaptation_save(2, 0, wsc, previous=previous)
 
     def login(self, code, wsc):
-        self._call("login", code, wsc)
+        r = self._call("login", code, wsc)
+        if r == "granted":
+            return {"status": "ok", "message": tr("Código aceite: o controlador concedeu o acesso.")}
         return {"status": "sent",
                 "message": tr("Login enviado e recebido pelo controlador. O controlador não indica se o código "
                               "está correcto: confirme na função que precisa do login.")}

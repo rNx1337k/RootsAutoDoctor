@@ -10,7 +10,7 @@ import sys
 import time
 import traceback
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Qt, Signal
 
 from .kline import KLine, is_elm_sim_port, is_simulated_port, port_label
 from .vagcan import is_vagcan_sim_port
@@ -18,7 +18,7 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import connstate, hexmcu, journal, licensing, technician_mode, vag_data
+from . import capture, connstate, hexmcu, journal, licensing, technician_mode, vag_data, validation
 from .i18n import tr
 
 log = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ class Worker(QThread):
     live = Signal(object)
     scan_progress = Signal(int, int, object)
     busy = Signal(bool)
+    validation_step = Signal(object)       # passo da validação no carro terminado (rad/validation.py)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -53,6 +54,14 @@ class Worker(QThread):
         self._obd_pending_steps = []
         self._obd_silent = 0
         self.licensed = True               # a janela actualiza com rad.licensing.status() ao abrir
+        self.capture_path = None           # gravação da comunicação em curso (rad/capture.py)
+        self._cap_cmd = None
+        # A gravação regista os resultados na própria thread de comunicação, pela ordem em que acontecem
+        # (ligação directa: não passa pela fila de eventos da janela).
+        self.result.connect(self._cap_result, Qt.DirectConnection)
+        self.error.connect(self._cap_error, Qt.DirectConnection)
+        self.state.connect(self._cap_state, Qt.DirectConnection)
+        self.scan_progress.connect(self._cap_scan_item, Qt.DirectConnection)
 
     @property
     def is_busy(self):
@@ -98,7 +107,7 @@ class Worker(QThread):
         objs = []
         for link in (self.kl, getattr(self.obd, "link", None)):
             if link is not None:
-                objs += [link, getattr(link, "ser", None)]
+                objs += [link, getattr(link, "ser", None), getattr(link, "bus", None)]
         for obj in objs:
             if obj is None:
                 continue
@@ -136,6 +145,7 @@ class Worker(QThread):
                 if self.live_mode == "obd" and self.live_groups:
                     self._quiet = not self.cfg.get("raw_log")
                     try:
+                        capture.note("cmd", cmd="_obd_live", args=[list(self.live_groups)])
                         self._poll_obd_live()
                     except ProtocolError as e:
                         self._quiet = False
@@ -155,9 +165,11 @@ class Worker(QThread):
             self._quiet = not self.cfg.get("raw_log")
             try:
                 if self.live_mode and self.live_groups:
+                    capture.note("cmd", cmd="_live", args=[self.live_mode, list(self.live_groups)])
                     self._poll_live()
                     last = time.monotonic()
                 elif time.monotonic() - last > s.keep_alive_interval:
+                    capture.note("cmd", cmd="_keep_alive", args=[])
                     s.keep_alive()
                     last = time.monotonic()
             except ProtocolError as e:
@@ -177,6 +189,9 @@ class Worker(QThread):
             finally:
                 self._quiet = False
         self._close_all()
+        if self.capture_path:
+            capture.stop()
+            self.capture_path = None
 
     def _log(self, msg):
         if not self._quiet:
@@ -341,6 +356,9 @@ class Worker(QThread):
 
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):
+        self._cap_cmd = cmd
+        if not cmd.startswith("capture_"):
+            capture.note("cmd", cmd=cmd, args=list(args))
         if cmd in licensing.WRITE_COMMANDS and not self.write_allowed():
             self.error.emit(cmd, licensing.demo_block_message())
             return
@@ -405,6 +423,58 @@ class Worker(QThread):
         except Exception:
             log.exception("Não foi possível guardar o registo de alterações (%s)", cmd)
             self.log.emit(tr("Aviso: a alteração foi feita mas não ficou no registo de alterações."))
+
+    # ------------------------------------------------------------ gravação
+    def _serial_holders(self):
+        """Objectos com uma porta (.ser) abertos neste momento: cabo VAG, adaptador OBD, adaptador CAN."""
+        out = []
+        for obj in (self.kl, getattr(self.kl, "bus", None), getattr(self.obd, "link", None)):
+            if obj is None:
+                continue
+            out.append(obj)
+            inner = getattr(obj, "link", None)
+            if inner is not None and inner is not obj:
+                out.append(inner)
+        return [o for o in out if getattr(o, "ser", None) is not None]
+
+    def _cmd_capture_start(self, path=None, meta=None):
+        """Começa a gravar toda a comunicação (bytes, comandos, resultados) num ficheiro .radrec."""
+        port = self.cfg.get("port", "")
+        head = {"port": port_label(port), "adapter": self._adapter(), "simulated": is_simulated_port(port),
+                "transport": "j2534" if is_j2534_port(port) else "serial", "echo": self.cfg.get("echo", "auto"),
+                "baud": self.cfg.get("baud", "auto"), "elm_protocol": self.cfg.get("elm_protocol", "0"),
+                "technical_port": port if technician_mode() else ""}
+        head.update(meta or {})
+        rec = capture.start(path or capture.default_path(), head)
+        self.capture_path = rec.path
+        for holder in self._serial_holders():          # interface já aberta: passa a ser gravada já
+            holder.ser = capture.wrap_serial(holder.ser, getattr(holder, "capture_channel", "kline"))
+        self.result.emit("capture", {"recording": True, "path": rec.path})
+
+    def _cmd_capture_stop(self):
+        for holder in self._serial_holders():
+            holder.ser = capture.unwrap_serial(holder.ser)
+        path = capture.stop()
+        self.capture_path = None
+        self.result.emit("capture", {"recording": False, "path": path})
+
+    def _cap_result(self, cmd, data):
+        rec = capture.active()
+        if rec is None or cmd == "capture":
+            return
+        rec.note("result", cmd=cmd, summary=capture.summarize(cmd, data))
+
+    def _cap_error(self, cmd, msg):
+        if capture.active() is not None:
+            capture.note("error", cmd=cmd, msg=msg)
+
+    def _cap_state(self, state, data):
+        if capture.active() is not None and state == "connected":
+            capture.note("result", cmd="connect", summary=capture.summarize("connect", data))
+
+    def _cap_scan_item(self, i, total, item):
+        if capture.active() is not None:
+            capture.note("result", cmd="scan_item", summary=capture.summarize("autoscan", {"items": [item]}))
 
     def _cmd_configure(self, cfg):
         changed = (cfg.get("port") != self.cfg.get("port") or cfg.get("echo") != self.cfg.get("echo")
@@ -629,6 +699,159 @@ class Worker(QThread):
                                       "total": total, "interface": port, "simulated": is_simulated_port(port),
                                       "interface_error": interface_error})
 
+    def _cmd_validation(self, options=None):
+        """Validação no carro (rad/validation.py): passos fixos, sempre gravados, com relatório no fim."""
+        options = dict(options or {})
+        self.abort_scan = False
+        self.live_mode = None
+        if self.session:
+            self._cmd_disconnect()
+        replaying = bool(options.pop("_replay", False))   # rad/replay.py: a reprodução não grava nem guarda nada
+        own_capture = capture.active() is None and not replaying
+        if own_capture:
+            self._cmd_capture_start(capture.default_path("validacao"), {"validation": True})
+            capture.note("cmd", cmd="validation", args=[{k: v for k, v in options.items() if k != "vehicle"}])
+        port = self.cfg.get("port", "")
+        # só o modelo: a gravação e o relatório vão para o suporte, que não recebe dados de clientes
+        rep = validation.new_report(port_label(port), {"model": (options.get("vehicle") or {}).get("model", "")})
+        rep["capture"] = self.capture_path
+        wanted = options.get("addresses")
+
+        def add(st):
+            rep["steps"].append(st)
+            self.validation_step.emit(st)
+
+        def skip_rest(from_index, reason):
+            for addr in validation.MODULES[from_index:]:
+                if wanted is None or addr in wanted:
+                    add(validation.step(f"{addr:02X}_connect", tr("{addr:02X} {name}: ligar", addr=addr,
+                                                                 name=vag_data.module_name(addr)),
+                                        validation.SKIP, reason))
+        try:
+            t0 = time.monotonic()
+            try:
+                self._ensure_port()
+                ok, note = self._echo()
+            except ProtocolError as e:
+                ok, note = False, str(e)
+            title = tr("Cabo e ignição")
+            if ok:
+                add(validation.step("interface", title, validation.OK,
+                                    tr("A interface respondeu.") + (note or ""), seconds=time.monotonic() - t0))
+            else:
+                detail = note or no_echo_text(port, self.hex_info)
+                add(validation.step("interface", title, validation.FAIL, detail, seconds=time.monotonic() - t0))
+                skip_rest(0, tr("Sem resposta do cabo."))
+                return
+            for index, addr in enumerate(validation.MODULES):
+                if wanted is not None and addr not in wanted:
+                    continue
+                if self.abort_scan:
+                    skip_rest(index, tr("Validação interrompida."))
+                    break
+                if not self._validate_module(rep, add, addr, vag_data.module_name(addr), options):
+                    if isinstance(rep.get("_interface_error"), str):
+                        skip_rest(index + 1, rep["_interface_error"])
+                        break
+                if not self.kl.is_simulator and not capture.is_replay_port(port):
+                    time.sleep(0.35)
+        finally:
+            rep.pop("_interface_error", None)
+            rep["report_path"] = None if replaying else self._save_validation_report(rep)
+            self.result.emit("validation", rep)             # antes de parar: o resultado fica na gravação
+            if own_capture:
+                self._cmd_capture_stop()
+
+    def _validate_module(self, rep, add, addr, name, options):
+        """Passos de um controlador. Devolve False se a interface deixou de funcionar."""
+        prefix = f"{addr:02X} {name}"
+        mod = {"address": addr, "module": name}
+        rep["modules"].append(mod)
+        t0 = time.monotonic()
+        s = ECUSession(self.kl, self._log, self.cfg["baud"])
+        try:
+            info = s.connect(addr, retry=True)
+        except NoResponse as e:
+            result = validation.FAIL if addr == 0x01 else validation.ABSENT
+            detail = str(e) if addr == 0x01 else tr("Não respondeu (o carro pode não ter este controlador).")
+            add(validation.step(f"{addr:02X}_connect", tr("{prefix}: ligar", prefix=prefix), result, detail,
+                                seconds=time.monotonic() - t0))
+            return True
+        except InterfaceError as e:
+            add(validation.step(f"{addr:02X}_connect", tr("{prefix}: ligar", prefix=prefix), validation.FAIL,
+                                str(e), seconds=time.monotonic() - t0))
+            rep["_interface_error"] = str(e)
+            self._drop_port()
+            return False
+        except Exception as e:
+            add(validation.step(f"{addr:02X}_connect", tr("{prefix}: ligar", prefix=prefix), validation.FAIL,
+                                str(e), seconds=time.monotonic() - t0))
+            return True
+        mod.update({k: info.get(k) for k in ("part", "component", "protocol", "baud", "coding", "wsc")})
+        add(validation.step(f"{addr:02X}_connect", tr("{prefix}: ligar e identificar", prefix=prefix), validation.OK,
+                            f"{info.get('part', '')} {info.get('component', '')} · {info.get('protocol')}"
+                            f" @ {info.get('baud')}", {"raw": info.get("raw")}, time.monotonic() - t0))
+        steps = [("faults", tr("{prefix}: ler avarias", prefix=prefix), lambda: self._v_faults(s, mod))]
+        if addr == 0x01:
+            steps.append(("group1", tr("{prefix}: bloco de medição 001 ({n} leituras)", prefix=prefix,
+                                       n=validation.GROUP_READS), lambda: self._v_group(s)))
+            if options.get("clear"):
+                steps.append(("clear", tr("{prefix}: apagar avarias e voltar a ler", prefix=prefix),
+                              lambda: self._v_clear(s, mod)))
+        for sid, title, fn in steps:
+            t0 = time.monotonic()
+            try:
+                result, detail, data = fn()
+            except InterfaceError as e:
+                add(validation.step(f"{addr:02X}_{sid}", title, validation.FAIL, str(e), seconds=time.monotonic() - t0))
+                rep["_interface_error"] = str(e)
+                self._drop_port()
+                return False
+            except Exception as e:
+                result, detail, data = validation.FAIL, str(e), None
+            add(validation.step(f"{addr:02X}_{sid}", title, result, detail, data, time.monotonic() - t0))
+            if not s.connected:
+                break
+        try:
+            s.disconnect()
+        except Exception as e:
+            log.info("Validação: erro ao fechar %02X: %s", addr, e)
+        return True
+
+    def _v_faults(self, s, mod):
+        faults = s.read_faults()
+        mod["faults_raw"] = validation.fault_rows(faults, mod.get("protocol"))
+        codes = ", ".join(f"{f['vag']} (0x{f['status_hex']})" for f in mod["faults_raw"])
+        detail = tr("Sem avarias.") if not faults else tr("{n} avaria(s): {codes}", n=len(faults), codes=codes)
+        return validation.OK, detail, {"faults": mod["faults_raw"]}
+
+    def _v_group(self, s):
+        last = None
+        for _ in range(validation.GROUP_READS):
+            last = s.read_group(1)
+        fields = last.get("fields") or []
+        values = " | ".join(f"{f.get('value', '')} {f.get('unit', '')}".strip() for f in fields if isinstance(f, dict))
+        return validation.OK, values or tr("Valores recebidos."), {"raw": capture.jsonable(last.get("raw"))}
+
+    def _v_clear(self, s, mod):
+        if not self.write_allowed():
+            return validation.SKIP, licensing.demo_block_message(), None
+        left = s.clear_faults()
+        detail = (tr("Memória limpa.") if not left else
+                  tr("Ficaram {n} avaria(s) (provavelmente ainda presentes).", n=len(left)))
+        return validation.OK, detail, {"left": validation.fault_rows(left, mod.get("protocol"))}
+
+    def _save_validation_report(self, rep):
+        try:
+            base = rep.get("capture") or capture.default_path("validacao")
+            path = base[:-len(capture.EXT)] + ".html" if base.endswith(capture.EXT) else base + ".html"
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(validation.build_html(rep))
+            return path
+        except Exception:
+            log.exception("Não foi possível guardar o relatório da validação")
+            return None
+
     def _cmd_clear_all(self, addresses):
         """Apaga as avarias em cada endereço e volta a ler o que ficou."""
         self.live_mode = None
@@ -738,8 +961,11 @@ class Worker(QThread):
             raise ProtocolError(tr("A porta {port} não aparece no computador: ligue o adaptador (ou emparelhe o "
                                    "Bluetooth) e carregue em Actualizar nas Opções.",
                                    port=port))
-        link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"),
-                          protocol=self.cfg.get("elm_protocol") or "0")
+        if is_j2534_port(port):
+            link = self._j2534_obd_link(port)
+        else:
+            link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"),
+                              protocol=self.cfg.get("elm_protocol") or "0")
         self.obd = ObdSession(link, self._log)
         self._emit_link(connstate.LinkStatus(connstate.CONNECTING, tr("A ligar ao veículo por OBD…")))
         info = self.obd.connect()
@@ -748,6 +974,22 @@ class Worker(QThread):
                       + (tr(", VIN {vin}", vin=info['vin']) if info.get("vin") else ""))
         self._emit_link(connstate.obd_connected(info))
         self.result.emit("obd_connect", info)
+
+    def _j2534_obd_link(self, port):
+        """OBD-II/UDS por uma interface J2534: canal CAN cru com o ISO-TP do programa por cima."""
+        from .j2534 import J2534CanBus
+        from .obd.isotp import IsoTpLink
+        bus = J2534CanBus(port, log=self._log, raw_log=self.cfg.get("raw_log"), purpose="obd")
+        try:
+            bus.open()
+        except Exception as e:
+            self._obd_pending_steps = [(tr("Abrir a interface"), False, str(e))]
+            raise
+        self._obd_pending_steps = [(tr("Abrir a interface"), True, tr("interface pronta"))]
+        link = IsoTpLink(bus, self._log)
+        link.raw_log = bool(self.cfg.get("raw_log"))
+        link.port_name = port
+        return link
 
     def _test_elm_adapter(self):
         """Testar interface com um ELM327: abre a porta e identifica o adaptador, sem falar com o carro."""
@@ -764,6 +1006,18 @@ class Worker(QThread):
         port = self.cfg.get("port") or ""
         if not port:
             raise ProtocolError(tr("Escolha a porta do adaptador OBD em Opções."))
+        if is_j2534_port(port):
+            from .j2534 import J2534CanBus
+            bus = J2534CanBus(port, log=self._log)
+            try:
+                bus.open()
+            finally:
+                bus.close()
+            log.info("Testar ligação: canal CAN J2534 aberto em %s", port)
+            self.result.emit("test_interface", {"ok": True, "message": tr(
+                "A interface de diagnóstico está a responder.\n\nA ligação ao veículo faz-se na página OBD — todas as "
+                "marcas, ou em Controladores e Auto-Scan para os VAG por CAN.")})
+            return
         link = Elm327Link(port, log=self._log, raw_log=self.cfg.get("raw_log"))
         try:
             d = link.open()

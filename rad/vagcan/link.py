@@ -1,6 +1,7 @@
 """A "porta" que o resto do programa usa para os controladores VAG por CAN (o equivalente ao KLine da linha K).
 
-Abre o adaptador (ELM327/OBDLink em modo CAN cru, ou o simulador) e entrega o barramento à sessão
+Abre o adaptador (ELM327/OBDLink em modo CAN cru, interface J2534 com canal CAN, ou o simulador) e entrega o
+barramento à sessão
 (rad/session.py), que abre um canal TP2.0 por controlador."""
 from . import SIM_PORT
 
@@ -36,6 +37,11 @@ class VagCanLink:
         elif self.is_simulator:
             from .simbus import SimVagCanBus
             self.bus = SimVagCanBus()
+        elif self.port_name.startswith("J2534:"):
+            from ..j2534 import J2534CanBus           # interface J2534 com canal CAN
+            bus = J2534CanBus(self.port_name, log=self.log, raw_log=self.raw_log, purpose="vag")
+            bus.open()
+            self.bus = bus
         else:
             from .elmcan import ElmCanBus
             bus = ElmCanBus(self.port_name, log=self.log, raw_log=self.raw_log)

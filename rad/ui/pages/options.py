@@ -31,6 +31,9 @@ class OptionsPage(QWidget):
     license_changed = Signal()
     update_done = Signal(object, bool)    # (resultado ou excepção, procura manual?) — vem de uma thread à parte
     update_found = Signal(dict)
+    capture_req = Signal(bool)            # gravar a comunicação: True começa, False pára
+    validation_req = Signal()             # abrir a validação no carro (modo técnico)
+    replay_done = Signal(object, str)     # resultado da verificação de uma gravação (vem de uma thread à parte)
 
     def __init__(self, settings):
         super().__init__()
@@ -127,7 +130,8 @@ class OptionsPage(QWidget):
         self.ws_logo_preview = QLabel()
         self.ws_logo_preview.setFixedSize(150, 60)
         self.ws_logo_preview.setAlignment(Qt.AlignCenter)
-        self.ws_logo_preview.setStyleSheet("background: #0B1120; border: 1px dashed #3A4A72; border-radius: 8px; color: #7C8BAD;")
+        self.ws_logo_preview.setStyleSheet("background: #0B1120; border: 1px dashed #3A4A72; border-radius: 8px; "
+                                           "color: #7C8BAD;")
         lrow.addWidget(self.ws_logo_preview)
         lrow.addWidget(btn(tr("Escolher imagem…"), None, self._pick_logo))
         lrow.addWidget(btn(tr("Remover"), None, self._remove_logo))
@@ -206,12 +210,35 @@ class OptionsPage(QWidget):
         sf.addRow(lbl(tr("O tamanho aumenta letras, botões e mostradores para se lerem a partir do carro. "
                          "O tamanho e o idioma aplicam-se quando o programa voltar a abrir."), "muted", wrap=True))
         v.addWidget(sc)
+        rc = card()
+        rf = QFormLayout(rc)
+        rf.setContentsMargins(20, 18, 20, 18)
+        rf.setVerticalSpacing(10)
+        rf.addRow(lbl(tr("Suporte"), "h2"))
+        srow = QHBoxLayout()
+        srow.setSpacing(8)
+        self.recording = False
+        self.capture_btn = btn(tr("Gravar comunicação"), None, lambda: self.capture_req.emit(not self.recording))
+        srow.addWidget(self.capture_btn)
+        srow.addWidget(btn(tr("Pacote de suporte"), None, self._support_bundle))
+        srow.addStretch(1)
+        rf.addRow(lbl(tr("Enviar ao suporte"), "muted"), srow)
+        self.capture_lbl = lbl(tr("Quando algo não funcionar num carro: carregue em Gravar comunicação, repita o que "
+                                  "falhou, pare a gravação e envie o Pacote de suporte (leva as últimas gravações)."),
+                               "muted", wrap=True)
+        rf.addRow(self.capture_lbl)
+        if self.technical:
+            trow = QHBoxLayout()
+            trow.setSpacing(8)
+            trow.addWidget(btn(tr("Validação no carro"), "primary", lambda: self.validation_req.emit()))
+            self.replay_btn = btn(tr("Verificar gravação…"), None, self._check_capture)
+            trow.addWidget(self.replay_btn)
+            trow.addWidget(btn(tr("Abrir pasta de registos"), None, self._open_logs))
+            trow.addStretch(1)
+            rf.addRow(lbl(tr("Técnico"), "muted"), trow)
+        v.addWidget(rc)
         row = QHBoxLayout()
         row.addWidget(btn(tr("Guardar"), "primary", self._save))
-        row.addSpacing(12)
-        row.addWidget(btn(tr("Pacote de suporte"), None, self._support_bundle))
-        if self.technical:
-            row.addWidget(btn(tr("Abrir pasta de registos"), None, self._open_logs))
         row.addStretch(1)
         v.addLayout(row)
         v.addWidget(lbl(
@@ -226,6 +253,7 @@ class OptionsPage(QWidget):
         self.detect_done.connect(self._detect_finished)
         self._checking = False
         self.update_done.connect(self._update_finished)
+        self.replay_done.connect(self._replay_finished)
         self.refresh_ports()
         self._load()
 
@@ -518,9 +546,62 @@ class OptionsPage(QWidget):
             QMessageBox.warning(self, APP_NAME, tr("Não foi possível criar o pacote:\n{e}", e=e))
             return
         QMessageBox.information(self, APP_NAME, tr("Pacote de suporte guardado em:\n{path}\n\nEnvie este ficheiro ao "
-                                                   "suporte. Contém os registos dos últimos dias e a informação do "
-                                                   "cabo; não contém dados de clientes.",
+                                                   "suporte. Contém os registos dos últimos dias, as últimas gravações "
+                                                   "da comunicação e a informação do cabo; não contém dados de "
+                                                   "clientes.",
                                                    path=path))
+
+    def set_recording(self, on, path=None):
+        """Mostra o estado da gravação (chamado pela janela quando a thread confirma)."""
+        self.recording = bool(on)
+        self.capture_btn.setText(tr("Parar gravação") if on else tr("Gravar comunicação"))
+        self.capture_btn.setObjectName("danger" if on else "")
+        self.capture_btn.style().unpolish(self.capture_btn)
+        self.capture_btn.style().polish(self.capture_btn)
+        if on:
+            self.capture_lbl.setText(tr("A gravar toda a comunicação com o carro. Repita o que falhou e depois "
+                                        "carregue em Parar gravação."))
+        elif path:
+            self.capture_lbl.setText(tr("Gravação guardada: {path}\nEnvie-a com o Pacote de suporte.", path=path))
+
+    def _check_capture(self):
+        """Reproduz uma gravação com o código actual e diz se o resultado é o mesmo (modo técnico)."""
+        from ... import capture
+        path, _ = QFileDialog.getOpenFileName(self, tr("Verificar gravação"), capture.captures_dir(),
+                                              tr("Gravações (*.radrec)"))
+        if not path:
+            return
+        self.replay_btn.setEnabled(False)
+        self.replay_btn.setText(tr("A verificar…"))
+
+        def work():
+            from ... import replay
+            try:
+                res = replay.run(path)
+            except Exception as e:              # ficheiro estragado, versão antiga…
+                log.warning("Verificar gravação %s", path, exc_info=True)
+                res = e
+            self.replay_done.emit(res, path)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _replay_finished(self, res, path):
+        self.replay_btn.setEnabled(True)
+        self.replay_btn.setText(tr("Verificar gravação…"))
+        name = os.path.basename(path)
+        if isinstance(res, Exception):
+            QMessageBox.warning(self, APP_NAME, tr("Não foi possível ler a gravação {name}:\n{e}", name=name, e=res))
+            return
+        if res["ok"]:
+            QMessageBox.information(self, APP_NAME, tr("{name}: o programa actual repete a gravação sem diferenças "
+                                                       "({commands} comandos, {results} resultados).",
+                                                       name=name, commands=res["commands"], results=res["results"]))
+            return
+        lines = [tr("{name}: há diferenças em relação à gravação.", name=name), ""]
+        lines += [tr("Bytes: {what} (evento {event})", what=d.get("what"), event=d.get("event", "—"))
+                  for d in res["divergences"][:6]]
+        lines += [tr("Resultado diferente em {cmd}", cmd=m.get("cmd")) for m in res["mismatches"][:6]]
+        lines += [tr("Erro novo em {cmd}: {msg}", cmd=c, msg=m) for c, m in res["errors"][:4]]
+        QMessageBox.warning(self, APP_NAME, "\n".join(lines))
 
     def _open_logs(self):
         from PySide6.QtCore import QUrl

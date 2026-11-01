@@ -61,7 +61,8 @@ def run():
         try:
             info = s.connect()
             n = len(s.read_dtcs()["stored"])
-            return f"{info['adapter'].get('version')}, {info['protocol']}, {len(info['ecus'])} centralina(s), {n} avaria(s)"
+            return (f"{info['adapter'].get('version')}, {info['protocol']}, {len(info['ecus'])} centralina(s), "
+                    f"{n} avaria(s)")
         finally:
             s.disconnect()
     check("OBD-II / ELM327 (simulador)", obd_sim)

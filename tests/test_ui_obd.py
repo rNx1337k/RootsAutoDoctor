@@ -76,7 +76,8 @@ def test_obd_page_end_to_end_with_simulator():
         w.obd.tabs.setCurrentIndex(1)
         w.obd._toggle_live()
         assert w.obd.live_on
-        assert _wait(app, lambda: w.obd.live_table.rowCount() and w.obd.live_table.item(0, 1).text() not in ("—", ""), 10)
+        assert _wait(app, lambda: (w.obd.live_table.rowCount()
+                                   and w.obd.live_table.item(0, 1).text() not in ("—", "")), 10)
         w.obd.live_table.selectRow(0)
         assert _wait(app, lambda: len(w.obd.chart.values) >= 2, 10)
         w.show_page("home")                                   # sair da página pára a leitura

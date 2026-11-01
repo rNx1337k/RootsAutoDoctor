@@ -290,11 +290,13 @@ class ModulePage(QWidget):
         self.cod_new = QLineEdit()
         self.cod_new.setPlaceholderText("00000")
         self.cod_new.setMaxLength(5)
+        self.cod_digits = 5
         self.cod_wsc = QSpinBox()
         self.cod_wsc.setRange(0, 99999)
         g.addWidget(lbl(tr("Codificação actual"), "muted"), 0, 0)
         g.addWidget(self.cod_current, 0, 1)
-        g.addWidget(lbl(tr("Nova codificação (0–32767)"), "muted"), 1, 0)
+        self.cod_range_lbl = lbl(tr("Nova codificação (0–32767)"), "muted")
+        g.addWidget(self.cod_range_lbl, 1, 0)
         g.addWidget(self.cod_new, 1, 1)
         g.addWidget(lbl(tr("Código de oficina"), "muted"), 2, 0)
         g.addWidget(self.cod_wsc, 2, 1)
@@ -365,7 +367,8 @@ class ModulePage(QWidget):
         vals = dict(info)
         vals["address"] = f"{info['address']:02X}"
         vals["baud"] = tr("{baud} baud", baud=info['baud'])
-        vals["coding"] = f"{info['coding']:05d}" if info.get("coding") is not None else "—"
+        digits = int(info.get("coding_digits") or 5)
+        vals["coding"] = f"{info['coding']:0{digits}d}" if info.get("coding") is not None else "—"
         vals["wsc"] = (tr("Código de oficina {wsc:05d}", wsc=info["wsc"]) if info.get("wsc") is not None
                        else tr("Código de oficina —"))
         vals["raw"] = "\n".join(info.get("raw") or []) or "—"
@@ -376,8 +379,14 @@ class ModulePage(QWidget):
             for s in (self.cod_wsc, self.ad_wsc, self.login_wsc):
                 s.setValue(info["wsc"])
         kw = info["protocol"] == "KW1281"
-        for i in (3, 4, 5, 6, 7):
-            self.tabs.setTabEnabled(i, kw)
+        features = set(info.get("features") or (("basic", "adaptation", "coding", "login", "outputs") if kw else ()))
+        for i, feature in ((3, "basic"), (4, "adaptation"), (5, "coding"), (6, "login"), (7, "outputs")):
+            self.tabs.setTabEnabled(i, feature in features)
+        self.cod_digits = digits
+        self.cod_new.setMaxLength(digits)
+        self.cod_new.setPlaceholderText("0" * digits)
+        self.cod_range_lbl.setText(tr("Nova codificação (0–32767)") if digits == 5 else
+                                   tr("Nova codificação (7 algarismos)"))
         self.tabs.setTabEnabled(self.GUIDED_TAB, guided.available_for(info))
         self.refresh_changes()
         self.quick.setVisible(kw and info["address"] == 0x17)
@@ -571,6 +580,8 @@ class ModulePage(QWidget):
             t.insertRow(r)
             code = f["vag"] + (f"  ({f['pcode']})" if f["pcode"] else "")
             elab = f"{f['elab_code']:02d} — {f['elab']}" if f["elab"] not in ("-", "") else f"{f['elab_code']:02d}"
+            if technician_mode() and isinstance(f.get("status"), int):
+                elab += f"  [0x{f['status']:02X}]"          # byte de estado tal como veio da centralina
             adv = fault_advice.advice(f, self.info["address"] if self.info else None)
             items = [code, f["desc"], elab,
                      tr("Intermitente") if f["intermittent"] else tr("Permanente"),
@@ -871,11 +882,13 @@ class ModulePage(QWidget):
 
     def _recode(self):
         t = self.cod_new.text().strip()
-        if not t.isdigit() or int(t) > 32767:
-            QMessageBox.warning(self, APP_NAME, tr("Codificação inválida (0 a 32767)."))
+        limit = 32767 if self.cod_digits == 5 else 9999999
+        if not t.isdigit() or int(t) > limit:
+            QMessageBox.warning(self, APP_NAME, tr("Codificação inválida (0 a 32767).") if self.cod_digits == 5
+                                else tr("Codificação inválida (0000000 a 9999999)."))
             return
-        if ask(self, APP_NAME, tr("Codificar o controlador com {v:05d}?\nActual: {v2}",
-                                  v=int(t), v2=self.cod_current.text())):
+        if ask(self, APP_NAME, tr("Codificar o controlador com {v}?\nActual: {v2}",
+                                  v=f"{int(t):0{self.cod_digits}d}", v2=self.cod_current.text())):
             self.w.submit("recode", int(t), self.cod_wsc.value())
 
     def _login(self):
