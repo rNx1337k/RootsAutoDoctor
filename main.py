@@ -34,7 +34,7 @@ def startup_failed(exc_type, exc, tb):
     return 2
 
 
-def splash_pixmap():
+def splash_pixmap(status=None):
     from PySide6.QtCore import QPointF, QRectF, Qt
     from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPen, QPixmap, QRadialGradient
     from PySide6.QtWidgets import QApplication
@@ -88,7 +88,7 @@ def splash_pixmap():
     p.drawLine(244, 204, 380, 204)
     p.setPen(QColor(BLUE))
     p.setFont(QFont("Segoe UI", 9))
-    p.drawText(QRectF(244, 214, 400, 22), int(Qt.AlignLeft | Qt.AlignVCenter), tr("a iniciar…"))
+    p.drawText(QRectF(244, 214, 400, 22), int(Qt.AlignLeft | Qt.AlignVCenter), status or tr("a iniciar…"))
     p.end()
     return pm
 
@@ -112,13 +112,12 @@ def install_crash_handler():
     sys.excepthook = hook
 
 
-def create_window():
-    """Cria a aplicação Qt, o splash e a janela principal. Devolve (app, janela, splash)."""
+def create_app():
+    """Cria a aplicação Qt (idioma, tamanho da interface, estilo e ícone)."""
     from rad import i18n
     i18n.load_from_settings()                     # antes de importar a interface: há textos traduzidos ao importar
     from PySide6.QtGui import QFont, QIcon
-    from PySide6.QtWidgets import QApplication, QSplashScreen
-    from rad.ui.main_window import MainWindow
+    from PySide6.QtWidgets import QApplication
     from rad.ui.widgets import asset_path
     if QApplication.instance() is None:
         from rad.settings import apply_ui_scale
@@ -129,6 +128,44 @@ def create_window():
     app.setStyle("Fusion")
     app.setFont(QFont("Segoe UI", 10))
     app.setWindowIcon(QIcon(asset_path("icon.ico")))
+    return app
+
+
+def update_on_start(launcher=None):
+    """Se a versão nova já foi descarregada e ficou por instalar (ex.: o PC foi desligado sem fechar o programa),
+    instala-a antes de abrir a janela e o programa volta a abrir sozinho, já actualizado: o cliente não faz nada.
+    Devolve True se a instalação foi lançada (o programa deve sair já)."""
+    try:
+        from rad import autoupdate
+        st = autoupdate.ready_on_start()
+        if not st:
+            return False
+        app = create_app()
+        from PySide6.QtWidgets import QSplashScreen
+        from rad.i18n import tr
+        splash = QSplashScreen(splash_pixmap(tr("a actualizar para a versão {version}…", version=st["version"])))
+        splash.show()
+        app.processEvents()
+        if not autoupdate.install_on_start(launcher=launcher):
+            splash.close()
+            return False
+        import time
+        end = time.monotonic() + 2.5                # o cliente vê o aviso; a instalação já está a correr
+        while time.monotonic() < end:
+            app.processEvents()
+            time.sleep(0.05)
+        splash.close()
+        return True
+    except Exception:
+        applog.write_crash(*sys.exc_info())        # nunca impede o programa de abrir
+        return False
+
+
+def create_window():
+    """Cria a aplicação Qt, o splash e a janela principal. Devolve (app, janela, splash)."""
+    from PySide6.QtWidgets import QSplashScreen
+    app = create_app()
+    from rad.ui.main_window import MainWindow
     splash = QSplashScreen(splash_pixmap())
     splash.show()
     app.processEvents()
@@ -141,6 +178,8 @@ def main():
         return selftest.main(sys.argv)
     applog.setup_logging()
     install_crash_handler()
+    if update_on_start():
+        return 0
     try:
         app, w, splash = create_window()
     except Exception:

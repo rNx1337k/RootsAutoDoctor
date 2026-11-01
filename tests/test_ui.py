@@ -218,6 +218,35 @@ def test_license_demo_mode_and_update_notice():
         app.processEvents()
 
 
+def test_update_installs_by_itself_on_start_and_while_the_customer_has_not_started():
+    app, w = _window()
+    import main
+    from rad import autoupdate
+    old = (autoupdate.ready_on_start, autoupdate.install_on_start)
+    calls = []
+    autoupdate.ready_on_start = lambda mode=None: {"version": "9.9.9"}
+    autoupdate.install_on_start = lambda launcher=None, **k: calls.append("start") or True
+    try:
+        assert main.update_on_start() and calls == ["start"]           # versão por instalar: instala antes da janela
+        autoupdate.install_on_start = lambda launcher=None, **k: False
+        assert not main.update_on_start()                              # não lançou: o programa abre normalmente
+    finally:
+        autoupdate.ready_on_start, autoupdate.install_on_start = old
+    try:
+        assert w._idle_for_update()                                    # ainda não começou: actualiza logo
+        w.home.vehicle_edits["plate"].textEdited.emit("AA-00-AA")
+        assert not w._idle_for_update()                                # escreveu: fica para quando fechar
+        w._started_work = False
+        w.show_page("history")
+        assert not w._idle_for_update()
+        w.show_page("home")
+        w._apply_update_now()                                          # sem versão descarregada: não fecha
+        assert w.isVisible()
+    finally:
+        w.close()
+        app.processEvents()
+
+
 def test_english_interface_end_to_end():
     """Com o idioma em inglês: menu, módulo, avarias e relatório em inglês (a lógica é a mesma)."""
     from rad import i18n, report

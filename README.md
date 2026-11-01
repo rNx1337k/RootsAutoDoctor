@@ -109,9 +109,10 @@ is uninstalled or updated.
 
 ## Updates
 
-Roots Auto Doctor always keeps itself up to date, installed or portable: when it opens, and every few hours while
-it is open, it looks for a new version, downloads it in the background, shows what is new and installs it when you
-close the program (or straight away with **Update to version …**). Only versions signed by the publisher are
+Roots Auto Doctor always keeps itself up to date, installed or portable, with nothing to click: when it opens, and
+every few hours while it is open, it looks for a new version and downloads it in the background. If you have not
+started working yet, it closes, updates and opens again by itself; otherwise it installs when you close the
+program (or straight away with **Update to version …**). Only versions signed by the publisher are
 installed. A portable copy in a protected folder asks Windows for permission once. If an update does not finish,
 the program keeps working on the previous version and tells you.
 

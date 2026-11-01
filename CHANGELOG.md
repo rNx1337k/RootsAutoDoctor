@@ -11,6 +11,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 - **What's new before updating**: the update questions show customer-facing notes in the interface language, taken
   from `docs/NOVIDADES.md` (`tools/finish_build.py notes`) and placed between markers in the Release text. Anything
   else in the Release text (notes for the publisher) is never shown.
+- **Updates install with nothing to click**: as soon as a new version is downloaded, if the customer has not started
+  working yet (no connection, still on the start page, nothing typed, no dialog open), the program shows a notice,
+  closes, installs with a progress bar and opens again. Otherwise it installs on close. If a downloaded version was
+  left uninstalled (e.g. the PC was switched off), it is installed at the next start, before the window opens
+  (first attempt only, so a failing install never traps the customer in a program that keeps closing).
 - **Updates are always automatic**: the on/off option is gone; the program checks when it opens and every 6 hours
   while open, retries a failed download on the next check and never repeats the same notice. A portable copy in a
   read-only folder (e.g. Program Files) updates too: the script runs with Windows permission and reopens the program

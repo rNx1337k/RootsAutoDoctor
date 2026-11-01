@@ -186,11 +186,11 @@ class OptionsPage(QWidget):
         self.upd_lbl = lbl(tr("Versão instalada: {VERSION}", VERSION=VERSION), "muted", wrap=True)
         urow.addWidget(self.upd_lbl, 1)
         uf.addRow(lbl(tr("Versão"), "muted"), urow)
-        uf.addRow(lbl(tr("O programa actualiza-se sempre sozinho: ao abrir e de algumas em algumas horas procura uma "
-                         "versão nova, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão "
-                         "portátil. Os diagnósticos, a licença e as definições ficam guardados. Se a instalação "
-                         "falhar, o programa continua na versão actual. Sem internet não acontece nada."), "muted",
-                      wrap=True))
+        uf.addRow(lbl(tr("O programa actualiza-se sempre sozinho, também na versão portátil. Ao abrir (e de algumas "
+                         "em algumas horas) procura uma versão nova e descarrega-a; se ainda não começou a trabalhar, "
+                         "fecha, actualiza e volta a abrir; senão, instala-a quando fechar o programa. Os "
+                         "diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa "
+                         "continua na versão actual. Sem internet não acontece nada."), "muted", wrap=True))
         v.addWidget(uc)
 
         sc = card()

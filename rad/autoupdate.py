@@ -7,7 +7,9 @@ Fluxo (só no programa compilado, com chave de actualizações configurada):
      portátil) e a assinatura para %APPDATA%\\RootsAutoDoctor\\actualizacoes e verifica-a: SHA-256 do ficheiro +
      versão, assinados com a chave privada do fornecedor (Ed25519). Um ficheiro trocado ou corrompido é apagado e
      nunca corre.
-  3. Ao fechar o programa (ou já, com "Actualizar agora"), install_pending() volta a verificar o ficheiro e:
+  3. Instala-se sem o cliente fazer nada: logo que acaba de descarregar, se o cliente ainda não começou a trabalhar
+     (a janela fecha, actualiza e volta a abrir); senão ao fechar o programa; e, se ficou por instalar, ao abrir o
+     programa da vez seguinte, antes da janela (install_on_start). install_pending() volta a verificar o ficheiro e:
      - versão instalada: corre o instalador em silêncio (/VERYSILENT, com registo em instalacao.log). Se a pasta
        do programa não for gravável, o Windows pede autorização de administrador uma vez;
      - versão portátil: extrai o zip para uma pasta à parte e lança um script que espera que o programa feche,
@@ -39,6 +41,8 @@ log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3                     # instalações tentadas (ex.: autorização recusada) antes de desistir
 SILENT_ARGS = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CLOSEAPPLICATIONS"]
+# Ao abrir o programa (o cliente está à espera): /SILENT mostra só a barra de progresso da instalação, sem perguntas.
+VISIBLE_ARGS = ["/SILENT"] + SILENT_ARGS[1:]
 _STATE = "pendente.json"
 LOG_NAME = "instalacao.log"          # registo da última instalação (vai no pacote de suporte)
 STAGING = "nova_versao"              # versão portátil: zip extraído, à espera de ser copiado
@@ -385,10 +389,10 @@ def portable_script(version, pid, app, new, folder=None, relaunch=False, elevate
     return path
 
 
-def install_pending(launcher=None, folder=None, relaunch=False, pid=None):
+def install_pending(launcher=None, folder=None, relaunch=False, pid=None, visible=False):
     """Chamado ao fechar o programa. Instala a versão descarregada, se houver e se ainda for válida.
-    relaunch=True ("Actualizar agora"): o programa volta a abrir já actualizado.
-    Devolve True se a instalação foi lançada."""
+    relaunch=True: o programa volta a abrir já actualizado. visible=True: o instalador mostra a barra de progresso
+    (o cliente está à espera que o programa abra). Devolve True se a instalação foi lançada."""
     st = pending()
     if not st:
         return False
@@ -421,7 +425,8 @@ def install_pending(launcher=None, folder=None, relaunch=False, pid=None):
             ok = (launcher or _launch_script)(script, [], elevate)
         else:
             elevate = not _writable(folder)
-            args = list(SILENT_ARGS) + [f"/LOG={log_path()}"] + ([RELAUNCH_ARG] if relaunch else [])
+            args = (list(VISIBLE_ARGS if visible else SILENT_ARGS) + [f"/LOG={log_path()}"]
+                    + ([RELAUNCH_ARG] if relaunch else []))
             ok = (launcher or _launch)(st["path"], args, elevate)
     except Exception:
         log.exception("Não foi possível lançar a instalação da versão %s", version)
@@ -431,6 +436,28 @@ def install_pending(launcher=None, folder=None, relaunch=False, pid=None):
     log.info("Instalação da versão %s lançada (%s, administrador: %s, tentativa %d)", version,
              st.get("mode", INSTALLER), elevate, st["attempts"])
     return bool(ok)
+
+
+def ready_on_start(mode=None):
+    """A versão nova já descarregada que se instala logo ao abrir o programa (antes da janela), ou None.
+    Só na primeira tentativa: se uma instalação anterior não terminou, o programa abre normalmente e volta a tentar
+    ao fechar (assim o cliente nunca fica preso num programa que fecha sempre ao abrir)."""
+    mode = update_mode() if mode is None else mode
+    st = pending()
+    if not mode or not st or st.get("attempts", 0) or st.get("mode", INSTALLER) != mode:
+        return None
+    if not is_newer(st.get("version", "")):
+        return None
+    return st
+
+
+def install_on_start(launcher=None, folder=None, pid=None, mode=None):
+    """Instala já a versão descarregada (ver ready_on_start) e volta a abrir o programa no fim. True se lançou:
+    nesse caso o programa deve sair logo."""
+    if not ready_on_start(mode):
+        return False
+    log.info("Versão descarregada encontrada ao abrir: a instalar antes de abrir a janela")
+    return install_pending(launcher, folder, relaunch=True, pid=pid, visible=True)
 
 
 def startup_status(current=VERSION, now=None):

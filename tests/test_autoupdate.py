@@ -296,6 +296,27 @@ def test_portable_copy_in_a_read_only_folder_asks_windows_for_permission():
     autoupdate.clear()
 
 
+def test_update_left_uninstalled_is_installed_on_the_next_start_only_once():
+    autoupdate.clear()
+    path = _setup_file()
+    info, opener = _info(autoupdate.make_signature(SECRET, path, "9.0.0"))
+    _with_key(lambda: autoupdate.download(info, opener=opener, current="1.9.0"))
+    assert autoupdate.ready_on_start(mode=autoupdate.PORTABLE) is None             # descarregada para outro modo
+    assert _with_key(lambda: autoupdate.ready_on_start(mode=autoupdate.INSTALLER))["version"] == "9.0.0"
+    calls = []
+    folder = tempfile.mkdtemp()
+    assert _with_key(lambda: autoupdate.install_on_start(launcher=lambda p, a, e: calls.append(a) or True,
+                                                         folder=folder, mode=autoupdate.INSTALLER))
+    args = calls[0]
+    assert "/SILENT" in args and "/VERYSILENT" not in args and autoupdate.RELAUNCH_ARG in args   # barra de progresso
+    # já foi tentada: se não terminou, o programa abre normalmente (tenta outra vez ao fechar), nunca em ciclo
+    assert _with_key(lambda: autoupdate.ready_on_start(mode=autoupdate.INSTALLER)) is None
+    assert not _with_key(lambda: autoupdate.install_on_start(launcher=lambda p, a, e: calls.append(a) or True,
+                                                             folder=folder, mode=autoupdate.INSTALLER))
+    assert len(calls) == 1
+    autoupdate.clear()
+
+
 def test_portable_zip_with_paths_outside_its_folder_is_refused():
     autoupdate.clear()
     for files in ({"Roots Auto Doctor/RootsAutoDoctor.exe": b"MZ", "../fora.txt": b"x"},

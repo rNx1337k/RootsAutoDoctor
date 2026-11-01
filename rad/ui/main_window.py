@@ -29,6 +29,7 @@ from ..i18n import tr, tr_data
 
 log = logging.getLogger(__name__)
 UPDATE_INTERVAL_H = 6                  # com o programa aberto, procura uma versão nova de 6 em 6 horas
+UPDATE_NOTICE_MS = 5000                # aviso antes de fechar para actualizar (cliente ainda sem trabalhar)
 
 
 class MainWindow(QMainWindow):
@@ -234,6 +235,9 @@ class MainWindow(QMainWindow):
         self.apply_config(self.options.config(), quiet=True)
         self.show_page("home")
         self._downloading = False
+        self._started_work = False                     # até o cliente começar a trabalhar, actualiza-se logo
+        for e in self.home.vehicle_edits.values():
+            e.textEdited.connect(self._mark_work)
         self.update_downloaded.connect(self._update_downloaded)
         self._after_update()
         if not os.environ.get("RAD_NO_UPDATE_CHECK"):             # actualizações sempre automáticas
@@ -245,6 +249,8 @@ class MainWindow(QMainWindow):
 
     # ---------------------------------------------------------- navegação
     def show_page(self, key):
+        if key != "home":
+            self._mark_work()
         if key != "module":
             self.module.stop_live()
         if key != "obd":
@@ -370,8 +376,36 @@ class MainWindow(QMainWindow):
         self.update_btn.setText(tr("Actualizar para a versão {version}", version=res['version']))
         self.update_btn.setToolTip(tr("Instala-se sozinha quando fechar o programa, ou já, ao carregar aqui."))
         self.update_btn.show()
+        if self._idle_for_update() and autoupdate.can_self_update():
+            # O cliente ainda não começou a trabalhar: actualiza já, sem perguntar, e o programa volta a abrir.
+            self.toast.show_msg(tr("A actualizar para a versão {version}: o programa volta a abrir dentro de "
+                                   "momentos.", version=res['version']))
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(UPDATE_NOTICE_MS, self._apply_update_now)
+            return
         self.toast.show_msg(tr("Versão {version} descarregada: instala-se quando fechar o programa",
                                version=res['version']))
+
+    def _mark_work(self, *_):
+        self._started_work = True
+
+    def _idle_for_update(self):
+        """True enquanto o cliente ainda não começou a trabalhar: não ligou a nenhum carro, não saiu do início,
+        não escreveu nos dados do veículo e não há nenhuma janela aberta nem comunicação a decorrer."""
+        from PySide6.QtWidgets import QApplication
+        from .. import capture
+        return (not self._started_work and not self.worker.is_busy and not self.scan.running
+                and QApplication.activeModalWidget() is None and capture.active() is None)
+
+    def _apply_update_now(self):
+        """Fecha, instala a versão descarregada e volta a abrir — só se o cliente continua sem trabalhar; senão fica
+        para quando fechar o programa."""
+        if not self._idle_for_update() or not autoupdate.pending():
+            self.toast.show_msg(tr("A versão nova instala-se quando fechar o programa."))
+            return
+        log.info("Actualização automática: o programa fecha, instala e volta a abrir")
+        self._relaunch_after_update = True
+        self.close()
 
     def _open_update(self):
         st = autoupdate.pending()
@@ -781,6 +815,8 @@ class MainWindow(QMainWindow):
         self.disk_log.write(f"[{ts}] {msg}")
 
     def set_conn_state(self, state, text=None, sub=None):
+        if state != "disconnected":
+            self._mark_work()
         labels = {"disconnected": tr("Sem ligação"), "connecting": tr("A ligar…"), "connected": tr("Ligado")}
         colors = {"disconnected": MUTED, "connecting": WARN, "connected": OK}
         self.conn_lbl.setText(text or labels[state])
@@ -1024,7 +1060,8 @@ class MainWindow(QMainWindow):
         self.worker.stop()
         if autoupdate.can_self_update():
             try:                                       # corre o instalador em silêncio depois de fechar
-                autoupdate.install_pending(relaunch=getattr(self, "_relaunch_after_update", False))
+                relaunch = getattr(self, "_relaunch_after_update", False)
+                autoupdate.install_pending(relaunch=relaunch, visible=relaunch)
             except Exception:
                 log.exception("Não foi possível instalar a actualização ao fechar")
         super().closeEvent(ev)

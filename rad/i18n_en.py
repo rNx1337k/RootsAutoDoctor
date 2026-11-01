@@ -3853,6 +3853,12 @@ EN = {
         "Support package saved to:\n{path}\n\nSend this file to support. It contains the logs of the last few days, the latest communication recordings and information about the cable and updates. It does not include the history, the workshop details or the licence, and chassis numbers and number plates are removed from the logs.",
     "Descarregar a versão portátil nova?":
         "Download the new portable version?",
-    "O programa actualiza-se sempre sozinho: ao abrir e de algumas em algumas horas procura uma versão nova, descarrega-a enquanto trabalha e instala-a quando o fechar, também na versão portátil. Os diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. Sem internet não acontece nada.":
-        "The program always updates itself: when it opens and every few hours it looks for a new version, downloads it while you work and installs it when you close the program, also in the portable version. Diagnostics, the licence and the settings are kept. If the installation fails, the program stays on the current version. Without internet nothing happens.",
+    "O programa actualiza-se sempre sozinho, também na versão portátil. Ao abrir (e de algumas em algumas horas) procura uma versão nova e descarrega-a; se ainda não começou a trabalhar, fecha, actualiza e volta a abrir; senão, instala-a quando fechar o programa. Os diagnósticos, a licença e as definições ficam guardados. Se a instalação falhar, o programa continua na versão actual. Sem internet não acontece nada.":
+        "The program always updates itself, also in the portable version. When it opens (and every few hours) it looks for a new version and downloads it; if you have not started working yet, it closes, updates and opens again; otherwise it installs when you close the program. Diagnostics, the licence and the settings are kept. If the installation fails, the program stays on the current version. Without internet nothing happens.",
+    "a actualizar para a versão {version}…":
+        "updating to version {version}…",
+    "A actualizar para a versão {version}: o programa volta a abrir dentro de momentos.":
+        "Updating to version {version}: the program will open again in a moment.",
+    "A versão nova instala-se quando fechar o programa.":
+        "The new version installs when you close the program.",
 }
