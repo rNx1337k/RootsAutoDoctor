@@ -39,6 +39,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 - **Clean-Windows test before publishing**: `tools/publicar_release.bat` opens the portable version in Windows
   Sandbox, waits for its self-test and does not publish if it fails (`tools/finish_build.py cleanpc`).
 
+### Fixed
+- `tools/license_tool.py genkey` and `tools/update_key.py genkey` failed when the key folder was on a different drive
+  from the project (e.g. the GitHub Actions runner: project on `D:`, temporary folder on `C:`).
+
 ### Changed
 - `build_release.bat`, `tools/publicar_release.bat` and `.github/workflows/release.yml` sign the portable zip and
   write the Release text with the customer notes.

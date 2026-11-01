@@ -143,3 +143,23 @@ def test_license_tool_issues_keys_that_the_program_accepts():
 def test_shipped_public_key_is_none_or_valid_hex():
     k = license_pubkey.PUBLIC_KEY
     assert k is None or (len(bytes.fromhex(k)) == 32)
+
+
+def test_private_key_folder_check_works_across_drives():
+    """A chave fica noutro disco (ex.: projecto em D:, pasta temporária em C:): não pode rebentar."""
+    tools = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
+    sys.path.insert(0, tools)
+    import license_tool
+    import update_key
+    old = os.path.commonpath
+
+    def other_drive(paths):
+        raise ValueError("Paths don't have the same drive")
+    for mod in (license_tool, update_key):
+        assert mod._inside(os.path.join(mod.ROOT, "chave.key"), mod.ROOT)
+        assert not mod._inside(tempfile.mkdtemp(), mod.ROOT)
+        os.path.commonpath = other_drive
+        try:
+            assert not mod._inside(r"C:\Users\x\chave.key", mod.ROOT)
+        finally:
+            os.path.commonpath = old

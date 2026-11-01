@@ -29,6 +29,14 @@ DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "RootsAutoDoctor_licencas")
 PUBKEY_FILE = os.path.join(ROOT, "rad", "license_pubkey.py")
 
 
+def _inside(path, folder):
+    """True se path fica dentro de folder. Em discos diferentes (C: e D:) nunca fica."""
+    try:
+        return os.path.commonpath([os.path.abspath(path), os.path.abspath(folder)]) == os.path.abspath(folder)
+    except ValueError:
+        return False
+
+
 def _key_path(args):
     return args.key or os.path.join(DEFAULT_DIR, "private.key")
 
@@ -58,7 +66,7 @@ def cmd_genkey(args):
     if os.path.exists(path):
         sys.exit(f"Já existe uma chave privada em {path}.\nNão foi alterada: substituí-la invalidava as "
                  "licenças futuras. Apague-a à mão só se tiver a certeza.")
-    if os.path.commonpath([os.path.abspath(path), ROOT]) == ROOT:
+    if _inside(path, ROOT):
         sys.exit("A chave privada não pode ficar dentro da pasta do projecto (iria parar ao GitHub).")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     secret = os.urandom(32)
