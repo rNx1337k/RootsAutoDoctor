@@ -275,8 +275,8 @@ def test_portable_copy_downloads_the_signed_zip_and_applies_it_after_closing():
     assert script.endswith(autoupdate.SCRIPT) and calls[0][2] is False
     text = open(script, encoding="utf-8").read()
     assert 'set "PID=4321"' in text and f'set "APP={app}"' in text and f'set "NEW={st["staging"]}"' in text
-    assert 'if not "1"=="1" goto end' in text and "robocopy" in text and ":rollback" in text
-    assert 'if "0"=="1" (start "" explorer.exe' in text                       # sem administrador: abre directo
+    assert 'if not "1"=="1" goto end' in text and r'"%SYS%\Robocopy.exe"' in text and ":rollback" in text
+    assert r'if "0"=="1" (start "" "%SystemRoot%\explorer.exe"' in text      # sem administrador: abre directo
     assert open(script, "rb").read().count(b"\r\n") > 20                      # CRLF: o cmd lê linha a linha
     autoupdate.clear()
 
@@ -298,7 +298,7 @@ def test_portable_copy_in_a_read_only_folder_asks_windows_for_permission():
         autoupdate._writable = writable
     assert calls == [True]                                                    # pede autorização de administrador
     text = open(os.path.join(autoupdate.updates_dir(), autoupdate.SCRIPT), encoding="utf-8").read()
-    assert 'if "1"=="1" (start "" explorer.exe' in text                       # reabre como o utilizador normal
+    assert r'if "1"=="1" (start "" "%SystemRoot%\explorer.exe"' in text      # reabre como o utilizador normal
     st = autoupdate.pending()
     assert st["attempts"] == 1 and st["launched"] is False                     # autorização recusada: avisa no arranque
     res = autoupdate.startup_status(current="1.9.0", now=st["launched_at"] + autoupdate.SETTLE_SECONDS + 1)
@@ -377,6 +377,45 @@ def test_portable_script_copies_the_new_version_and_restores_the_old_one_on_fail
     log_text, _ = _run_script(os.path.join(base, "nao_existe"), app)          # a cópia falha: repõe a anterior
     assert "RESULTADO: falhou" in log_text, log_text
     assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"
+
+
+def test_update_scripts_wait_for_the_program_even_with_other_tools_on_the_path():
+    """Os scripts esperam que o programa feche antes de copiar. Com o Git (ou outras ferramentas) no PATH, "find" e
+    "tasklist" sem caminho podiam ser outros programas: o script não via o programa aberto e copiava por cima de
+    ficheiros em uso. Por isso chamam as ferramentas do Windows pelo caminho completo."""
+    if sys.platform != "win32":
+        return
+    import subprocess
+    import time
+    base = tempfile.mkdtemp()
+    fake_tools = os.path.join(base, "outras ferramentas")
+    os.makedirs(fake_tools)
+    for name in ("find", "tasklist", "robocopy", "ping"):                 # programas com o mesmo nome, que falham
+        with open(os.path.join(fake_tools, name + ".bat"), "w") as fh:
+            fh.write("@exit /b 1\n")
+    env = dict(os.environ, PATH=fake_tools + os.pathsep + os.environ.get("PATH", ""))
+    app, new = os.path.join(base, "Roots Auto Doctor"), os.path.join(base, "nova", "Roots Auto Doctor")
+    for folder, version in ((app, "antiga"), (new, "nova")):
+        os.makedirs(folder)
+        with open(os.path.join(folder, "RootsAutoDoctor.exe"), "w") as fh:
+            fh.write(version)
+    prog = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(3)"])     # o programa ainda aberto
+    folder = tempfile.mkdtemp()
+    script = autoupdate.portable_script("9.0.0", prog.pid, app, new, folder=folder)
+    t0 = time.monotonic()
+    subprocess.run(["cmd.exe", "/c", script], capture_output=True, timeout=180, env=env)
+    waited = time.monotonic() - t0
+    prog.wait()
+    with open(os.path.join(folder, autoupdate.LOG_NAME), encoding="utf-8", errors="replace") as fh:
+        log_text = fh.read()
+    assert waited >= 2, f"o script não esperou que o programa fechasse ({waited:.1f} s)"
+    assert "RESULTADO: ok" in log_text, log_text
+    assert open(os.path.join(app, "RootsAutoDoctor.exe")).read() == "nova"
+    for template in (autoupdate.SCRIPT_TEMPLATE, autoupdate.ROLLBACK_TEMPLATE):
+        for line in template.splitlines():
+            for tool in ("tasklist", "find ", "robocopy", "ping ", "chcp"):
+                if line.lower().lstrip().startswith(tool) or f"| {tool}" in line.lower():
+                    raise AssertionError(f"ferramenta sem caminho completo: {line}")
 
 
 def _clean_rollback():

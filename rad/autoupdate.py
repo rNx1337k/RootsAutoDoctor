@@ -330,7 +330,8 @@ def extract_portable(zip_path, dest=None):
 
 
 SCRIPT_TEMPLATE = r"""@echo off
-chcp 65001 >nul
+set "SYS=%SystemRoot%\System32"
+"%SYS%\chcp.com" 65001 >nul
 REM Roots Auto Doctor: aplica a versao portatil {version} depois de o programa fechar.
 set "PID={pid}"
 set "APP={app}"
@@ -340,19 +341,19 @@ set "LOG={log}"
 set /a N=0
 echo %DATE% %TIME% a espera que o programa feche (processo %PID%)>>"%LOG%"
 :wait
-tasklist /FI "PID eq %PID%" /NH 2>nul | find " %PID% " >nul
+"%SYS%\tasklist.exe" /FI "PID eq %PID%" /NH 2>nul | "%SYS%\find.exe" " %PID% " >nul
 if errorlevel 1 goto closed
 set /a N+=1
 if %N% GEQ 120 goto busy
-ping -n 2 127.0.0.1 >nul
+"%SYS%\PING.EXE" -n 2 127.0.0.1 >nul
 goto wait
 :closed
 if exist "%OLD%" rd /s /q "%OLD%"
 echo %DATE% %TIME% a guardar a versao actual>>"%LOG%"
-robocopy "%APP%" "%OLD%" /E /R:2 /W:1 /NP /NFL /NDL /NJH >>"%LOG%"
+"%SYS%\Robocopy.exe" "%APP%" "%OLD%" /E /R:2 /W:1 /NP /NFL /NDL /NJH >>"%LOG%"
 if errorlevel 8 goto nobackup
 echo %DATE% %TIME% a copiar a versao {version}>>"%LOG%"
-robocopy "%NEW%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
+"%SYS%\Robocopy.exe" "%NEW%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
 if errorlevel 8 goto rollback
 echo %DATE% %TIME% RESULTADO: ok>>"%LOG%"
 REM a copia da versao anterior fica ate a versao nova abrir bem (para voltar atras se nao abrir)
@@ -360,7 +361,7 @@ rd /s /q "%NEW%"
 goto done
 :rollback
 echo %DATE% %TIME% a copia falhou: a repor a versao anterior>>"%LOG%"
-robocopy "%OLD%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
+"%SYS%\Robocopy.exe" "%OLD%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
 echo %DATE% %TIME% RESULTADO: falhou (versao anterior reposta)>>"%LOG%"
 goto done
 :nobackup
@@ -371,7 +372,7 @@ echo %DATE% %TIME% RESULTADO: falhou (o programa nao fechou)>>"%LOG%"
 :done
 if not "{relaunch}"=="1" goto end
 REM com autorizacao de administrador, o explorer abre o programa como o utilizador normal
-if "{elevated}"=="1" (start "" explorer.exe "%APP%\{exe}") else (start "" "%APP%\{exe}")
+if "{elevated}"=="1" (start "" "%SystemRoot%\explorer.exe" "%APP%\{exe}") else (start "" "%APP%\{exe}")
 :end
 """
 
@@ -686,7 +687,8 @@ def _previous_installer(version, opener=None):
 
 
 ROLLBACK_TEMPLATE = r"""@echo off
-chcp 65001 >nul
+set "SYS=%SystemRoot%\System32"
+"%SYS%\chcp.com" 65001 >nul
 REM Roots Auto Doctor: volta a versao {previous} porque a {version} nao abriu neste computador.
 set "PID={pid}"
 set "APP={app}"
@@ -695,20 +697,20 @@ set "LOG={log}"
 set /a N=0
 echo %DATE% %TIME% a voltar a versao {previous} (processo %PID%)>>"%LOG%"
 :wait
-tasklist /FI "PID eq %PID%" /NH 2>nul | find " %PID% " >nul
+"%SYS%\tasklist.exe" /FI "PID eq %PID%" /NH 2>nul | "%SYS%\find.exe" " %PID% " >nul
 if errorlevel 1 goto closed
 set /a N+=1
 if %N% GEQ 120 goto busy
-ping -n 2 127.0.0.1 >nul
+"%SYS%\PING.EXE" -n 2 127.0.0.1 >nul
 goto wait
 :closed
-robocopy "%OLD%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
+"%SYS%\Robocopy.exe" "%OLD%" "%APP%" /E /R:5 /W:2 /NP /NFL /NDL /NJH >>"%LOG%"
 if errorlevel 8 (echo %DATE% %TIME% RESULTADO: falhou>>"%LOG%") else (echo %DATE% %TIME% RESULTADO: ok>>"%LOG%")
 goto done
 :busy
 echo %DATE% %TIME% RESULTADO: falhou (o programa nao fechou)>>"%LOG%"
 :done
-if "{elevated}"=="1" (start "" explorer.exe "%APP%\{exe}") else (start "" "%APP%\{exe}")
+if "{elevated}"=="1" (start "" "%SystemRoot%\explorer.exe" "%APP%\{exe}") else (start "" "%APP%\{exe}")
 """
 
 

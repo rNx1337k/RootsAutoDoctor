@@ -6,6 +6,30 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.14.2
+
+### pt
+- Novo "Ver gravações": veja os valores gravados em gráfico, com mínimo, máximo e média, e compare duas gravações
+  (por exemplo, antes e depois de uma reparação).
+- Enquanto lê os valores do motor, o programa avisa logo quando algo sai do normal: pressão do turbo, massa de ar,
+  injectores, temperatura do motor ou tensão da bateria.
+- As gravações ficam guardadas com o carro: na visita seguinte o programa compara sozinho com a anterior.
+- O relatório passa a mostrar os valores lidos e os avisos que apareceram; o relatório técnico compara com a
+  visita anterior.
+- A actualização automática da versão portátil passa a esperar sempre que o programa feche antes de trocar os
+  ficheiros.
+
+### en
+- New "View recordings": see the recorded values on a chart, with minimum, maximum and average, and compare two
+  recordings (for example, before and after a repair).
+- While reading the engine values, the program warns you straight away when something is out of the ordinary: boost
+  pressure, air mass, injectors, engine temperature or battery voltage.
+- Recordings are kept with the car: on the next visit the program compares with the previous one by itself.
+- The report now shows the values read and the warnings that appeared; the technical report compares with the
+  previous visit.
+- The automatic update of the portable version now always waits for the program to close before replacing the
+  files.
+
 ## 1.14.1
 
 ### pt

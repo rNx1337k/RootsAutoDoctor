@@ -3,6 +3,13 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.14.2] — 2026-11-01
+### Fixed
+- **Portable update and rollback scripts wait for the program to close on every PC**: they now call `tasklist`,
+  `find`, `robocopy`, `ping` and `chcp` by their full path in `%SystemRoot%\System32`. With another tool of the same
+  name earlier on the `PATH` (e.g. Git's `find`), the script did not see the program still open and copied over files
+  in use straight away. New test: `test_update_scripts_wait_for_the_program_even_with_other_tools_on_the_path`.
+
 ## [1.14.1] — 2026-11-01
 ### Fixed
 - **CI no longer fails with every test passing**: `tests/run_all.py` closes the windows and destroys the
