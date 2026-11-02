@@ -77,14 +77,14 @@ MATRIX = [
         "detect": HW, "init": HW, "ecu": BLOCKED, "interpret": NONE,
         "services": "Versão do firmware, modo de arranque, teste da linha K feito pelo cabo, repor modo de origem",
         "limits": "A leitura de centralinas passa pelo protocolo próprio do microcontrolador; a captura do arranque "
-                  "do VCDS mostra uma troca aparentemente autenticada/cifrada. Não se replica nem contorna: este "
+                  "do cabo mostra uma troca aparentemente autenticada/cifrada. Não se replica nem contorna: este "
                   "cabo não lê centralinas no Roots Auto Doctor. Modo KKL do firmware testado no carro: sem linha "
                   "K directa.",
         "tests": ["test_hexmcu", "test_hex_capture", "test_usb_transports"],
     },
     {
-        "interface": "Ross-Tech HEX-V2 / HEX-NET genuínas",
-        "protocol": "Firmware fechado da Ross-Tech",
+        "interface": "Interfaces HEX-V2 / HEX-NET originais",
+        "protocol": "Firmware fechado do fabricante",
         "detect": IMPL, "init": BLOCKED, "ecu": BLOCKED, "interpret": BLOCKED,
         "services": "Só detecção e explicação",
         "limits": "Sem interface de programação documentada nem autorização do fabricante.",

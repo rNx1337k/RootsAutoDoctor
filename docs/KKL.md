@@ -28,10 +28,10 @@ needs the hardware.
 ## Evidence from real data (no car)
 
 `tests/test_capture_replay.py` uses the plain KW1281 response from an **Audi A3 8L 1.9 TDI** ("EDC SG 1536"),
-recorded with USBPcap on 21/10/2026. VCDS showed 5 faults at the same moment; Roots Auto Doctor's
+recorded with USBPcap on 21/10/2026. The reference scan tool showed 5 faults at the same moment; Roots Auto Doctor's
 `read_faults()`, on the same bytes, returns exactly the same ones:
 
-| ECU bytes | Roots Auto Doctor | VCDS (photo) |
+| ECU bytes | Roots Auto Doctor | Reference (photo) |
 |---|---|---|
 | `44 90 A3` | 17552 · 35 · intermittent | 17552 P1144 35-10 |
 | `46 8E A3` | 18062 · 35 · intermittent | 18062 P1654 35-10 |
@@ -47,11 +47,7 @@ from the HEX cable's proprietary protocol. When replayed by the emulator the sou
 
 The quickest way is the built-in validation (start the app with `--tecnico`, then **Options → On-car validation**):
 it runs the steps below on its own, records every byte and writes a report with the raw status byte of each fault
-next to how VCDS should show it. Run a VCDS Auto-Scan on the same car (before or after — never both programs on
-the cable at once), then **Compare with VCDS…** in the validation window with the Auto-Scan `.txt`
-(`C:\Ross-Tech\VCDS\Logs`): the report gets a side-by-side table of part numbers, coding and fault status. This
-can also be done later on another PC from the saved `validacao_<date>.json`. Send the `.radrec` recording and the
-report; the recording then goes into `tests/captures/` as a permanent test. The manual procedure:
+next to the code-type the program shows. Send the `.radrec` recording and the report; the recording then goes into `tests/captures/` as a permanent test. The manual procedure:
 
 1. Plug the cable into a USB port. In **Options → Detect cable**, check that it shows up as a COM port
    (FTDI/CH340). For FTDI, set the Latency Timer to 1 ms (Device Manager → Ports (COM & LPT) → Properties →
@@ -62,7 +58,7 @@ report; the recording then goes into `tests/captures/` as a permanent test. The 
    - You should see: cable on the COM port → port open → **K-line echo OK** → connection to 01 → identification.
    - No echo with the ignition on: try Baud rate = 9600 / 10400 in Options; check the OBD socket.
 5. **01-Engine → read faults.** On this reference car the 5 faults in the table above should appear.
-   Compare with the VCDS photo: the codes and the status (35-10 / 35-00) must be the same.
+   Compare with the table above: the codes and the status (35-10 / 35-00) must be the same.
 6. Read the identification (it should contain "EDC" and "1536") and measuring group 001.
 7. At the end: **Options → Support package** and save the zip. Send it with the result of each step.
 

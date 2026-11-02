@@ -1,8 +1,8 @@
-"""Interfaces FTDI com driver próprio D2XX (ex.: clone Ross-Tech HEX-USB com o driver RT-USB).
+"""Interfaces FTDI com driver próprio D2XX (ex.: clone HEX-USB com o driver RT-USB).
 
-O RT-USB.DLL instalado pelo driver da Ross-Tech é uma biblioteca D2XX da FTDI de 32 bits. Corre na ponte
+O RT-USB.DLL instalado pelo driver original do cabo é uma biblioteca D2XX da FTDI de 32 bits. Corre na ponte
 rad/d2xx_bridge.py (Python de 32 bits) e aqui aparece ao KLine como se fosse uma porta série (`D2xxSerial`).
-Assim a interface funciona sem trocar o driver — o VCDS continua a reconhecê-la.
+Assim a interface funciona sem trocar o driver.
 
 Tal como no acesso USB directo (rad/ftdi_direct.py), isto só chega ao carro se o chip FTDI estiver ligado
 directamente ao transceptor da linha K. Com um microcontrolador pelo meio, o teste de eco falha.
@@ -79,7 +79,7 @@ def list_ports():
     """[(port, descrição)] — só se a DLL existir."""
     if not find_dll():
         return []
-    return [(PREFIX + d["serial"], f"USB {d['service']} (D2XX) — Ross-Tech HEX-USB clone, "
+    return [(PREFIX + d["serial"], f"USB {d['service']} (D2XX) — HEX-USB clone, "
                                    f"VID {d['vid']} PID {d['pid']}, S/N {d['serial']}")
             for d in registered_devices()]
 
@@ -162,7 +162,7 @@ class D2xxSerial:
             return ("O cabo não está ligado ao USB (o driver não vê a interface "
                     f"{self.serial}{'; vê: ' + others if others else ''})")
         if mine[0].get("busy"):
-            return ("O cabo está ligado mas aberto por outro programa (VCDS ou outra janela do Roots Auto "
+            return ("O cabo está ligado mas aberto por outro programa (ou outra janela do Roots Auto "
                     "Doctor): feche-o e tente outra vez")
         return None
 
@@ -254,7 +254,7 @@ def _explain(err, code):
     if code == 2 or "DEVICE_NOT_FOUND" in err:
         return "Interface não encontrada: confirme que está ligada ao USB (" + err + ")"
     if code == 3 or "DEVICE_NOT_OPENED" in err:
-        return "A interface está a ser usada por outro programa (VCDS?) ou desligou-se (" + err + ")"
+        return "A interface está a ser usada por outro programa ou desligou-se (" + err + ")"
     if code == 4 or "IO_ERROR" in err:
         return "Erro de comunicação USB — o cabo foi desligado? (" + err + ")"
     if "WinError 193" in err or "não é uma aplicação" in err.lower():

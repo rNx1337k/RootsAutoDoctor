@@ -1,4 +1,4 @@
-"""Protocolo VAG KW1281 (o "KWP1281" do VCDS) sobre linha K.
+"""Protocolo VAG KW1281 (também chamado KWP1281) sobre linha K.
 
 Formato do bloco:  [comprimento] [contador] [título] [dados...] [0x03]
   - comprimento = nº de bytes a seguir a ele (contador+título+dados+0x03)

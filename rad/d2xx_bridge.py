@@ -1,6 +1,6 @@
 """Ponte D2XX (API pública da FTDI) para interfaces com chip FTDI e driver próprio.
 
-Os clones "Ross-Tech HEX-USB" (VID 0403, PID FA24) com o driver RT-USB trazem o RT-USB.DLL, que é uma
+Os clones HEX-USB (VID 0403, PID FA24) com o driver RT-USB trazem o RT-USB.DLL, que é uma
 biblioteca D2XX da FTDI com outro nome (exporta FT_OpenEx, FT_SetBaudRate, FT_SetBreakOn...). Essa DLL é
 de 32 bits, por isso corre num processo à parte com um Python de 32 bits — tal como a ponte J2534.
 Este ficheiro é autónomo (só usa a biblioteca padrão).
@@ -45,7 +45,7 @@ class D2xxError(RuntimeError):
 
 def native_path(path):
     """Num Python de 32 bits em Windows de 64 bits, C:\\Windows\\System32 é redireccionado para SysWOW64.
-    O instalador da Ross-Tech põe o RT-USB.DLL (32 bits) no System32 verdadeiro: chega-se lá por Sysnative."""
+    O instalador do driver original põe o RT-USB.DLL (32 bits) no System32 verdadeiro: chega-se lá por Sysnative."""
     if struct.calcsize("P") == 4 and sys.platform == "win32":
         windir = os.environ.get("WINDIR", r"C:\Windows")
         sys32 = os.path.join(windir, "System32")
@@ -174,12 +174,12 @@ class SimBackend:
         return SimSerial()
 
     def list(self, path):
-        return [{"serial": "SIM00001", "description": "Ross-Tech HEX-USB (simulado)", "type": "FT232R",
+        return [{"serial": "SIM00001", "description": "HEX-USB (simulado)", "type": "FT232R",
                  "vid": 0x0403, "pid": 0xFA24, "busy": False}]
 
     def open(self, path, serial):
         self.s = self._sim()
-        return {"type": "FT232R", "serial": serial, "description": "Ross-Tech HEX-USB (simulado)",
+        return {"type": "FT232R", "serial": serial, "description": "HEX-USB (simulado)",
                 "vid": 0x0403, "pid": 0xFA24, "latency_ms": 1}
 
     def baud(self, value):

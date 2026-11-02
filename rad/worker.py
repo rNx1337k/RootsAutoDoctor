@@ -847,7 +847,6 @@ class Worker(QThread):
             path = base[:-len(capture.EXT)] + ".html" if base.endswith(capture.EXT) else base + ".html"
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(validation.build_html(rep))
-            validation.save_data(rep, path)        # para comparar com o VCDS mais tarde, noutro PC
             return path
         except Exception:
             log.exception("Não foi possível guardar o relatório da validação")

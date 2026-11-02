@@ -1,7 +1,7 @@
 """Auto-teste da instalação (sem carro): RootsAutoDoctor.exe --selftest [ficheiro.txt]
 
 Confirma que um PC acabado de instalar tem tudo o que as interfaces precisam: o Python portátil das pontes
-(runtime/py32 e py64), a ponte J2534 e a ponte D2XX (com os simuladores) e, se o driver RT-USB da Ross-Tech
+(runtime/py32 e py64), a ponte J2534 e a ponte D2XX (com os simuladores) e, se o driver RT-USB original
 estiver instalado, que a ponte de 32 bits carrega o RT-USB.DLL. Não abre a janela nem fala com o carro."""
 import os
 import platform

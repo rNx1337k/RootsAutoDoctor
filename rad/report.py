@@ -62,7 +62,7 @@ VARIANTS = ("client", "technical")
 
 
 def format_coding(info):
-    """Codificação com os algarismos que o controlador usa (5 no KW1281, 7 no KWP2000), como no VCDS."""
+    """Codificação com os algarismos que o controlador usa (5 no KW1281, 7 no KWP2000)."""
     coding = (info or {}).get("coding")
     if coding is None:
         return "—"

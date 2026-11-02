@@ -350,6 +350,24 @@ def test_other_firmware_interfaces_still_rejected():
     assert cable.classify([hexv2])[0]["level"] == "bad"
 
 
+def test_hex_findings_never_show_the_brand_or_another_program():
+    """O Windows dá às interfaces HEX um nome USB com a marca: reconhece-se por ele, mas nunca se mostra."""
+    from rad import j2534
+    old_dll, old_py = d2xx.find_dll, j2534.find_python
+    try:
+        d2xx.find_dll = lambda: sys.executable
+        j2534.find_python = lambda bits: sys.executable
+        devices = [_hex("Error", ""), _hex("OK", "WinUSB", "Ross-Tech Direct USB Interface"), _hex("OK", "RT-USB"),
+                   _hex("OK", "usbser"),
+                   {"name": "Ross-Tech HEX-V2", "id": "USB\\VID_1234&PID_0001\\X", "status": "OK", "cls": "USB"}]
+        for dev in devices:
+            for f in cable.classify([dev]):
+                shown = (f["title"] + " " + f["detail"]).lower()
+                assert "ross" not in shown and "vcds" not in shown, f
+    finally:
+        d2xx.find_dll, j2534.find_python = old_dll, old_py
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

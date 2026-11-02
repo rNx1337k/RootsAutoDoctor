@@ -6,6 +6,14 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.15.1
+
+### pt
+- Mensagens sobre o cabo mais simples e claras.
+
+### en
+- Simpler, clearer messages about the cable.
+
 ## 1.15.0
 
 ### pt

@@ -1,10 +1,10 @@
 """Validação no carro: uma sequência fixa de passos que prova, com provas gravadas, que o programa comunica com um
-carro real como o VCDS.
+carro real.
 
 Corre na thread de comunicação (Worker._cmd_validation) e grava sempre a sessão (rad/capture.py). No fim gera um
-relatório (HTML) com o resultado de cada passo, os bytes de estado das avarias tal como vieram da centralina e o
-que comparar com o VCDS. A gravação e o relatório são os dois ficheiros a enviar depois do teste: a gravação vira
-um teste automático (tests/captures/), o relatório diz o que confirmar.
+relatório (HTML) com o resultado de cada passo e os bytes de estado das avarias tal como vieram da centralina. A
+gravação e o relatório são os dois ficheiros a enviar depois do teste: a gravação vira um teste automático
+(tests/captures/), o relatório diz o que confirmar.
 
 Passos (os módulos que não existem no carro ficam "não instalado", não contam como falha):
   interface      o cabo responde e há eco da linha K (ignição ligada)
@@ -15,15 +15,10 @@ Passos (os módulos que não existem no carro ficam "não instalado", não conta
 """
 import datetime
 import html
-import json
-import logging
-import os
 import platform
 
 from . import APP_NAME, VERSION
 from .i18n import tr
-
-log = logging.getLogger(__name__)
 
 OK, FAIL, SKIP, ABSENT = "ok", "fail", "skip", "absent"
 
@@ -48,7 +43,7 @@ def verdict(steps):
         return tr("{n} passo(s) falharam: veja o detalhe e envie a gravação.", n=len(failed)), False
     if not engine or engine["result"] != OK:
         return tr("O motor não comunicou: a validação não está completa."), False
-    return tr("Todos os passos feitos passaram. Compare as avarias com o VCDS e envie a gravação."), True
+    return tr("Todos os passos feitos passaram. Envie a gravação e o relatório."), True
 
 
 def fault_rows(faults, protocol):
@@ -60,45 +55,13 @@ def fault_rows(faults, protocol):
                      "status_hex": f"{status:02X}" if isinstance(status, int) else "—",
                      "elab_code": f.get("elab_code"), "intermittent": bool(f.get("intermittent")),
                      "protocol": protocol,
-                     "vcds": (f"{f.get('elab_code', 0):02d}-{'10' if f.get('intermittent') else '00'}"
+                     "display": (f"{f.get('elab_code', 0):02d}-{'10' if f.get('intermittent') else '00'}"
                               if isinstance(status, int) else "—")})
     return rows
 
 
 def _e(s):
     return html.escape(str(s if s is not None else ""))
-
-
-def attach_vcds(report, text, source=""):
-    """Junta ao relatório a comparação com o texto de um Auto-Scan do VCDS no mesmo carro (rad/vcds_log.py).
-    Devolve a comparação. O texto do VCDS não fica no relatório: só os campos comparados."""
-    from . import vcds_log
-    comparison = vcds_log.compare(report, vcds_log.parse(text))
-    comparison["source"] = source
-    report["vcds_compare"] = comparison
-    return comparison
-
-
-def _vcds_html(comparison):
-    from . import vcds_log
-    if not comparison:
-        return ""
-    text, ok = vcds_log.verdict(comparison)
-    colors = {vcds_log.MATCH: "#1E9E5A", vcds_log.DIFF: "#C0392B", vcds_log.ONLY_VCDS: "#C0392B",
-              vcds_log.ONLY_RAD: "#E0A100", vcds_log.MANUAL: "#E0A100"}
-    parts = [f"<h2>{_e(tr('Comparação com o VCDS'))}</h2>",
-             f"<p class='verdict' style='border-left-color:{'#1E9E5A' if ok else '#C0392B'}'><b>{_e(text)}</b></p>"]
-    if comparison.get("source"):
-        parts.append(f"<p class='m'>{_e(tr('Texto do VCDS: {path}', path=comparison['source']))}</p>")
-    for mod in comparison.get("modules", []):
-        rows = "".join(
-            f"<tr><td>{_e(r['item'])}</td><td class='mono'>{_e(r['rad'])}</td><td class='mono'>{_e(r['vcds'])}</td>"
-            f"<td style='color:{colors.get(r['result'], '#1B2338')}'><b>{_e(vcds_log.result_text(r['result']))}</b>"
-            f"</td><td>{_e(r['note'])}</td></tr>" for r in mod["rows"])
-        parts.append(f"<h3>{mod['address']:02X} {_e(mod.get('name'))} — {_e(mod.get('protocol'))}</h3>"
-                     f"<table class='t'><tr><th></th><th>{_e(tr('Programa'))}</th><th>VCDS</th>"
-                     f"<th>{_e(tr('Resultado'))}</th><th></th></tr>{rows}</table>")
-    return "".join(parts)
 
 
 def build_html(report):
@@ -118,17 +81,18 @@ def build_html(report):
             continue
         lines = "".join(
             f"<tr><td><b>{_e(f['vag'])}</b></td><td>{_e(f['pcode'])}</td><td class='mono'>0x{_e(f['status_hex'])}</td>"
-            f"<td>{_e(f['vcds'])}</td><td>{_e(tr('intermitente') if f['intermittent'] else tr('permanente'))}</td></tr>"
+            f"<td>{_e(f['display'])}</td>"
+            f"<td>{_e(tr('intermitente') if f['intermittent'] else tr('permanente'))}</td></tr>"
             for f in mod["faults_raw"])
         warn = ""
         if str(mod.get("protocol", "")).startswith("KWP2000"):
             warn = ("<p class='warn'>" + _e(tr("Centralina KWP2000: o significado do byte de estado ainda não está "
-                                              "confirmado. Escreva ao lado de cada código o estado que o VCDS mostra "
-                                              "(ex.: 35-10) — é isso que fecha esta dúvida.")) + "</p>")
+                                              "confirmado num carro. O byte cru fica registado na gravação e neste "
+                                              "relatório para o confirmar.")) + "</p>")
         fault_html.append(
             f"<h3>{mod['address']:02X} {_e(mod.get('module'))} — {_e(mod.get('protocol'))}</h3>{warn}"
             f"<table class='t'><tr><th>{_e(tr('Código'))}</th><th>OBD</th><th>{_e(tr('Byte de estado'))}</th>"
-            f"<th>{_e(tr('Como o VCDS deve mostrar'))}</th><th>{_e(tr('Tipo'))}</th></tr>{lines}</table>")
+            f"<th>{_e(tr('Código-tipo'))}</th><th>{_e(tr('Tipo'))}</th></tr>{lines}</table>")
     idents = "".join(
         f"<tr><td>{m['address']:02X}</td><td>{_e(m.get('part'))}</td><td>{_e(m.get('component'))}</td>"
         f"<td>{_e(m.get('protocol'))}</td><td>{_e(m.get('baud'))}</td>"
@@ -158,10 +122,9 @@ def build_html(report):
 <table class="t"><tr><th>{_e(tr('Endereço'))}</th><th>{_e(tr('Peça'))}</th><th>{_e(tr('Componente'))}</th>
 <th>{_e(tr('Protocolo'))}</th><th>{_e(tr('Velocidade'))}</th><th>{_e(tr('Codificação'))}</th></tr>{idents}</table>
 <h2>{_e(tr('Avarias com o byte de estado'))}</h2>
-<p class="m">{_e(tr('Compare cada linha com o VCDS no mesmo carro: o código e o estado (por exemplo 35-10) têm de ser '
-                    'iguais.'))}</p>
+<p class="m">{_e(tr('Cada avaria com o byte de estado tal como veio da centralina e o código-tipo que o programa '
+                    'mostra (por exemplo 35-10).'))}</p>
 {''.join(fault_html) or '<p>' + _e(tr('Nenhuma avaria lida.')) + '</p>'}
-{_vcds_html(report.get('vcds_compare'))}
 <h2>{_e(tr('Ficheiros'))}</h2>
 <p>{_e(tr('Gravação da comunicação: {path}', path=report.get('capture') or '—'))}<br>
 {_e(tr('Envie a gravação e este relatório ao suporte.'))}</p>
@@ -173,53 +136,3 @@ def new_report(interface, vehicle=None):
     return {"version": VERSION, "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "interface": interface, "vehicle": vehicle or {}, "steps": [], "modules": [], "capture": None}
 
-
-def data_path(html_path):
-    """Ficheiro com os dados da validação, ao lado do relatório (validacao_<data>.json)."""
-    return os.path.splitext(html_path)[0] + ".json"
-
-
-def save_data(report, html_path):
-    """Guarda os dados da validação ao lado do relatório: permitem comparar com o VCDS mais tarde, também noutro
-    computador (o PC do carro pode não ter o programa aberto quando o Auto-Scan do VCDS fica pronto)."""
-    keep = {k: v for k, v in report.items() if not k.startswith("_")}
-    try:
-        with open(data_path(html_path), "w", encoding="utf-8") as fh:
-            json.dump(keep, fh, ensure_ascii=False, indent=1, default=str)
-    except OSError:
-        log.warning("Não foi possível guardar os dados da validação", exc_info=True)
-
-
-def load_data(path):
-    """Lê os dados de uma validação guardada (.json, ou o .html/.radrec com o mesmo nome)."""
-    base = os.path.splitext(path)[0]
-    with open(base + ".json", encoding="utf-8") as fh:
-        report = json.load(fh)
-    if not isinstance(report, dict) or "steps" not in report or "modules" not in report:
-        raise ValueError(tr("O ficheiro não tem os dados de uma validação no carro."))
-    report.setdefault("report_path", base + ".html")
-    return report
-
-
-def read_text(path):
-    """Texto guardado pelo VCDS (normalmente ANSI / Windows-1252; as versões novas podem gravar em UTF-8)."""
-    with open(path, "rb") as fh:
-        raw = fh.read()
-    for enc in ("utf-8-sig", "utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else ("utf-8-sig",):
-        try:
-            return raw.decode(enc)
-        except UnicodeDecodeError:
-            pass
-    return raw.decode("cp1252", errors="replace")
-
-
-def compare_with_vcds(report, vcds_path):
-    """Compara a validação com o texto do VCDS, reescreve o relatório (HTML e dados) e devolve a comparação."""
-    from .applog import scrub                      # o VCDS põe o nº de chassis no nome do ficheiro
-    comparison = attach_vcds(report, read_text(vcds_path), scrub(os.path.basename(vcds_path)))
-    html_path = report.get("report_path")
-    if html_path:
-        with open(html_path, "w", encoding="utf-8") as fh:
-            fh.write(build_html(report))
-        save_data(report, html_path)
-    return comparison

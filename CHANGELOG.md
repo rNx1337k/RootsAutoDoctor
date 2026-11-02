@@ -3,19 +3,24 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.15.1] — 2026-11-02
+### Removed
+- The comparison of the on-car validation with another program's scan log and the validation
+  `.json` that only existed for it. The validation report lists each fault with the raw status byte and the
+  code-type the program shows.
+
+### Changed
+- No text, report, document or code comment refers to other diagnostic programs or to the cable manufacturer's
+  brand any more. The HEX-USB clone is still detected and supported: the brand Windows puts in its USB name is only
+  used to recognise it and is never shown (`rad.cable._plain_name`; new test
+  `test_hex_findings_never_show_the_brand_or_another_program`). The KKL cable is called "KKL 409.1".
+- Unused English catalogue entries removed.
+
 ## [1.15.0] — 2026-11-02
 ### Added
-- **Compare the on-car validation with VCDS** (`rad/vcds_log.py`): in the validation window, **Compare with VCDS…**
-  reads the Auto-Scan text VCDS saved on the same car and puts a "Comparison with VCDS" section in the report: part
-  number, coding, each fault code and its status (e.g. 35-10) side by side, marked same / different / VCDS only /
-  program only. A KWP2000 fault with the same code and a different status says so with the raw byte, which is what
-  settles the open question about the KWP2000 status byte; VCDS's newer 3-digit status format is kept for a check
-  by hand. The parser is tolerant (VCDS and VCDS-Lite, `Part No SW … HW …`, P-code lines, freeze frames, ANSI or
-  UTF-8 files) and never reads the chassis number or mileage; the chassis number VCDS puts in the file name is
-  removed from the report.
-- **Validation data saved next to the report** (`validacao_<date>.json`): the comparison can be done later, on
-  another PC — with no validation open, the button first asks for the saved `.json`.
-- **K-line speeds 2400 and 1200 baud** in the automatic speed search (the same five VCDS tries).
+- On-car validation: comparison with another program's scan log, with the validation data saved as `.json` (removed
+  in 1.15.1).
+- **K-line speeds 2400 and 1200 baud** in the automatic speed search.
 
 ### Changed
 - **The wrong-speed byte picks the next speed** (`rad.kline.uart_reads` / `rank_bauds`): after a bad sync, the
@@ -165,7 +170,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
   included. Technician mode: Options → *Check recording…*
 - **On-car validation** (technician mode, `rad/validation.py`): cable and ignition, engine (identification,
   faults, block 001 three times, optional clear and re-read), instrument cluster and ABS, always recorded, with an
-  HTML report listing each fault's **raw status byte** next to how VCDS should show it (settles the open KWP2000
+  HTML report listing each fault's **raw status byte** next to the code-type the program shows (settles the open KWP2000
   status byte question on the first KWP2000 car). Technician mode also shows the raw status byte in the fault list
 - **KWP2000 coding, adaptation and security access** on the K-line and through J2534: coding `3B 9A` (keeps the
   module's workshop code and software version), adaptation read/test/save with the `31 B8…BB` routines, security
@@ -357,7 +362,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and the proje
 - The communication thread emits the detailed state (`link_state`) and logs every transition with its cause;
   the existing UI state signal is unchanged
 - KW1281 fault reading validated against a real ECU response (Audi A3 8L 1.9 TDI, captured with USBPcap): the
-  five codes and their intermittent/static status match VCDS (`tests/test_capture_replay.py`)
+  five codes and their intermittent/static status match the reference scan (`tests/test_capture_replay.py`)
 - `docs/KKL.md`: audit of the KKL path and the on-car validation procedure
 ### Changed
 - README: HEX-USB/HEX-V2 clones are listed as not supported for ECU access; KKL 409.1 (FTDI) is the
@@ -424,7 +429,7 @@ Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
 - The HEX-USB clone (FTDI 0403:FA24, S/N RT000001) never reached the K-line: it is a HEX-USB+CAN clone with an ATmega162 between the FTDI chip and the OBD plug, which in its default "intelligent" mode swallows plain K-line bytes, so the echo test could never pass. All earlier "successful" readings in the history came from the simulator, not from the car
 - The app asserted DTR on the HEX clone by default; on these boards DTR drives the microcontroller's RESET, so it was held in reset. HEX ports now run with DTR and RTS off and only try DTR-off combinations
 ### Added
-- `rad/hexmcu.py`: talks to the clone's microcontroller directly (no VCDS): firmware version, boot mode, the cable's own K-line test and the boot-mode switch. The switch is only sent after the cable has answered a mode query with a valid, checksummed frame
+- `rad/hexmcu.py`: talks to the clone's microcontroller directly: firmware version, boot mode, the cable's own K-line test and the boot-mode switch. The switch is only sent after the cable has answered a mode query with a valid, checksummed frame
 - Connection check now reports separate steps: cable seen on USB, interface opened, adapter (microcontroller) answers, K-line seen by the cable, cable mode, K-line echo, ECU connection, fault reading
 - Connect / Auto-Scan / Test interface on a HEX port without echo talk to the microcontroller and explain the real cause (adapter answers or not, K-line state seen by the cable, boot mode)
 - K-line test done by the cable itself (opcode 0x82, read-only) shown in the connection check
@@ -443,7 +448,7 @@ Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
 - Compiled build (Nuitka / PyInstaller): the bridge scripts were not included and a 64-bit J2534 driver tried to start the app's own .exe as the bridge; the bridges, the simulator they use and the runtime are now copied into the build, and a compiled app always uses the bundled runtime
 ### Added
 - `tools/get_runtime.py`: downloads the embeddable zips from python.org, checks the pinned SHA-256 and extracts them to `runtime/`; used by `run.bat` (first start, or when missing), `build_release.bat` and `build_exe.bat`
-- `RootsAutoDoctor.exe --selftest [file]`: checks the installation without a car (portable runtimes, J2534 and D2XX bridges with the simulators, and the RT-USB.DLL if the Ross-Tech driver is installed) and writes a report (default `%APPDATA%\RootsAutoDoctor\registos\autoteste.txt`)
+- `RootsAutoDoctor.exe --selftest [file]`: checks the installation without a car (portable runtimes, J2534 and D2XX bridges with the simulators, and the RT-USB.DLL if the original RT-USB driver is installed) and writes a report (default `%APPDATA%\RootsAutoDoctor\registos\autoteste.txt`)
 ### Changed
 - "Detectar cabo" and the connection error say which program component is missing instead of asking to install Python
 
@@ -490,8 +495,8 @@ Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
 
 ## [0.11.0] — 2026-10-19
 ### Added
-- HEX-USB clone support (FTDI FT232R with Ross-Tech PID 0403:FA24) as a K-line cable, through two transports:
-  - `D2XX:<serial>` (`rad/d2xx.py`, `rad/d2xx_bridge.py`): uses the D2XX library shipped with the RT-USB driver (32-bit, runs in a bridge process like J2534); VCDS keeps working
+- HEX-USB clone support (FTDI FT232R with PID 0403:FA24) as a K-line cable, through two transports:
+  - `D2XX:<serial>` (`rad/d2xx.py`, `rad/d2xx_bridge.py`): uses the D2XX library shipped with the RT-USB driver (32-bit, runs in a bridge process like J2534); the driver stays as it is
   - `FTDI:<vid>:<pid>:<serial>` (`rad/ftdi_direct.py`): direct USB access with the WinUSB driver (Zadig) via pyftdi + libusb, 1 ms latency
 - "Detect cable" identifies the FTDI chip from the USB revision and explains what each driver state needs (no driver, RT-USB, WinUSB, missing 32-bit Python or pyftdi) and selects the port
 - `tools/hex_probe.py`: command-line probe for hardware tests (USB detection, open, K-line echo, read-only ECU identification, faults and group 1)
@@ -540,7 +545,7 @@ Technical audit: [docs/AUDITORIA.md](docs/AUDITORIA.md).
 
 ## [0.8.1] — 2026-10-18
 ### Added
-- "Detect cable" in Options: identifies FTDI / CH340 / PL2303 / CP210x cables, missing drivers, FTDI cables without a COM port (Load VCP), Ross-Tech HEX clones that cannot work as KKL cables, and the FTDI latency timer; selects the COM port automatically
+- "Detect cable" in Options: identifies FTDI / CH340 / PL2303 / CP210x cables, missing drivers, FTDI cables without a COM port (Load VCP), HEX clones that cannot work as KKL cables, and the FTDI latency timer; selects the COM port automatically
 - J2534 (PassThru) driver detection in "Detect cable"
 - Autocom / Delphi interfaces identified by name in "Detect cable"
 

@@ -13,8 +13,8 @@
                                                                   --set-mode inteligente repõe o original
 
 Nunca escreve nada na centralina: o --ecu só lê identificação, avarias e o grupo de medição 1.
-Só o --set-mode (com --yes) muda uma definição do cabo: o modo de arranque do microcontrolador, o mesmo
-que a opção "Boot in Intelligent Mode" do VCDS; reverte-se com --set-mode inteligente. Guarde o resultado
+Só o --set-mode (com --yes) muda uma definição do cabo: o modo de arranque do microcontrolador (fica guardado
+no cabo); reverte-se com --set-mode inteligente. Guarde o resultado
 (copiar/colar) para comparar entre cabos e carros.
 """
 import argparse
@@ -59,7 +59,7 @@ def main():
         print(f"  {d['status']:6} {d['name']}  [{d['id']}]  serviço={d.get('service') or '—'}  "
               f"hwid={', '.join(d.get('hwid') or [])}")
     if not devs:
-        print("  nenhum dispositivo FTDI/Ross-Tech ligado")
+        print("  nenhum dispositivo FTDI/HEX ligado")
     for f in cable.classify(devs):
         print(f"  → [{f['level']}] {f['title']}" + (f"  (porta {f['com']})" if f.get("com") else ""))
 

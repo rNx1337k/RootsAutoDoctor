@@ -98,8 +98,17 @@ def _pyftdi_available():
     return importlib.util.find_spec("pyftdi") is not None and importlib.util.find_spec("usb") is not None
 
 
+# Marca que o Windows põe no nome USB das interfaces HEX: só serve para as reconhecer e nunca se mostra.
+_HEX_USB_NAME = "ross-tech"
+
+
+def _plain_name(name):
+    """Nome da interface para mostrar: sem a marca que o Windows põe no nome USB das interfaces HEX."""
+    return re.sub(_HEX_USB_NAME + r"\s*", "", name or "", flags=re.I).strip()
+
+
 def _d2xx_finding(d, name, chip, serial, caveat):
-    """Clone HEX-USB com o driver RT-USB da Ross-Tech: usa-se pelo RT-USB.DLL (D2XX, 32 bits)."""
+    """Clone HEX-USB com o driver RT-USB original: usa-se pelo RT-USB.DLL (D2XX, 32 bits)."""
     from .d2xx import PREFIX, find_dll
     from .j2534 import dll_bitness, find_python
     base = {"com": None, "driver_url": None}
@@ -123,7 +132,7 @@ def _d2xx_finding(d, name, chip, serial, caveat):
                               dll=dll, bits=bits) + caveat)}
     return {**base, "level": "ok", "kind": "ready", "com": PREFIX + (serial or ""),
             "title": tr("{name} pronta pelo driver RT-USB ({chip}, S/N {v})", name=name, chip=chip, v=serial or '—'),
-            "detail": (tr("Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da "
+            "detail": (tr("Usa a biblioteca D2XX do driver que já está instalado. Faça o Diagnóstico da "
                        "ligação com o cabo no carro e a ignição ligada. ") + caveat)}
 
 
@@ -133,7 +142,7 @@ def _hex_usb_finding(d, vid, pid):
     chip = chip_name(_bcd_device(d.get("hwid")))
     serial = _usb_serial(d["id"])
     service = (d.get("service") or "").lower()
-    name = d["name"] or "Ross-Tech HEX-USB"
+    name = _plain_name(d["name"]) or "HEX-USB"
     caveat = (tr("Estes clones (HEX-USB+CAN) têm um microcontrolador entre o chip FTDI e a ficha OBD: o "
               "Diagnóstico da ligação fala com ele, confirma que responde e põe-no em modo KKL para chegar à "
               "linha K. Faça-o com o cabo no carro e a ignição ligada."))
@@ -144,8 +153,8 @@ def _hex_usb_finding(d, vid, pid):
                             name=name, chip=chip, vid=vid, pid=pid),
                 "detail": (tr("Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB "
                               "directo, instale o driver WinUSB com o Zadig: Options → List All Devices → escolha "
-                              "'{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. (O VCDS "
-                              "deixa de reconhecer esta interface enquanto tiver o WinUSB.) ",
+                              "'{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. (Outros "
+                              "programas deixam de reconhecer esta interface enquanto tiver o WinUSB.) ",
                               name=name) + caveat)}
     if service == "rt-usb":
         return _d2xx_finding(d, name, chip, serial, caveat)
@@ -217,7 +226,7 @@ def classify(devices, latency=None):
         m = re.search(r"\((COM\d+)\)", d["name"])
         if m:
             com = m.group(1)
-        hex_like = "ross-tech" in name_l or "hex-" in name_l or "hex v2" in name_l
+        hex_like = _HEX_USB_NAME in name_l or "hex-" in name_l or "hex v2" in name_l
         if vid not in KNOWN and not hex_like:
             continue
         key = (vid, pid, com)
@@ -235,15 +244,15 @@ def classify(devices, latency=None):
             if "autocom" in name_l or "delphi" in name_l:
                 kind, who = "Autocom / Delphi", "da Autocom/Delphi"
             elif hex_like:
-                kind, who = "VCDS HEX", "da Ross-Tech"
+                kind, who = "HEX", "do fabricante"
             else:
                 kind, who = "com firmware próprio", "do fabricante"
             findings.append({
                 "level": "bad", "kind": "unsupported", "name": d["name"], "com": None, "driver_url": None,
-                "title": tr("Interface {kind} ({v})", kind=kind, v=d['name'] or 'sem nome'),
+                "title": tr("Interface {kind} ({v})", kind=kind, v=_plain_name(d['name']) or 'sem nome'),
                 "detail": (tr("Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, e só "
                               "fala com o programa desse fabricante. Não funciona como cabo KKL e não pode ser usada "
-                              "pelo Roots Auto Doctor, mesmo com drivers. É preciso um cabo KKL 'VAG-COM 409.1' (FTDI "
+                              "pelo Roots Auto Doctor, mesmo com drivers. É preciso um cabo KKL 409.1 (FTDI "
                               "ou CH340); para módulos KWP2000 também serve uma interface J2534.",
                               who=who)),
             })

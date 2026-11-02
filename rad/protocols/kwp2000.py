@@ -34,7 +34,7 @@ ADAPT_SUB = [0x01, 0x03]           # sub-selector fixo das rotinas de adaptaçã
 OUTPUT_SUB = [0x01, 0x02]          # ... do teste de saídas
 OUTPUT_END = 0x04AB                # a EDC16 devolve este componente depois da última saída (fim da lista)
 PAD_FORMULA = 0x25                 # campo vazio no fim de um bloco
-CODING_MAX = 0xFFFFFF              # 3 bytes (o VCDS mostra 7 algarismos)
+CODING_MAX = 0xFFFFFF              # 3 bytes (mostra-se com 7 algarismos)
 
 
 def decode_wsc6(raw):

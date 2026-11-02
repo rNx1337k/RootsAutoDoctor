@@ -4,16 +4,16 @@
 
 | Field | Value | Source |
 |---|---|---|
-| USB name | `Ross-Tech HEX-USB` (no driver) / `Ross-Tech Direct USB Interface` (with driver) | `Get-PnpDevice` |
+| USB name | `… HEX-USB` (no driver) / `… Direct USB Interface` (with driver), prefixed with the brand | `Get-PnpDevice` |
 | VID / PID | `0403` / `FA24` | HardwareID |
 | bcdDevice | `0600` → **FTDI FT232R** chip | HardwareID `REV_0600` |
 | Serial number | `RT000001` | InstanceId |
 | USB class | `FF/FF/FF` (vendor-specific, typical of FTDI) | CompatibleID |
-| Current driver | `RT-USB` service, `oem28.inf`, Ross-Tech 2.10.0.0 (2014), **unsigned** | `Win32_PnPSignedDriver` |
+| Current driver | `RT-USB` service, `oem28.inf`, version 2.10.0.0 (2014), **unsigned** | `Win32_PnPSignedDriver` |
 | Driver DLL | `C:\Windows\System32\RT-USB.DLL` — **32-bit**, exports the FTDI D2XX API (`FT_OpenEx`, `FT_SetBaudRate`, `FT_SetBreakOn`…) | PE header + export table |
 
 Despite the "HEX-V2" name, the cable identifies itself as **HEX-USB** (the older product) and is an FT232R with
-Ross-Tech's PID. It is not a HEX-V2: no CAN is reachable this way.
+PID FA24. It is not a HEX-V2: no CAN is reachable this way.
 
 **What is inside:** the serial number `RT000001`, the LEDs and PID FA24 are those of the **HEX-USB+CAN** clones:
 FT232R → ATmega162 microcontroller → K/CAN transceivers. In **intelligent mode** (the factory mode) the
@@ -22,7 +22,7 @@ talked to the car (the readings in the history came from the simulator). The FTD
 microcontroller's RESET: the app works with DTR and RTS off.
 
 The firmware has a **KKL ("dumb") mode** in which the K-line is meant to pass straight through. Roots Auto Doctor
-talks to the microcontroller without VCDS (`rad/hexmcu.py`):
+talks to the microcontroller directly (`rad/hexmcu.py`):
 
 | Request | Bytes (PC → cable) | Expected response |
 |---|---|---|
@@ -31,7 +31,7 @@ talks to the microcontroller without VCDS (`rad/hexmcu.py`):
 | Switch to KKL | `53 05 0E 00 58` | `4D 04 FE B7` |
 | Restore intelligent | `53 05 0E 02 5A` | `4D 04 FE B7` |
 
-Source: public reverse engineering of VCDS (github.com/guns96x/vcds-android, `docs/research/vcds_fa24_dumb_mode_protocol.md`).
+Source: public reverse engineering of this cable's firmware.
 **Confirmed on this cable on 19/10/2026** (real responses: `4D 07 02 01 60 46 6F` = firmware 1.96 'F';
 `4D 05 0D 02 47` = intelligent mode). But this firmware's KKL mode does **not** give direct access to the K-line. **Reading ECUs through this cable is not supported by Roots Auto Doctor:** the app only reads the cable's own status (firmware, mode, K-line test). For diagnostics use a KKL 409.1 cable with FTDI — see [KKL.md](KKL.md).
 
@@ -62,11 +62,11 @@ The FTDI chip behaves like a UART. Roots Auto Doctor uses it like a KKL cable: t
 
 | Port in the list | Module | Driver needed | Notes |
 |---|---|---|---|
-| `D2XX:RT000001` | `rad/d2xx.py` + `rad/d2xx_bridge.py` | RT-USB (the one already installed) | `RT-USB.DLL` is 32-bit → the bridge runs on the **portable 32-bit Python shipped with the app** (`runtime/py32`). VCDS keeps working. |
-| `FTDI:0403:FA24:RT000001` | `rad/ftdi_direct.py` (pyftdi + libusb) | **WinUSB** (Zadig) | Runs in the app's own process, 1 ms latency. VCDS no longer recognises the cable while it has WinUSB. |
+| `D2XX:RT000001` | `rad/d2xx.py` + `rad/d2xx_bridge.py` | RT-USB (the one already installed) | `RT-USB.DLL` is 32-bit → the bridge runs on the **portable 32-bit Python shipped with the app** (`runtime/py32`). The driver stays as it is. |
+| `FTDI:0403:FA24:RT000001` | `rad/ftdi_direct.py` (pyftdi + libusb) | **WinUSB** (Zadig) | Runs in the app's own process, 1 ms latency. Other programs no longer recognise the cable while it has WinUSB. |
 
 Only standard FTDI chip requests are used (baud rate, 8N1, BREAK, DTR/RTS, latency, purge, read/write).
-There are no proprietary Ross-Tech commands, no EEPROM writes and no firmware changes.
+There are no proprietary commands, no EEPROM writes and no firmware changes.
 
 ## Installation
 
@@ -86,11 +86,11 @@ If `RT-USB.DLL` is somewhere else: `$env:RAD_D2XX_DLL = "C:\path\RT-USB.DLL"`.
 ### Option B — WinUSB (direct USB access)
 
 1. Download Zadig from https://zadig.akeo.ie/ (official page).
-2. Options → List All Devices → choose **Ross-Tech Direct USB Interface** (USB ID `0403 FA24`).
+2. Options → List All Devices → choose the cable's **Direct USB Interface** (USB ID `0403 FA24`).
 3. Target driver **WinUSB** → *Replace Driver*.
 4. Options → **Detect cable** → it should say "ready through direct USB" and select `FTDI:0403:FA24:RT000001`.
 
-To go back to the Ross-Tech driver: Device Manager → the device → Driver → *Roll Back Driver* (or uninstall
+To go back to the original driver: Device Manager → the device → Driver → *Roll Back Driver* (or uninstall
 it and plug the cable in again).
 
 ### Check the driver

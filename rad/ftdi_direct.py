@@ -1,11 +1,11 @@
 """Acesso directo por USB (libusb/WinUSB) a interfaces com chip FTDI que não têm porta COM.
 
-Caso típico: os clones "Ross-Tech HEX-USB" (VID 0403, PID FA24). Por dentro têm um FT232R da FTDI,
+Caso típico: os clones HEX-USB (VID 0403, PID FA24). Por dentro têm um FT232R da FTDI,
 mas o PID próprio faz com que o driver VCP da FTDI não os reconheça — o Windows mostra-os sem driver
 e sem porta COM. Instalando o driver genérico WinUSB (com o Zadig), o chip FTDI fica acessível pelo
 libusb e este módulo apresenta-o ao resto do programa como se fosse uma porta série (`FtdiSerial`).
 
-O que este módulo NÃO faz: não fala com nenhum firmware da Ross-Tech nem envia comandos proprietários.
+O que este módulo NÃO faz: não fala com nenhum firmware do fabricante do cabo nem envia comandos proprietários.
 Só usa os pedidos de controlo normais do chip FTDI (velocidade, BREAK, DTR/RTS, latência), os mesmos que
 o driver VCP usa. Isto só chega ao carro se o TX/RX do FT232R estiver ligado ao transceptor da linha K
 (cabo "dumb", como um KKL). Se houver um microcontrolador entre o FTDI e a ficha OBD, o teste de eco
@@ -30,7 +30,7 @@ VCP_PIDS = {0x6001, 0x6010, 0x6011, 0x6014, 0x6015}
 
 # Interfaces conhecidas com chip FTDI e PID próprio (VID 0403).
 KNOWN_DIRECT = {
-    (FTDI_VID, 0xFA24): "Ross-Tech HEX-USB (clone)",
+    (FTDI_VID, 0xFA24): "HEX-USB (clone)",
 }
 
 # bcdDevice → chip (valores fixos do silício FTDI)
@@ -275,7 +275,7 @@ def _explain_open_error(port, e):
     if isinstance(e, DependencyMissing):
         return msg
     if "access" in low or "busy" in low or "errno 13" in low:
-        return (f"A interface {port} está a ser usada por outro programa (VCDS, outra janela?). "
+        return (f"A interface {port} está a ser usada por outro programa (outra janela?). "
                 "Feche-o e tente de novo.")
     if "not found" in low or "no such device" in low or "no backend" in low or "unknown" in low:
         return (f"Interface {port} não encontrada. Confirme que está ligada e que tem o driver WinUSB "

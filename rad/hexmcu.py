@@ -5,7 +5,7 @@ origem ("inteligente"), só aceita pacotes próprios. Por isso o teste de eco KK
 com a ignição ligada. O firmware também tem um modo de arranque "dumb" (KKL), mas no firmware 1.96 'F'
 testado não dá passagem directa para a linha K.
 
-Formato dos pacotes (engenharia inversa pública do VCDS, github.com/guns96x/vcds-android), confirmado no
+Formato dos pacotes (engenharia inversa pública do firmware destes cabos), confirmado no
 cabo real a 19/10/2026:
 
     PC → cabo:  53 <comprimento> <opcode> <dados...> <xor>
@@ -40,7 +40,7 @@ TYPE_NAMES = {"C": "CAN, 1 linha K", "D": "CAN + 2 linhas K (HEX-USB+CAN)", "F":
 
 
 def is_hex_port(port):
-    """Portas que são um clone HEX (chip FTDI com PID da Ross-Tech, sem porta COM)."""
+    """Portas que são um clone HEX (chip FTDI com o PID FA24, sem porta COM)."""
     if not port:
         return False
     if port.startswith("D2XX:"):
@@ -179,7 +179,7 @@ class HexMcu:
         return None
 
     def set_mode(self, mode):
-        """Muda o modo de arranque (o mesmo que a opção "Boot in Intelligent Mode" do VCDS).
+        """Muda o modo de arranque (modo inteligente ou modo KKL, guardado no cabo).
 
         Só avança se o cabo responder a ReadBoot com um pacote válido. Devolve o modo lido depois."""
         before = self.read_mode()
@@ -208,7 +208,7 @@ def kline_test(mcu):
 
 
 def describe_kline(kt):
-    """Valores em bruto do HC::KLineTest. O VCDS mostra três textos diferentes para 0/1/2; qual é qual ainda
+    """Valores em bruto do HC::KLineTest. Há três valores diferentes (0/1/2); qual é qual ainda
     não está confirmado, por isso mostram-se os números."""
     return f"K1={kt[0]}, K2={kt[1]} (valores em bruto do cabo)"
 

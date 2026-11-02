@@ -27,7 +27,7 @@ def test_client_report_has_no_communication_details():
     assert "Relatório de diagnóstico" in page and "Relatório técnico" not in page
     for word in ("KW1281", "KWP2000", "baud", "estado 0x", "COM3", "Timeout"):
         assert word not in page, word
-    assert "Codificação 00002" in page and "Codificação 0018719" in page     # algarismos como no VCDS
+    assert "Codificação 00002" in page and "Codificação 0018719" in page     # 5 algarismos no KW1281, 7 no KWP2000
 
 
 def test_technical_report_shows_protocol_raw_status_and_interface():

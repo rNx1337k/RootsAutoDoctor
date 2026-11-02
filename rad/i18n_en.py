@@ -22,14 +22,10 @@ EN = {
         "{dll} is {bits}-bit and is loaded by the {bits}-bit component that ships with Roots Auto Doctor (runtime/py{bits} folder), which was not found. Reinstall the program (or, from source code, run run.bat) and click Detect cable again. ",
     "{name} pronta pelo driver RT-USB ({chip}, S/N {v})":
         "{name} ready through the RT-USB driver ({chip}, S/N {v})",
-    "Usa a biblioteca D2XX do driver (o VCDS continua a funcionar). Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada. ":
-        "Uses the driver's D2XX library (VCDS keeps working). Run the Connection check with the cable in the car and the ignition on. ",
     "Estes clones (HEX-USB+CAN) têm um microcontrolador entre o chip FTDI e a ficha OBD: o Diagnóstico da ligação fala com ele, confirma que responde e põe-no em modo KKL para chegar à linha K. Faça-o com o cabo no carro e a ignição ligada.":
         "These clones (HEX-USB+CAN) have a microcontroller between the FTDI chip and the OBD connector: the Connection check talks to it, confirms it answers and switches it to KKL mode to reach the K-line. Do it with the cable in the car and the ignition on.",
     "{name} — chip {chip}, VID {vid} PID {pid}, sem driver":
         "{name} — chip {chip}, VID {vid} PID {pid}, no driver",
-    "Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB directo, instale o driver WinUSB com o Zadig: Options → List All Devices → escolha '{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. (O VCDS deixa de reconhecer esta interface enquanto tiver o WinUSB.) ":
-        "This interface has no COM port. For Roots Auto Doctor to use it through direct USB access, install the WinUSB driver with Zadig: Options → List All Devices → choose '{name}' → WinUSB → Install Driver. Then click Detect cable again. (VCDS stops recognising this interface while it has WinUSB.) ",
     "{name} — usa o driver '{v}'":
         "{name} — uses the '{v}' driver",
     "Este driver é o do programa do fabricante e o Roots Auto Doctor não o usa. Para acesso USB directo substitua-o pelo WinUSB com o Zadig (pode voltar ao driver anterior no Gestor de Dispositivos → Controlador → Reverter). ":
@@ -44,8 +40,6 @@ EN = {
         "Run the Connection check with the cable in the car and the ignition on to confirm it reaches the K-line. ",
     "Interface {kind} ({v})":
         "{kind} interface ({v})",
-    "Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, e só fala com o programa desse fabricante. Não funciona como cabo KKL e não pode ser usada pelo Roots Auto Doctor, mesmo com drivers. É preciso um cabo KKL 'VAG-COM 409.1' (FTDI ou CH340); para módulos KWP2000 também serve uma interface J2534.":
-        "This interface has a microcontroller with {who} firmware between the USB and the car, and only talks to that manufacturer's program. It does not work as a KKL cable and cannot be used by Roots Auto Doctor, even with drivers. You need a 'VAG-COM 409.1' KKL cable (FTDI or CH340); a J2534 interface also works for KWP2000 modules.",
     "Cabo {chip} pronto em {com} — Latency Timer {lat} ms":
         "{chip} cable ready on {com} — Latency Timer {lat} ms",
     "Funciona, mas a leitura será lenta. Gestor de Dispositivos → Portas (COM e LPT) → {com} → Propriedades → Definições da porta → Avançadas → Latency Timer = 1.":
@@ -1474,8 +1468,6 @@ EN = {
         "1st map",
     "2º mapa":
         "2nd map",
-    "A leitura de centralinas passa pelo protocolo próprio do microcontrolador; a captura do arranque do VCDS mostra uma troca aparentemente autenticada/cifrada. Não se replica nem contorna: este cabo não lê centralinas no Roots Auto Doctor. Modo KKL do firmware testado no carro: sem linha K directa.":
-        "Reading ECUs goes through the microcontroller's own protocol; the capture of VCDS starting up shows an exchange that looks authenticated/encrypted. It is neither replicated nor bypassed: this cable does not read ECUs in Roots Auto Doctor. Firmware KKL mode tested on the car: no direct K-line.",
     "ABS / travões":
         "ABS / brakes",
     "Accionamento da borboleta (G186) — avaria eléctrica":
@@ -2036,8 +2028,6 @@ EN = {
         "Particulate filter (bank 1) — efficiency below threshold",
     "Filtro de partículas — acumulação de fuligem":
         "Particulate filter — soot build-up",
-    "Firmware fechado da Ross-Tech":
-        "Ross-Tech closed firmware",
     "Firmware próprio":
         "Proprietary firmware",
     "Fita espiral do volante (contacto rotativo) partida":
@@ -2604,8 +2594,6 @@ EN = {
         "Fix the other ABS faults first",
     "Roda fónica":
         "Tone ring",
-    "Ross-Tech HEX-V2 / HEX-NET genuínas":
-        "Genuine Ross-Tech HEX-V2 / HEX-NET",
     "Rotação":
         "Engine speed",
     "Rotação do motor":
@@ -3190,8 +3178,6 @@ EN = {
         "warning indicator requested",
     "pendente":
         "pending",
-    "memorizada":
-        "stored",
     "propulsão híbrida":
         "hybrid propulsion",
     "sem informação adicional":
@@ -3613,8 +3599,6 @@ EN = {
         "Each car is registered once, with the customer and the details of the last visit.",
     "Canal de adaptação inválido":
         "Invalid adaptation channel",
-    "Centralina KWP2000: o significado do byte de estado ainda não está confirmado. Escreva ao lado de cada código o estado que o VCDS mostra (ex.: 35-10) — é isso que fecha esta dúvida.":
-        "KWP2000 module: the meaning of the status byte is not confirmed yet. Write next to each code the status VCDS shows (e.g. 35-10) — that settles this question.",
     "Cliente conhecido · {n} visita(s) · última em {date}":
         "Known customer · {n} visit(s) · last on {date}",
     "Codificar o controlador com {v}?\nActual: {v2}":
@@ -3623,14 +3607,8 @@ EN = {
         "Invalid coding (0000000 to 9999999).",
     "Codificação {coding}":
         "Coding {coding}",
-    "Com o cabo no carro e a ignição ligada (motor parado), o programa liga ao motor, ao painel e ao ABS, lê a identificação, as avarias e o bloco 001, e grava toda a comunicação. No fim, compare as avarias com o VCDS e envie a gravação e o relatório.":
-        "With the cable in the car and the ignition on (engine off), the program connects to the engine, the instrument cluster and the ABS, reads the identification, the faults and block 001, and records all the communication. At the end, compare the faults with VCDS and send the recording and the report.",
     "Com o equipamento \"Adaptador OBD\": página OBD — todas as marcas (os mesmos serviços OBD-II/UDS) e controladores VAG por CAN (TP2.0, os mesmos serviços de leitura)":
         "With the \"OBD adapter\" equipment: OBD — all makes page (the same OBD-II/UDS services) and VAG modules over CAN (TP2.0, the same reading services)",
-    "Como o VCDS deve mostrar":
-        "How VCDS should show it",
-    "Compare cada linha com o VCDS no mesmo carro: o código e o estado (por exemplo 35-10) têm de ser iguais.":
-        "Compare each line with VCDS on the same car: the code and the status (for example 35-10) must match.",
     "Código aceite: o controlador concedeu o acesso.":
         "Code accepted: the module granted access.",
     "Detalhe":
@@ -3755,8 +3733,6 @@ EN = {
         "Tested only with the J2534 simulator. KW1281 is refused (the J2534 standard does not allow per-byte timing).",
     "Todos os Auto-Scans e relatórios ficam guardados neste computador. Procure pela matrícula, pelo VIN ou pelo nome do cliente.":
         "Every Auto-Scan and report is kept on this computer. Search by number plate, VIN or customer name.",
-    "Todos os passos feitos passaram. Compare as avarias com o VCDS e envie a gravação.":
-        "Every step that ran passed. Compare the faults with VCDS and send the recording.",
     "Técnico":
         "Technician",
     "Técnico — protocolos, codificação e estado das avarias":
@@ -3947,58 +3923,26 @@ EN = {
         "groups read: {groups}",
     "{addr:02X} {module}":
         "{addr:02X} {module}",
-    "Auto-Scan do VCDS":
-        "VCDS Auto-Scan",
-    "Avaria {code:05d}":
-        "Fault {code:05d}",
-    "Comparar com o VCDS…":
-        "Compare with VCDS…",
-    "Comparação com o VCDS":
-        "Comparison with VCDS",
-    "Comparação com o VCDS: {text}":
-        "Comparison with VCDS: {text}",
-    "Confirmar à mão":
-        "Check by hand",
-    "Diferente":
-        "Different",
-    "Escolha o Auto-Scan que o VCDS guardou neste carro (ficheiro .txt). Sem uma validação aberta, escolha primeiro a validação guardada (.json).":
-        "Choose the Auto-Scan VCDS saved on this car (.txt file). With no validation open, first choose the saved validation (.json).",
-    "Igual":
-        "Same",
-    "Igual ao VCDS em tudo o que foi comparado.":
-        "Same as VCDS in everything compared.",
-    "Mesmo código, estado diferente: o byte 0x{b} não quer dizer o que o programa mostra.":
-        "Same code, different status: byte 0x{b} does not mean what the program shows.",
-    "Nenhum controlador lido pelo programa aparece no texto do VCDS.":
-        "None of the controllers read by the program appear in the VCDS text.",
-    "Não foi possível abrir a validação: {e}":
-        "Could not open the validation: {e}",
-    "Não foi possível ler o ficheiro do VCDS: {e}":
-        "Could not read the VCDS file: {e}",
-    "O VCDS mostra esta avaria e o programa não a leu.":
-        "VCDS shows this fault and the program did not read it.",
-    "O VCDS mostra o estado no formato novo: o código coincide; anote o estado para fechar o significado do byte.":
-        "VCDS shows the status in the new format: the code matches; note the status down to settle what the byte means.",
-    "O ficheiro não tem os dados de uma validação no carro.":
-        "The file does not hold the data of an in-car validation.",
-    "O programa leu esta avaria e o VCDS não a mostra (pode ter sido lida noutro momento).":
-        "The program read this fault and VCDS does not show it (it may have been read at another time).",
-    "Programa":
-        "Program",
-    "Só no VCDS":
-        "VCDS only",
-    "Só no programa":
-        "Program only",
-    "Texto do VCDS (*.txt);;Todos os ficheiros (*)":
-        "VCDS text (*.txt);;All files (*)",
-    "Texto do VCDS: {path}":
-        "VCDS text: {path}",
-    "Tudo o que se pode comparar coincide com o VCDS; {n} estado(s) para confirmar à mão.":
-        "Everything that can be compared matches VCDS; {n} status(es) to check by hand.",
-    "Validação guardada":
-        "Saved validation",
-    "Validação no carro (*.json)":
-        "In-car validation (*.json)",
-    "{n} diferença(s) em relação ao VCDS — veja as linhas a vermelho.":
-        "{n} difference(s) from VCDS — see the lines in red.",
+    "A leitura de centralinas passa pelo protocolo próprio do microcontrolador; a captura do arranque do cabo mostra uma troca aparentemente autenticada/cifrada. Não se replica nem contorna: este cabo não lê centralinas no Roots Auto Doctor. Modo KKL do firmware testado no carro: sem linha K directa.":
+        "Reading ECUs goes through the microcontroller's own protocol; the capture of the cable starting up shows an exchange that looks authenticated/encrypted. It is not replicated or bypassed: this cable does not read ECUs in Roots Auto Doctor. The firmware's KKL mode was tested on the car: no direct K-line.",
+    "Cada avaria com o byte de estado tal como veio da centralina e o código-tipo que o programa mostra (por exemplo 35-10).":
+        "Each fault with the status byte exactly as the ECU sent it and the code-type the program shows (for example 35-10).",
+    "Centralina KWP2000: o significado do byte de estado ainda não está confirmado num carro. O byte cru fica registado na gravação e neste relatório para o confirmar.":
+        "KWP2000 module: the meaning of the status byte is not confirmed on a car yet. The raw byte is kept in the recording and in this report to confirm it.",
+    "Com o cabo no carro e a ignição ligada (motor parado), o programa liga ao motor, ao painel e ao ABS, lê a identificação, as avarias e o bloco 001, e grava toda a comunicação. No fim, envie a gravação e o relatório.":
+        "With the cable in the car and the ignition on (engine off), the program connects to the engine, the instrument cluster and the ABS, reads the identification, the faults and block 001, and records all the communication. At the end, send the recording and the report.",
+    "Código-tipo":
+        "Code-type",
+    "Esta interface não tem porta COM. Para o Roots Auto Doctor a usar por acesso USB directo, instale o driver WinUSB com o Zadig: Options → List All Devices → escolha '{name}' → WinUSB → Install Driver. Depois carregue de novo em Detectar cabo. (Outros programas deixam de reconhecer esta interface enquanto tiver o WinUSB.) ":
+        "This interface has no COM port. For Roots Auto Doctor to use it through direct USB access, install the WinUSB driver with Zadig: Options → List All Devices → choose '{name}' → WinUSB → Install Driver. Then click Detect cable again. (Other programs stop recognising this interface while it has WinUSB.) ",
+    "Esta interface tem um microcontrolador com firmware {who} entre o USB e o carro, e só fala com o programa desse fabricante. Não funciona como cabo KKL e não pode ser usada pelo Roots Auto Doctor, mesmo com drivers. É preciso um cabo KKL 409.1 (FTDI ou CH340); para módulos KWP2000 também serve uma interface J2534.":
+        "This interface has a microcontroller with firmware {who} between the USB and the car, and only talks to that manufacturer's program. It does not work as a KKL cable and cannot be used by Roots Auto Doctor, even with drivers. You need a KKL 409.1 cable (FTDI or CH340); for KWP2000 modules a J2534 interface also works.",
+    "Firmware fechado do fabricante":
+        "Manufacturer's closed firmware",
+    "Interfaces HEX-V2 / HEX-NET originais":
+        "Original HEX-V2 / HEX-NET interfaces",
+    "Todos os passos feitos passaram. Envie a gravação e o relatório.":
+        "Every step that ran passed. Send the recording and the report.",
+    "Usa a biblioteca D2XX do driver que já está instalado. Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada. ":
+        "Uses the D2XX library of the driver already installed. Run the Connection check with the cable in the car and the ignition on. ",
 }

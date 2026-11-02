@@ -1,4 +1,4 @@
-"""Camada física: linha K através de cabo KKL / clone VCDS "dumb" (FTDI, CH340...).
+"""Camada física: linha K através de cabo KKL (FTDI, CH340...).
 
 A porta pode ser uma COM normal (pyserial), um chip FTDI por USB directo (rad/ftdi_direct.py, "FTDI:...")
 ou um chip FTDI com driver D2XX próprio (rad/d2xx.py, "D2XX:..."). Todos imitam o serial.Serial.
@@ -7,7 +7,7 @@ O cabo KKL é um conversor USB-série com um transístor que liga o TX/RX ao pin
 (linha K) da ficha OBD. A linha K é um fio único, por isso tudo o que enviamos
 volta também ao nosso RX ("eco") e tem de ser descartado.
 
-A inicialização a 5 baud (usada pelo VCDS em KW1281 e KWP2000 nos VAG antigos)
+A inicialização a 5 baud (usada em KW1281 e KWP2000 nos VAG antigos)
 é feita por "bit-banging" com o sinal BREAK da UART: BREAK ligado = linha em
 nível baixo (bit 0), BREAK desligado = nível alto (bit 1), 200 ms por bit.
 """
@@ -205,7 +205,7 @@ class KLine:
             from .ftdi_direct import FtdiSerial      # chip FTDI sem porta COM (WinUSB), ex.: clone HEX-USB
             self.ser = FtdiSerial(self.port_name, 10400, timeout=0.5)
         elif self.port_name.startswith("D2XX:"):
-            from .d2xx import open_serial          # chip FTDI com driver D2XX próprio (ex.: RT-USB da Ross-Tech)
+            from .d2xx import open_serial          # chip FTDI com driver D2XX próprio (ex.: driver RT-USB original)
             self.ser = open_serial(self.port_name)
         else:
             import serial

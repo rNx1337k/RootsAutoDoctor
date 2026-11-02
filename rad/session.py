@@ -18,7 +18,7 @@ from .protocols.kwp2000 import KWP2000, KWP2000J2534
 from . import vag_data
 from .i18n import tr
 
-# As velocidades que os controladores VAG de linha K usam (as mesmas que o VCDS experimenta). Depois de um sync
+# As velocidades que os controladores VAG de linha K usam (1200 a 10400 baud). Depois de um sync
 # errado, a ordem passa a ser a que o byte recebido indica (rad.kline.rank_bauds): o controlador certo costuma
 # responder na tentativa seguinte.
 AUTO_BAUDS = (10400, 9600, 4800, 2400, 1200)
