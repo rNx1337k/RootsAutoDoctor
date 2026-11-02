@@ -397,6 +397,14 @@ def test_recording_and_validation_from_the_interface():
         assert _wait(app, lambda: not dlg.running, 30), "a validação não terminou"
         assert dlg.tree.topLevelItemCount() == 8 and dlg.report_btn.isEnabled()
         assert dlg.report["report_path"].endswith(".html") and dlg.verdict.text()
+        vcds_txt = os.path.join(tempfile.mkdtemp(), "WAUZZZ8LZ1A000000-Autoscan.txt")
+        with open(vcds_txt, "w", encoding="cp1252") as fh:
+            fh.write("Address 01: Engine        Labels: 038-906-019-ASZ.lbl\n   Part No: 038 906 019 FN\n"
+                     "   Coding: 00002\n")
+        comparison = dlg.compare_vcds(vcds_path=vcds_txt)
+        assert comparison and comparison["summary"]["match"] == 2 and "Igual ao VCDS" in dlg.vcds.text()
+        with open(dlg.report["report_path"], encoding="utf-8") as fh:
+            assert "Comparação com o VCDS" in fh.read()
         dlg.reject()
         assert not dlg.isVisible()
     finally:

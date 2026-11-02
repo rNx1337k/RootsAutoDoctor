@@ -3947,4 +3947,58 @@ EN = {
         "groups read: {groups}",
     "{addr:02X} {module}":
         "{addr:02X} {module}",
+    "Auto-Scan do VCDS":
+        "VCDS Auto-Scan",
+    "Avaria {code:05d}":
+        "Fault {code:05d}",
+    "Comparar com o VCDS…":
+        "Compare with VCDS…",
+    "Comparação com o VCDS":
+        "Comparison with VCDS",
+    "Comparação com o VCDS: {text}":
+        "Comparison with VCDS: {text}",
+    "Confirmar à mão":
+        "Check by hand",
+    "Diferente":
+        "Different",
+    "Escolha o Auto-Scan que o VCDS guardou neste carro (ficheiro .txt). Sem uma validação aberta, escolha primeiro a validação guardada (.json).":
+        "Choose the Auto-Scan VCDS saved on this car (.txt file). With no validation open, first choose the saved validation (.json).",
+    "Igual":
+        "Same",
+    "Igual ao VCDS em tudo o que foi comparado.":
+        "Same as VCDS in everything compared.",
+    "Mesmo código, estado diferente: o byte 0x{b} não quer dizer o que o programa mostra.":
+        "Same code, different status: byte 0x{b} does not mean what the program shows.",
+    "Nenhum controlador lido pelo programa aparece no texto do VCDS.":
+        "None of the controllers read by the program appear in the VCDS text.",
+    "Não foi possível abrir a validação: {e}":
+        "Could not open the validation: {e}",
+    "Não foi possível ler o ficheiro do VCDS: {e}":
+        "Could not read the VCDS file: {e}",
+    "O VCDS mostra esta avaria e o programa não a leu.":
+        "VCDS shows this fault and the program did not read it.",
+    "O VCDS mostra o estado no formato novo: o código coincide; anote o estado para fechar o significado do byte.":
+        "VCDS shows the status in the new format: the code matches; note the status down to settle what the byte means.",
+    "O ficheiro não tem os dados de uma validação no carro.":
+        "The file does not hold the data of an in-car validation.",
+    "O programa leu esta avaria e o VCDS não a mostra (pode ter sido lida noutro momento).":
+        "The program read this fault and VCDS does not show it (it may have been read at another time).",
+    "Programa":
+        "Program",
+    "Só no VCDS":
+        "VCDS only",
+    "Só no programa":
+        "Program only",
+    "Texto do VCDS (*.txt);;Todos os ficheiros (*)":
+        "VCDS text (*.txt);;All files (*)",
+    "Texto do VCDS: {path}":
+        "VCDS text: {path}",
+    "Tudo o que se pode comparar coincide com o VCDS; {n} estado(s) para confirmar à mão.":
+        "Everything that can be compared matches VCDS; {n} status(es) to check by hand.",
+    "Validação guardada":
+        "Saved validation",
+    "Validação no carro (*.json)":
+        "In-car validation (*.json)",
+    "{n} diferença(s) em relação ao VCDS — veja as linhas a vermelho.":
+        "{n} difference(s) from VCDS — see the lines in red.",
 }

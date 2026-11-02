@@ -11,6 +11,37 @@ import random
 import time
 
 
+
+def uart_byte(value, tx_baud, rx_baud, rate_error=0.0, start_offset=0.0):
+    """Byte que uma UART a rx_baud lê quando a linha transmite `value` a tx_baud (8N1, linha em repouso a 1 antes
+    e depois). A UART dispara no flanco descendente do bit de início e lê cada bit a meio do seu tempo de bit.
+    rate_error: erro relativo do relógio de quem envia; start_offset: atraso na detecção do início (em bits rx).
+    Devolve None se não chegar a ver um bit de início válido.
+    Está aqui (e não em rad/kline.py) porque este ficheiro tem de funcionar sozinho no Python portátil das pontes
+    D2XX/J2534; rad.kline.uart_reads e rank_bauds usam-no para escolher a velocidade."""
+    t_tx = 1.0 / (tx_baud * (1.0 + rate_error))
+    t_rx = 1.0 / rx_baud
+    frame = [0] + [(value >> i) & 1 for i in range(8)] + [1]
+
+    def level(t):
+        k = int(t // t_tx) if t >= 0 else -1
+        return frame[k] if 0 <= k < len(frame) else 1
+
+    k = 0                                               # índice do bit onde está o flanco descendente
+    while k < len(frame):
+        t0 = k * t_tx + start_offset * t_rx
+        if level(t0 + 0.5 * t_rx) == 0:                 # bit de início confirmado a meio
+            out = 0
+            for i in range(8):
+                out |= level(t0 + (i + 1.5) * t_rx) << i
+            return out
+        # falso início: procurar o próximo flanco descendente (1 → 0) depois deste
+        k += 1
+        while k < len(frame) and not (frame[k] == 0 and frame[k - 1] == 1):
+            k += 1
+    return None
+
+
 def _ascii(s):
     return [ord(c) for c in s]
 
@@ -443,7 +474,9 @@ class SimSerial:
         time.sleep(0.05)
         ecu = factory()
         if self.baudrate != ecu.baud:
-            self.rx.append(0xD5 if self.baudrate < ecu.baud else 0x2A)
+            # o 0x55 a outra velocidade chega como o byte que uma UART real leria (rad.kline.rank_bauds usa-o)
+            b = uart_byte(0x55, ecu.baud, self.baudrate)
+            self.rx.append(b if b not in (None, 0x55) else (0xD5 if self.baudrate < ecu.baud else 0x2A))
             self.ecu = None
             return
         self.ecu = ecu

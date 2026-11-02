@@ -11,13 +11,17 @@ import time
 
 from .errors import (ProtocolError, ConnectError, NoResponse, KLineError, NotSupported, OperationUnconfirmed,
                      RequestRejected)
-from .kline import is_simulated_port
+from .errors import InterfaceError
+from .kline import is_simulated_port, rank_bauds, uart_reads
 from .protocols.kw1281 import KW1281
 from .protocols.kwp2000 import KWP2000, KWP2000J2534
 from . import vag_data
 from .i18n import tr
 
-AUTO_BAUDS = (10400, 9600, 4800)
+# As velocidades que os controladores VAG de linha K usam (as mesmas que o VCDS experimenta). Depois de um sync
+# errado, a ordem passa a ser a que o byte recebido indica (rad.kline.rank_bauds): o controlador certo costuma
+# responder na tentativa seguinte.
+AUTO_BAUDS = (10400, 9600, 4800, 2400, 1200)
 
 
 def _interface_info(kl):
@@ -87,45 +91,70 @@ class ECUSession:
             return self._connect_can(address, retry)
         if getattr(self.kl, "is_j2534", False):
             return self._connect_j2534(address)
-        bauds = list(AUTO_BAUDS if self.baud_setting == "auto" else (int(self.baud_setting),))
-        res, used_baud = None, None
+        auto = self.baud_setting == "auto"
+        bauds = list(AUTO_BAUDS if auto else (int(self.baud_setting),))
+        res, used_baud, ident = None, None, None
         retried = False
-        i = 0
-        while i < len(bauds):
-            baud = bauds[i]
+        attempts = 0
+        start_error = None              # o controlador sincronizou, mas a sessão não arrancou a essa velocidade
+        while bauds:
+            baud = bauds.pop(0)
             if getattr(self.kl, "cancelled", False):
                 raise ConnectError(tr("Operação cancelada"))
-            if i or retried:
-                time.sleep(0.4 if not self.kl.is_simulator else 0)
+            if attempts or retried:
+                time.sleep(0 if self.kl.is_simulator else (1.0 if start_error else 0.4))
+            attempts += 1
             self.log(f"Init 5 baud → endereço {address:02X} a {baud} baud…")
             r = self.kl.five_baud_init(address, baud)
-            if r["status"] == "ok":
-                res, used_baud = r, baud
-                break
             if r["status"] == "none":
+                if start_error is not None:
+                    raise start_error             # já tinha sincronizado: o erro útil é o do arranque
                 if retry and not retried:
                     retried = True
                     self.log("  sem resposta — nova tentativa")
                     time.sleep(1.0 if not self.kl.is_simulator else 0)
+                    bauds.insert(0, baud)
                     continue
                 raise NoResponse(tr("O controlador {address:02X} não responde (verifique ignição, cabo e endereço)",
                                     address=address))
-            self.log(f"  sync inválido (0x{r['byte']:02X}) — a tentar outra velocidade")
-            i += 1
+            if r["status"] != "ok":
+                bauds = rank_bauds(r["byte"], baud, bauds) if auto else bauds
+                hint = f" — o byte indica {bauds[0]} baud" if auto and bauds and \
+                    r["byte"] in uart_reads(0x55, bauds[0], baud) else ""
+                self.log(f"  sync inválido (0x{r['byte']:02X}) — a tentar outra velocidade{hint}")
+                continue
+            kw = r["keyword"]
+            self.log(f"Sync OK a {baud} baud — KB1={r['kb1']:02X} KB2={r['kb2']:02X} "
+                     f"(keyword {kw})")
+            # 9600 e 10400 baud estão a ~8 %: no limite da tolerância da UART o 0x55 de uma velocidade pode ler-se
+            # bem na outra e só os bytes seguintes saem errados. Nesse caso tenta-se a velocidade vizinha.
+            neighbours = [b for b in bauds if 0x55 in uart_reads(0x55, b, baud)] if auto else []
+            try:
+                if kw == 1281:
+                    proto = KW1281(self.kl, address, self.log)
+                elif 2000 <= kw <= 2047:
+                    proto = KWP2000(self.kl, address, self.log, r["address_byte"])
+                else:
+                    raise ConnectError(tr("Protocolo desconhecido (keyword {kw})", kw=kw))
+                self.proto = proto
+                ident = proto.start()
+            except InterfaceError:
+                raise
+            except ProtocolError as e:
+                if not neighbours or str(e) == tr("Operação cancelada"):
+                    raise
+                self.proto = None
+                start_error = e
+                self.log(f"  a sessão não arrancou a {baud} baud ({e}) — a tentar {neighbours[0]} baud")
+                bauds = neighbours + [b for b in bauds if b not in neighbours]
+                continue
+            res, used_baud = r, baud
+            break
         if res is None:
+            if start_error is not None:
+                raise start_error
             raise ConnectError(tr("Sincronização falhou em todas as velocidades"))
 
-        kw = res["keyword"]
-        self.log(f"Sync OK a {used_baud} baud — KB1={res['kb1']:02X} KB2={res['kb2']:02X} "
-                 f"(keyword {kw})")
-        if kw == 1281:
-            self.proto = KW1281(self.kl, address, self.log)
-        elif 2000 <= kw <= 2047:
-            self.proto = KWP2000(self.kl, address, self.log, res["address_byte"])
-        else:
-            raise ConnectError(tr("Protocolo desconhecido (keyword {kw})", kw=kw))
-
-        ident = self.proto.start()
         self.connected = True
         self.info = {
             "address": address,

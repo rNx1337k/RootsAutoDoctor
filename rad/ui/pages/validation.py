@@ -5,15 +5,16 @@ import os
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QBrush, QColor, QDesktopServices
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QHeaderView, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
+    QCheckBox, QDialog, QFileDialog, QHBoxLayout, QHeaderView, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
 )
 
-from ... import capture, validation
+from ... import capture, validation, vcds_log
 from ...i18n import tr
 from ..style import BAD, MUTED, OK, TEXT
 from .common import btn, lbl
 
 COLORS = {validation.OK: OK, validation.FAIL: BAD, validation.SKIP: MUTED, validation.ABSENT: MUTED}
+VCDS_LOGS = r"C:\Ross-Tech\VCDS\Logs"          # onde o VCDS guarda os Auto-Scans por omissão
 
 
 class ValidationDialog(QDialog):
@@ -47,6 +48,8 @@ class ValidationDialog(QDialog):
         v.addWidget(self.tree, 1)
         self.verdict = lbl("", "h2", wrap=True)
         v.addWidget(self.verdict)
+        self.vcds = lbl("", "muted", wrap=True)
+        v.addWidget(self.vcds)
         self.files = lbl("", "muted", wrap=True)
         self.files.setTextInteractionFlags(Qt.TextSelectableByMouse)
         v.addWidget(self.files)
@@ -56,6 +59,10 @@ class ValidationDialog(QDialog):
         self.report_btn = btn(tr("Abrir relatório"), None, self.open_report)
         self.report_btn.setEnabled(False)
         row.addWidget(self.report_btn)
+        self.vcds_btn = btn(tr("Comparar com o VCDS…"), None, lambda: self.compare_vcds())
+        self.vcds_btn.setToolTip(tr("Escolha o Auto-Scan que o VCDS guardou neste carro (ficheiro .txt). Sem uma "
+                                    "validação aberta, escolha primeiro a validação guardada (.json)."))
+        row.addWidget(self.vcds_btn)
         row.addWidget(btn(tr("Abrir pasta das gravações"), None, self.open_folder))
         row.addStretch(1)
         self.close_btn = btn(tr("Fechar"), None, self.reject)
@@ -73,6 +80,7 @@ class ValidationDialog(QDialog):
         self.verdict.setText(tr("A validar… não desligue o cabo nem a ignição."))
         self.verdict.setStyleSheet(f"color: {TEXT};")
         self.files.setText("")
+        self.vcds.setText("")
         self.report = None
         self.report_btn.setEnabled(False)
         self.running = True
@@ -114,6 +122,44 @@ class ValidationDialog(QDialog):
         path = (self.report or {}).get("report_path")
         if path and os.path.exists(path):
             QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    def compare_vcds(self, vcds_path=None, report_path=None):
+        """Compara a validação (a desta janela ou uma guardada) com o Auto-Scan do VCDS no mesmo carro e reescreve
+        o relatório. Os caminhos só se passam nos testes; normalmente escolhem-se nas janelas de ficheiros."""
+        if self.running:
+            return
+        report = self.report
+        if report is None:
+            if report_path is None:
+                report_path, _ = QFileDialog.getOpenFileName(self, tr("Validação guardada"), capture.captures_dir(),
+                                                             tr("Validação no carro (*.json)"))
+            if not report_path:
+                return
+            try:
+                report = validation.load_data(report_path)
+            except (OSError, ValueError) as e:
+                self._vcds_message(tr("Não foi possível abrir a validação: {e}", e=e), False)
+                return
+        if vcds_path is None:
+            start = VCDS_LOGS if os.path.isdir(VCDS_LOGS) else os.path.expanduser("~")
+            vcds_path, _ = QFileDialog.getOpenFileName(self, tr("Auto-Scan do VCDS"), start,
+                                                       tr("Texto do VCDS (*.txt);;Todos os ficheiros (*)"))
+        if not vcds_path:
+            return
+        try:
+            comparison = validation.compare_with_vcds(report, vcds_path)
+        except OSError as e:
+            self._vcds_message(tr("Não foi possível ler o ficheiro do VCDS: {e}", e=e), False)
+            return
+        self.report = report
+        text, ok = vcds_log.verdict(comparison)
+        self._vcds_message(text, ok)
+        self.report_btn.setEnabled(bool(report.get("report_path")))
+        return comparison
+
+    def _vcds_message(self, text, ok):
+        self.vcds.setText(tr("Comparação com o VCDS: {text}", text=text))
+        self.vcds.setStyleSheet(f"color: {OK if ok else BAD};")
 
     def open_folder(self):
         QDesktopServices.openUrl(QUrl.fromLocalFile(capture.captures_dir()))

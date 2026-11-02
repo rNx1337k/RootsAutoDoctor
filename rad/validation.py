@@ -15,10 +15,15 @@ Passos (os módulos que não existem no carro ficam "não instalado", não conta
 """
 import datetime
 import html
+import json
+import logging
+import os
 import platform
 
 from . import APP_NAME, VERSION
 from .i18n import tr
+
+log = logging.getLogger(__name__)
 
 OK, FAIL, SKIP, ABSENT = "ok", "fail", "skip", "absent"
 
@@ -62,6 +67,38 @@ def fault_rows(faults, protocol):
 
 def _e(s):
     return html.escape(str(s if s is not None else ""))
+
+
+def attach_vcds(report, text, source=""):
+    """Junta ao relatório a comparação com o texto de um Auto-Scan do VCDS no mesmo carro (rad/vcds_log.py).
+    Devolve a comparação. O texto do VCDS não fica no relatório: só os campos comparados."""
+    from . import vcds_log
+    comparison = vcds_log.compare(report, vcds_log.parse(text))
+    comparison["source"] = source
+    report["vcds_compare"] = comparison
+    return comparison
+
+
+def _vcds_html(comparison):
+    from . import vcds_log
+    if not comparison:
+        return ""
+    text, ok = vcds_log.verdict(comparison)
+    colors = {vcds_log.MATCH: "#1E9E5A", vcds_log.DIFF: "#C0392B", vcds_log.ONLY_VCDS: "#C0392B",
+              vcds_log.ONLY_RAD: "#E0A100", vcds_log.MANUAL: "#E0A100"}
+    parts = [f"<h2>{_e(tr('Comparação com o VCDS'))}</h2>",
+             f"<p class='verdict' style='border-left-color:{'#1E9E5A' if ok else '#C0392B'}'><b>{_e(text)}</b></p>"]
+    if comparison.get("source"):
+        parts.append(f"<p class='m'>{_e(tr('Texto do VCDS: {path}', path=comparison['source']))}</p>")
+    for mod in comparison.get("modules", []):
+        rows = "".join(
+            f"<tr><td>{_e(r['item'])}</td><td class='mono'>{_e(r['rad'])}</td><td class='mono'>{_e(r['vcds'])}</td>"
+            f"<td style='color:{colors.get(r['result'], '#1B2338')}'><b>{_e(vcds_log.result_text(r['result']))}</b>"
+            f"</td><td>{_e(r['note'])}</td></tr>" for r in mod["rows"])
+        parts.append(f"<h3>{mod['address']:02X} {_e(mod.get('name'))} — {_e(mod.get('protocol'))}</h3>"
+                     f"<table class='t'><tr><th></th><th>{_e(tr('Programa'))}</th><th>VCDS</th>"
+                     f"<th>{_e(tr('Resultado'))}</th><th></th></tr>{rows}</table>")
+    return "".join(parts)
 
 
 def build_html(report):
@@ -124,6 +161,7 @@ def build_html(report):
 <p class="m">{_e(tr('Compare cada linha com o VCDS no mesmo carro: o código e o estado (por exemplo 35-10) têm de ser '
                     'iguais.'))}</p>
 {''.join(fault_html) or '<p>' + _e(tr('Nenhuma avaria lida.')) + '</p>'}
+{_vcds_html(report.get('vcds_compare'))}
 <h2>{_e(tr('Ficheiros'))}</h2>
 <p>{_e(tr('Gravação da comunicação: {path}', path=report.get('capture') or '—'))}<br>
 {_e(tr('Envie a gravação e este relatório ao suporte.'))}</p>
@@ -134,3 +172,54 @@ def build_html(report):
 def new_report(interface, vehicle=None):
     return {"version": VERSION, "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "interface": interface, "vehicle": vehicle or {}, "steps": [], "modules": [], "capture": None}
+
+
+def data_path(html_path):
+    """Ficheiro com os dados da validação, ao lado do relatório (validacao_<data>.json)."""
+    return os.path.splitext(html_path)[0] + ".json"
+
+
+def save_data(report, html_path):
+    """Guarda os dados da validação ao lado do relatório: permitem comparar com o VCDS mais tarde, também noutro
+    computador (o PC do carro pode não ter o programa aberto quando o Auto-Scan do VCDS fica pronto)."""
+    keep = {k: v for k, v in report.items() if not k.startswith("_")}
+    try:
+        with open(data_path(html_path), "w", encoding="utf-8") as fh:
+            json.dump(keep, fh, ensure_ascii=False, indent=1, default=str)
+    except OSError:
+        log.warning("Não foi possível guardar os dados da validação", exc_info=True)
+
+
+def load_data(path):
+    """Lê os dados de uma validação guardada (.json, ou o .html/.radrec com o mesmo nome)."""
+    base = os.path.splitext(path)[0]
+    with open(base + ".json", encoding="utf-8") as fh:
+        report = json.load(fh)
+    if not isinstance(report, dict) or "steps" not in report or "modules" not in report:
+        raise ValueError(tr("O ficheiro não tem os dados de uma validação no carro."))
+    report.setdefault("report_path", base + ".html")
+    return report
+
+
+def read_text(path):
+    """Texto guardado pelo VCDS (normalmente ANSI / Windows-1252; as versões novas podem gravar em UTF-8)."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    for enc in ("utf-8-sig", "utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else ("utf-8-sig",):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    return raw.decode("cp1252", errors="replace")
+
+
+def compare_with_vcds(report, vcds_path):
+    """Compara a validação com o texto do VCDS, reescreve o relatório (HTML e dados) e devolve a comparação."""
+    from .applog import scrub                      # o VCDS põe o nº de chassis no nome do ficheiro
+    comparison = attach_vcds(report, read_text(vcds_path), scrub(os.path.basename(vcds_path)))
+    html_path = report.get("report_path")
+    if html_path:
+        with open(html_path, "w", encoding="utf-8") as fh:
+            fh.write(build_html(report))
+        save_data(report, html_path)
+    return comparison

@@ -3,6 +3,32 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.15.0] — 2026-11-02
+### Added
+- **Compare the on-car validation with VCDS** (`rad/vcds_log.py`): in the validation window, **Compare with VCDS…**
+  reads the Auto-Scan text VCDS saved on the same car and puts a "Comparison with VCDS" section in the report: part
+  number, coding, each fault code and its status (e.g. 35-10) side by side, marked same / different / VCDS only /
+  program only. A KWP2000 fault with the same code and a different status says so with the raw byte, which is what
+  settles the open question about the KWP2000 status byte; VCDS's newer 3-digit status format is kept for a check
+  by hand. The parser is tolerant (VCDS and VCDS-Lite, `Part No SW … HW …`, P-code lines, freeze frames, ANSI or
+  UTF-8 files) and never reads the chassis number or mileage; the chassis number VCDS puts in the file name is
+  removed from the report.
+- **Validation data saved next to the report** (`validacao_<date>.json`): the comparison can be done later, on
+  another PC — with no validation open, the button first asks for the saved `.json`.
+- **K-line speeds 2400 and 1200 baud** in the automatic speed search (the same five VCDS tries).
+
+### Changed
+- **The wrong-speed byte picks the next speed** (`rad.kline.uart_reads` / `rank_bauds`): after a bad sync, the
+  speeds whose 0x55 would be read as exactly that byte (an 8N1 UART model with ±2 % clock and 1/16-bit start
+  tolerance) are tried first, so a 4800, 2400 or 1200 baud module answers on the second init instead of the fourth
+  or fifth. The other speeds stay in the list in their usual order; a byte that says nothing keeps the old order
+  (saved recordings replay unchanged). The simulator now sends the byte a real UART would read.
+- **A sync that only looks right does not lose the module**: 9600 and 10400 baud are ~8 % apart, so at the edge of
+  UART tolerance one speed's 0x55 can read correctly at the other and only the next bytes come out wrong. If the
+  session then does not start (bad block, timeout, unknown keyword), the neighbouring speed is tried after 1 s
+  before giving up; the error shown is the one from the start, not "does not answer". Interface errors and a fixed
+  speed are never retried.
+
 ## [1.14.2] — 2026-11-01
 ### Fixed
 - **Portable update and rollback scripts wait for the program to close on every PC**: they now call `tasklist`,

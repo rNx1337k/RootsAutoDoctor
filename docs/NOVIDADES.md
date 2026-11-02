@@ -6,6 +6,20 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.15.0
+
+### pt
+- Ligação mais rápida e mais segura aos controladores antigos que comunicam a outras velocidades (painéis, airbags,
+  alguns ABS e rádios): o programa percebe logo à primeira tentativa qual é a velocidade certa.
+- Se a ligação a um controlador falhar logo a seguir ao arranque, o programa tenta sozinho outra vez antes de
+  desistir.
+
+### en
+- Faster and more reliable connection to older controllers that talk at other speeds (instrument clusters, airbags,
+  some ABS units and radios): the program works out the right speed from the first attempt.
+- If the connection to a controller fails right after it starts, the program tries again by itself before giving
+  up.
+
 ## 1.14.2
 
 ### pt

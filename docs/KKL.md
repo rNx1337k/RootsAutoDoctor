@@ -16,8 +16,9 @@ Audit of the full path in the code, not in the README:
 | Port errors → a specific message (not a generic "Connection error") | `rad/kline.py` → `KLineError`/`InterfaceError` | Implemented |
 | Connection states (no interface / inaccessible / open with no ECU / connected / error) | `rad/connstate.py` + `rad/worker.py` | Implemented |
 | KW1281: identification, faults, groups, basic settings, adaptation, login, coding, output tests | `rad/protocols/kw1281.py` | Implemented |
-| KWP2000 (K-line and J2534): identification, faults, groups | `rad/protocols/kwp2000.py` | Implemented (read-only) |
-| KWP2000 writing (adaptation, coding, login, outputs) | `rad/protocols/kwp2000.py` | **Not implemented** (`NotSupported`) — by design |
+| KWP2000 (K-line and J2534): identification, faults, groups | `rad/protocols/kwp2000.py` | Implemented |
+| Speed search (10400 / 9600 / 4800 / 2400 / 1200, next speed picked from the wrong-speed byte) | `rad/session.py`, `rad/kline.py:rank_bauds` | Implemented |
+| KWP2000 writing (coding, adaptation, security access, basic settings, outputs) | `rad/protocols/kwp2000.py` | Implemented, simulator only (every write is read back) |
 | Communication outside the UI (thread), keep-alive, disconnections, forced close | `rad/worker.py` | Implemented |
 
 **Audit conclusion:** KKL support is complete at code level and tested against the simulator and against a
@@ -46,8 +47,11 @@ from the HEX cable's proprietary protocol. When replayed by the emulator the sou
 
 The quickest way is the built-in validation (start the app with `--tecnico`, then **Options → On-car validation**):
 it runs the steps below on its own, records every byte and writes a report with the raw status byte of each fault
-next to how VCDS should show it. Send the `.radrec` recording and the report; the recording then goes into
-`tests/captures/` as a permanent test. The manual procedure:
+next to how VCDS should show it. Run a VCDS Auto-Scan on the same car (before or after — never both programs on
+the cable at once), then **Compare with VCDS…** in the validation window with the Auto-Scan `.txt`
+(`C:\Ross-Tech\VCDS\Logs`): the report gets a side-by-side table of part numbers, coding and fault status. This
+can also be done later on another PC from the saved `validacao_<date>.json`. Send the `.radrec` recording and the
+report; the recording then goes into `tests/captures/` as a permanent test. The manual procedure:
 
 1. Plug the cable into a USB port. In **Options → Detect cable**, check that it shows up as a COM port
    (FTDI/CH340). For FTDI, set the Latency Timer to 1 ms (Device Manager → Ports (COM & LPT) → Properties →

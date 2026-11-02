@@ -19,6 +19,7 @@ from . import capture
 from .errors import InterfaceError, KLineError, KLineTimeout
 from .hexmcu import HEX_LINES, is_hex_port
 from .i18n import tr
+from .simulator import uart_byte   # modelo da UART (no simulador: tem de funcionar sozinho nas pontes)
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +60,29 @@ def port_label(port):
     if port.startswith("J2534:"):
         return tr("Interface de diagnóstico")
     return tr("Cabo USB")
+
+
+def uart_reads(value, tx_baud, rx_baud):
+    """Todos os bytes que uma UART a rx_baud pode ler quando o controlador envia `value` a tx_baud, com as
+    tolerâncias reais (relógio do controlador ±2 %, detecção do início até 1/16 de bit atrasada)."""
+    seen = set()
+    for err in (-0.02, 0.0, 0.02):
+        for off in (0.0, 1 / 16):
+            b = uart_byte(value, tx_baud, rx_baud, err, off)
+            if b is not None:
+                seen.add(b)
+    return seen
+
+
+def rank_bauds(garbage, tried_baud, candidates):
+    """Ordena as velocidades ainda por tentar depois de um sync errado: primeiro as que explicam o byte lido (o
+    0x55 do controlador enviado a essa velocidade e lido a tried_baud dá exactamente esse byte), depois as outras
+    pela ordem original. Nunca retira nenhuma — no pior caso a ordem fica igual."""
+    candidates = list(candidates)
+    if garbage is None:
+        return candidates
+    match = [b for b in candidates if garbage in uart_reads(0x55, b, tried_baud)]
+    return match + [b for b in candidates if b not in match]
 
 
 def precise_sleep(seconds):

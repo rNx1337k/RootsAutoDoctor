@@ -72,7 +72,10 @@ current code and reports byte divergences and changed results. **Every file in `
 cable and ignition, engine (identification, faults, block 001 three times, optional clear and re-read),
 instrument cluster, ABS — always recorded, with an HTML report next to the recording. The report lists each fault
 with the **raw status byte** and how VCDS should show it, which is how the open question about the KWP2000 status
-byte gets settled on the first KWP2000 car.
+byte gets settled on the first KWP2000 car. The report data is also saved as `validacao_<date>.json`;
+**Compare with VCDS…** (`rad/vcds_log.py`) reads the Auto-Scan text VCDS saved on the same car and adds a
+side-by-side comparison (part number, coding, fault codes and status) to the report — on the same PC right after
+the run, or later from the saved `.json`.
 
 ## Quality checks
 
