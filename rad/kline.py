@@ -30,6 +30,72 @@ LINE_COMBOS = (DEFAULT_LINES, (False, False), (True, True), (False, True))
 HEX_COMBOS = (HEX_LINES, (False, True))
 
 
+# Pausa entre o fim de um bloco do controlador e o início do bloco seguinte do programa (KW1281). Os controladores
+# antigos demoram a passar de enviar para receber: com pausas de poucos ms perdem o primeiro byte e a sessão cai.
+# 55 ms é o valor seguro de referência; RAD_KW1281_BLOCK_MS (10–200) permite afinar no modo técnico.
+BLOCK_INTERVAL = 0.055
+BUS_IDLE = 0.35                                    # W5: silêncio na linha K antes de um init a 5 baud (≥ 300 ms)
+BUS_IDLE_LIMIT = 3.0                               # tempo máximo à espera desse silêncio
+
+
+def block_interval(environ=None):
+    """Pausa entre blocos em segundos (BLOCK_INTERVAL, ou RAD_KW1281_BLOCK_MS se for um valor válido)."""
+    import os
+    raw = (os.environ if environ is None else environ).get("RAD_KW1281_BLOCK_MS", "")
+    try:
+        ms = float(raw)
+    except (TypeError, ValueError):
+        return BLOCK_INTERVAL
+    return ms / 1000 if 10 <= ms <= 200 else BLOCK_INTERVAL
+
+
+class SteadySerial:
+    """Porta COM (pyserial) com o tempo de espera do sistema fixo.
+
+    No Windows, mudar `timeout` no pyserial volta a programar a porta inteira (SetCommState: velocidade, formato,
+    DTR/RTS). O KW1281 usa tempos de espera diferentes para o eco, o complemento e o bloco seguinte, por isso a
+    porta era reprogramada duas vezes por byte, a meio da conversa — mais lento e, em alguns drivers, com perda
+    de bytes. Aqui a porta fica sempre com uma espera curta (SLICE) e o tempo pedido é contado em Python: `timeout`
+    passa a ser um atributo normal. Uma leitura devolve assim que os bytes chegam."""
+
+    SLICE = 0.01
+
+    def __init__(self, ser, timeout=0.5):
+        object.__setattr__(self, "_ser", ser)
+        object.__setattr__(self, "timeout", timeout)
+        object.__setattr__(self, "_cancelled", False)
+
+    def read(self, size=1):
+        ser, t = self._ser, self.timeout
+        end = None if t is None else time.perf_counter() + t
+        out = b""
+        while True:
+            d = ser.read(size - len(out))
+            if d:
+                out += d
+            if self._cancelled:                      # fecho forçado: não esperar o resto do tempo
+                object.__setattr__(self, "_cancelled", False)
+                return out
+            if len(out) >= size or (end is not None and time.perf_counter() >= end):
+                return out
+
+    def cancel_read(self):
+        """Chamado de outra thread ao fechar o programa: a leitura em curso termina logo."""
+        object.__setattr__(self, "_cancelled", True)
+        fn = getattr(self._ser, "cancel_read", None)
+        if callable(fn):
+            fn()
+
+    def __getattr__(self, name):
+        return getattr(self._ser, name)
+
+    def __setattr__(self, name, value):
+        if name == "timeout":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._ser, name, value)
+
+
 SIM_J2534_PORT = "J2534:SIMULADOR-J2534"
 SIM_D2XX_PORT = "D2XX:SIM00001"
 SIM_ELM_PORT = "ELM327:SIMULADOR"          # igual a rad.obd.elm327.ELM_SIM_PORT
@@ -180,6 +246,7 @@ class KLine:
         self.is_hex = is_hex_port(port)
         self.lines = HEX_LINES if self.is_hex else DEFAULT_LINES
         self.cancelled = False                     # pôr a True (de outra thread) interrompe o init a 5 baud
+        self.block_interval = block_interval()     # pausa antes de cada bloco KW1281 (só com um carro real)
 
     # ------------------------------------------------------------------ porta
     @property
@@ -189,6 +256,12 @@ class KLine:
     @property
     def is_simulator(self):
         return self.port_name == SIM_PORT
+
+    @property
+    def paced(self):
+        """True quando do outro lado está um carro: só aí se respeitam as pausas do protocolo (os simuladores e as
+        gravações respondem logo)."""
+        return not is_simulated_port(self.port_name)
 
     def open(self):
         if self.ser is not None:
@@ -210,8 +283,8 @@ class KLine:
         else:
             import serial
             try:
-                self.ser = serial.Serial(self.port_name, 10400, bytesize=8, parity="N",
-                                         stopbits=1, timeout=0.5, write_timeout=1.0)
+                self.ser = SteadySerial(serial.Serial(self.port_name, 10400, bytesize=8, parity="N", stopbits=1,
+                                                      timeout=SteadySerial.SLICE, write_timeout=1.0))
             except Exception as e:  # SerialException, PermissionError...
                 self.ser = None
                 raise KLineError(tr("Não foi possível abrir a porta {port_name}: {e}",
@@ -335,11 +408,11 @@ class KLine:
             ser.baudrate = baud
             ser.sim_five_baud(address)
         else:
+            ser.break_condition = False
+            self._wait_bus_idle()                    # barramento em repouso (W5 ≥ 300 ms)
             mark = getattr(ser, "capture_init", None)    # gravação activa: marca o endereço do init
             if mark is not None:
                 mark(address, baud)
-            ser.break_condition = False
-            precise_sleep(0.35)                      # barramento em repouso (W5 ≥ 300 ms)
             try:
                 ser.reset_input_buffer()
             except Exception:
@@ -379,7 +452,9 @@ class KLine:
         except Exception as e:
             raise KLineError(tr("Erro de escrita: {e}", e=e)) from e
         if self.echo is None:                        # detecção automática do eco
-            b = self.read_byte(0.06)
+            # O eco chega logo; num PC lento ou com o Latency Timer alto pode demorar dezenas de ms. Esperar mais
+            # não atrasa nada: sem eco, o primeiro byte do controlador chega dentro deste tempo e fica guardado.
+            b = self.read_byte(0.2)
             if b == inv:
                 self.echo = True
                 self.log("Interface: eco da linha K detectado (cabo KKL normal)")
@@ -396,6 +471,31 @@ class KLine:
         keyword = ((kb2 & 0x7F) << 7) | (kb1 & 0x7F)
         return {"status": "ok", "kb1": kb1, "kb2": kb2, "keyword": keyword,
                 "address_byte": addr_byte}
+
+    def _wait_bus_idle(self, quiet=BUS_IDLE, limit=BUS_IDLE_LIMIT):
+        """Espera até a linha K estar calada durante `quiet` segundos e deita fora o que chegar entretanto.
+
+        Um controlador que ficou a meio de uma sessão (erro, velocidade errada, cabo mexido) continua a enviar bytes
+        durante algum tempo; um init começado por cima deles falha sempre. Com a linha já calada demora o mesmo que
+        a pausa fixa de antes. Devolve o nº de bytes ignorados."""
+        end = time.perf_counter() + limit
+        stale = 0
+        while True:
+            t0 = time.perf_counter()
+            self._set_timeout(quiet)
+            try:
+                d = self.ser.read(1)
+            except Exception as e:
+                raise InterfaceError(tr("Erro de leitura na porta: {e}", e=e)) from e
+            if not d:
+                precise_sleep(quiet - (time.perf_counter() - t0))    # portas que não esperam: garante o silêncio
+                break
+            stale += 1
+            if self.cancelled or time.perf_counter() >= end:
+                break
+        if stale:
+            self.log(f"Linha K: {stale} byte(s) pendentes ignorados antes do init")
+        return stale
 
     def set_lines(self, dtr, rts):
         """Nos cabos KKL o DTR/RTS costuma alimentar/comutar o driver da linha K/L."""

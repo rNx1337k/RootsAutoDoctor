@@ -55,6 +55,7 @@ class Worker(QThread):
         self._obd_silent = 0
         self.licensed = True               # a janela actualiza com rad.licensing.status() ao abrir
         self.capture_path = None           # gravação da comunicação em curso (rad/capture.py)
+        self._baud_hints = {}              # (porta, endereço) → velocidade a que o controlador respondeu da última vez
         self._cap_cmd = None
         # A gravação regista os resultados na própria thread de comunicação, pela ordem em que acontecem
         # (ligação directa: não passa pela fila de eventos da janela).
@@ -354,6 +355,48 @@ class Worker(QThread):
         if note:
             self.log.emit(tr("Eco da linha K OK") + note)
 
+    START_RETRY_WAIT = 1.5                 # s: o controlador que ficou a meio de uma sessão tem de a deixar expirar
+
+    def _open_session(self, address, retry=False):
+        """Liga a um controlador e devolve (sessão, identificação).
+
+        Num carro, o primeiro arranque de sessão falha às vezes sem culpa de ninguém (um byte perdido, o controlador
+        ainda a largar a sessão anterior): o controlador respondeu ao init mas a identificação não chegou inteira.
+        Nesse caso espera-se que ele largue a sessão e tenta-se uma vez mais antes de mostrar o erro. Um controlador
+        que não responde, uma interface que falhou ou um cancelamento não se repetem; no simulador, onde os erros
+        são sempre iguais, também não.
+
+        Com a velocidade em "auto", lembra-se a velocidade a que cada controlador respondeu (só enquanto o programa
+        está aberto) e começa-se por ela da vez seguinte."""
+        port = self.cfg.get("port", "")
+        if getattr(self.kl, "is_j2534", False) or getattr(self.kl, "is_vagcan", False):
+            s = ECUSession(self.kl, self._log, self.cfg["baud"])
+            return s, s.connect(address, retry=retry)
+        # A velocidade a que este controlador respondeu da última vez é a primeira a ser tentada: um painel a
+        # 9600 baud deixa de custar um init falhado (3 s) cada vez que se volta a abrir.
+        key = (port, address)
+        s = ECUSession(self.kl, self._log, self.cfg["baud"], prefer=self._baud_hints.get(key))
+        try:
+            info = s.connect(address, retry=retry)
+        except (InterfaceError, NoResponse):
+            raise
+        except ProtocolError as e:
+            self._baud_hints.pop(key, None)          # a nova tentativa procura a velocidade outra vez, do início
+            if is_simulated_port(port) and not capture.is_replay_port(port):
+                raise                                # no simulador os erros são sempre iguais: repetir não adianta
+            if getattr(self.kl, "cancelled", False) or not self._running:
+                raise
+            log.warning("Arranque de sessão com %02X falhou (%s): nova tentativa", address, e)
+            self.log.emit(tr("O controlador {address:02X} respondeu mas a sessão não arrancou ({e}) — nova tentativa",
+                             address=address, e=e))
+            if getattr(self.kl, "paced", False):
+                time.sleep(self.START_RETRY_WAIT)
+            s = ECUSession(self.kl, self._log, self.cfg["baud"])
+            info = s.connect(address, retry=retry)
+        if self.cfg["baud"] == "auto" and isinstance(info.get("baud"), int):
+            self._baud_hints[key] = info["baud"]
+        return s, info
+
     # ------------------------------------------------------------ comandos
     def _dispatch(self, cmd, args):
         self._cap_cmd = cmd
@@ -503,8 +546,7 @@ class Worker(QThread):
         self.state.emit("connecting", address)
         self._emit_link(connstate.connecting(address))
         self._preflight()
-        s = ECUSession(self.kl, self._log, self.cfg["baud"])
-        info = s.connect(address, retry=True)
+        s, info = self._open_session(address, retry=True)
         self.session = s
         self.log.emit(tr("Ligado a {address:02X} — {part} {component}",
                          address=address, part=info['part'], component=info['component']))
@@ -627,8 +669,7 @@ class Worker(QThread):
                 if not ok:
                     return
             try:
-                s = ECUSession(self.kl, self._log, self.cfg["baud"])
-                info = s.connect(address, retry=True)
+                s, info = self._open_session(address, retry=True)
                 ident = f"{info['part']} {info['component']}".strip()
                 steps.append((tr("Ligação ao controlador {address:02X}", address=address), True,
                               tr("{protocol} a {baud} baud — {part} {component}",
@@ -669,8 +710,7 @@ class Worker(QThread):
             scanned += 1
             item = {"address": addr, "module": vag_data.module_name(addr)}
             try:
-                s = ECUSession(self.kl, self._log, self.cfg["baud"])
-                item["info"] = s.connect(addr)
+                s, item["info"] = self._open_session(addr)
                 item["faults"] = s.read_faults()
                 item["status"] = "ok"
                 s.disconnect()
@@ -757,6 +797,7 @@ class Worker(QThread):
                     time.sleep(0.35)
         finally:
             rep.pop("_interface_error", None)
+            rep["link"] = self._link_facts()
             rep["report_path"] = None if replaying else self._save_validation_report(rep)
             self.result.emit("validation", rep)             # antes de parar: o resultado fica na gravação
             if own_capture:
@@ -768,9 +809,9 @@ class Worker(QThread):
         mod = {"address": addr, "module": name}
         rep["modules"].append(mod)
         t0 = time.monotonic()
-        s = ECUSession(self.kl, self._log, self.cfg["baud"])
+        s = None
         try:
-            info = s.connect(addr, retry=True)
+            s, info = self._open_session(addr, retry=True)
         except NoResponse as e:
             result = validation.FAIL if addr == 0x01 else validation.ABSENT
             detail = str(e) if addr == 0x01 else tr("Não respondeu (o carro pode não ter este controlador).")
@@ -795,6 +836,7 @@ class Worker(QThread):
         if addr == 0x01:
             steps.append(("group1", tr("{prefix}: bloco de medição 001 ({n} leituras)", prefix=prefix,
                                        n=validation.GROUP_READS), lambda: self._v_group(s)))
+            steps.append(("hold", tr("{prefix}: manter a sessão aberta", prefix=prefix), lambda: self._v_hold(s)))
             if options.get("clear"):
                 steps.append(("clear", tr("{prefix}: apagar avarias e voltar a ler", prefix=prefix),
                               lambda: self._v_clear(s, mod)))
@@ -827,11 +869,29 @@ class Worker(QThread):
 
     def _v_group(self, s):
         last = None
+        t0 = time.monotonic()
         for _ in range(validation.GROUP_READS):
             last = s.read_group(1)
+        elapsed = time.monotonic() - t0
         fields = last.get("fields") or []
         values = " | ".join(f"{f.get('value', '')} {f.get('unit', '')}".strip() for f in fields if isinstance(f, dict))
-        return validation.OK, values or tr("Valores recebidos."), {"raw": capture.jsonable(last.get("raw"))}
+        detail = values or tr("Valores recebidos.")
+        if getattr(self.kl, "paced", False) and elapsed > 0:      # num carro: o ritmo real das leituras
+            detail += tr(" · {rate:.1f} leituras por segundo", rate=validation.GROUP_READS / elapsed)
+        return validation.OK, detail, {"raw": capture.jsonable(last.get("raw"))}
+
+    def _v_hold(self, s):
+        """Mantém a sessão aberta só com confirmações (como quando o técnico está a olhar para o ecrã) e confirma
+        que o controlador continua a responder. É o teste que apanha as sessões que caem ao fim de uns segundos."""
+        interval = s.keep_alive_interval
+        n = validation.hold_count(interval)
+        for _ in range(n):
+            if getattr(self.kl, "paced", False):
+                time.sleep(interval)
+            s.keep_alive()
+        s.read_group(1)
+        return (validation.OK, tr("Sessão mantida ({n} confirmações seguidas); o bloco 001 continuou a responder.",
+                                  n=n), {"keep_alives": n})
 
     def _v_clear(self, s, mod):
         if not self.write_allowed():
@@ -840,6 +900,23 @@ class Worker(QThread):
         detail = (tr("Memória limpa.") if not left else
                   tr("Ficaram {n} avaria(s) (provavelmente ainda presentes).", n=len(left)))
         return validation.OK, detail, {"left": validation.fault_rows(left, mod.get("protocol"))}
+
+    def _link_facts(self):
+        """Como a interface ficou configurada no fim da validação (para o relatório: ajuda a explicar um carro que
+        funciona num PC e não noutro)."""
+        kl = self.kl
+        if kl is None or self._no_echo_link():
+            return {}
+        facts = {"echo": getattr(kl, "echo", None), "lines": list(getattr(kl, "lines", ()) or ()),
+                 "block_ms": round(getattr(kl, "block_interval", 0) * 1000), "latency_ms": None}
+        port = (self.cfg.get("port") or "").upper()
+        if port.startswith("COM") and sys.platform == "win32":
+            try:
+                from .cable import ftdi_latency
+                facts["latency_ms"] = ftdi_latency().get(port)
+            except Exception:
+                log.warning("Validação: não foi possível ler o Latency Timer", exc_info=True)
+        return facts
 
     def _save_validation_report(self, rep):
         try:
@@ -867,8 +944,7 @@ class Worker(QThread):
                 out.append(item)
                 continue
             try:
-                s = ECUSession(self.kl, self._log, self.cfg["baud"])
-                s.connect(addr, retry=True)
+                s, _info = self._open_session(addr, retry=True)
                 item["faults"] = s.clear_faults()
                 item["status"] = "ok"
                 s.disconnect()

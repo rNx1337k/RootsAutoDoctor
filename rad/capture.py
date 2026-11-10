@@ -162,6 +162,9 @@ class Recorder:
         self._t0 = time.monotonic()
         self._lock = threading.Lock()
         self._pending = None              # último "to" (leituras vazias seguidas juntam-se num só evento)
+        # Num carro, cada byte vai logo para o ficheiro: se o programa ou o PC forem abaixo a meio de uma ligação,
+        # a gravação tem os últimos bytes — os que explicam o que correu mal. No simulador não é preciso.
+        self._flush_always = not self.meta.get("simulated", False)
         self.events = 0
         self.closed = False
         head = {"rad_capture": FORMAT, "app": APP_NAME, "version": VERSION,
@@ -195,7 +198,7 @@ class Recorder:
             self._flush_pending()
             self._write(obj)
             self.events += 1
-            if "note" in obj or "call" in obj:
+            if self._flush_always or "note" in obj or "call" in obj:
                 self._fh.flush()
 
     # ---- bytes e controlo
@@ -534,8 +537,8 @@ class ReplaySerial:
                 self._rx_off = 0
                 self._to_left = None
                 return
-            if "tx" in e or "rx" in e:
-                break
+            if "tx" in e:
+                break                                    # bytes recebidos antes de um init são restos: ignoram-se
         self._diverge("init a 5 baud que não está na gravação", sent=address)
 
     def close(self):

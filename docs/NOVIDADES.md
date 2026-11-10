@@ -6,6 +6,24 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.16.0
+
+### pt
+- Ligação mais estável aos controladores mais antigos: o programa dá-lhes o tempo de que precisam entre cada
+  pedido, e a comunicação deixa de cair a meio.
+- Se um controlador responder mas a ligação não arrancar à primeira, o programa espera um momento e tenta outra vez
+  sozinho — também no Auto-Scan.
+- Arranque da ligação mais seguro depois de um erro ou de mexer no cabo.
+- Voltar a abrir um controlador é mais rápido: o programa lembra-se de como falou com ele da última vez.
+
+### en
+- More stable connection to older controllers: the program gives them the time they need between requests, and the
+  communication no longer drops halfway.
+- If a controller answers but the connection does not start the first time, the program waits a moment and tries
+  again by itself — in Auto-Scan too.
+- Safer start of the connection after an error or after the cable has been moved.
+- Opening a controller again is faster: the program remembers how it talked to it the last time.
+
 ## 1.15.1
 
 ### pt

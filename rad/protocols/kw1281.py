@@ -75,6 +75,9 @@ class KW1281:
         self.address = address
         self.log = log or (lambda m: None)
         self.counter = None
+        # pausas do protocolo só com um carro do outro lado (simuladores e gravações respondem logo)
+        self._paced = getattr(kl, "paced", not getattr(kl, "is_simulator", False))
+        self._block_interval = getattr(kl, "block_interval", 0.055)
 
     # ------------------------------------------------------------ nível byte
     def _send_byte_ack(self, b):
@@ -84,7 +87,7 @@ class KW1281:
             raise KLineTimeout(tr("Sem complemento do byte {b:02X}", b=b))
         if c != (~b) & 0xFF:
             raise ProtocolError(tr("Complemento errado: enviado {b:02X}, recebido {c:02X}", b=b, c=c))
-        if not self.kl.is_simulator:
+        if self._paced:
             precise_sleep(0.001)
 
     def _ack_byte(self, b):
@@ -96,8 +99,9 @@ class KW1281:
         self.counter = 1 if self.counter is None else (self.counter + 1) & 0xFF
         blk = [len(data) + 3, self.counter, title] + data
         self.log(f"→ {Block(self.counter, title, data)}")
-        if not self.kl.is_simulator:
-            precise_sleep(0.003)            # pequena pausa entre blocos (algumas ECU precisam)
+        if self._paced:
+            # o controlador acabou de enviar: precisa de tempo para passar a receber (rad.kline.BLOCK_INTERVAL)
+            precise_sleep(self._block_interval)
         for b in blk:
             self._send_byte_ack(b)
         self.kl.write_byte(0x03)

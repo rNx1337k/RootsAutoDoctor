@@ -54,6 +54,30 @@ is in [COVERAGE.md](COVERAGE.md). **No interface has yet been confirmed on a veh
 decoding is validated against a real ECU response captured over USB; everything else is tested against the
 simulators. [AUDITORIA.md](AUDITORIA.md) is the technical audit of v1.2.0.
 
+## K-line timing on a real car
+
+The simulators answer at once, so none of this shows up in the tests with them. `tests/test_car_link.py` covers
+each point with fake ports that have a clock, and `tests/test_car_rehearsal.py` runs the whole on-car validation
+and a live-measuring session over a fake COM port that behaves like a KKL cable on a car (5-baud address decoded
+from the BREAK timings, echo, a controller that is deaf for 20 ms after each block and drops an idle session).
+
+| What | Value | Where |
+|---|---|---|
+| Idle K-line before a 5-baud init (W5) | 350 ms of silence, bytes still arriving are dropped, 3 s at most | `KLine._wait_bus_idle` |
+| Complement of KB2 (W4) | 25 ms after KB2 was read | `KLine._five_baud_init` |
+| Echo detection | up to 200 ms for the echo of the first byte sent | `KLine._five_baud_init` |
+| KW1281: pause before each block the program sends | 55 ms (`RAD_KW1281_BLOCK_MS`, 10–200, to try other values) | `rad.kline.BLOCK_INTERVAL` |
+| KW1281: pause between bytes | 1 ms after each complement | `KW1281._send_byte_ack` |
+| KW1281: keep-alive | every 300 ms without other traffic | `KW1281.keep_alive_interval` |
+| KWP2000: P3 before a request | 55 ms | `KWP2000.send` |
+| Session start that fails after a good init | 1.5 s, then one more try | `Worker._open_session` |
+| Speed search | the speed the controller answered at last time first (kept while the program is open); after a valid sync that does not start a session, only the neighbouring speed | `Worker._baud_hints`, `ECUSession.connect` |
+
+COM ports go through `rad.kline.SteadySerial`: pyserial on Windows re-applies the whole port configuration
+(`SetCommState`) every time `timeout` changes, so the real port keeps one short timeout and the requested time is
+counted in Python. Pauses apply only when `KLine.paced` is true (a real interface): simulators and replayed
+recordings are never paced.
+
 ## Recordings and on-car validation
 
 **Recording** (`rad/capture.py`): while a recording is active, every byte sent and received through the VAG cable
@@ -69,8 +93,8 @@ current code and reports byte divergences and changed results. **Every file in `
 `.radrec` there and commit it. In technician mode, **Options → Check recording…** does the same from the app.
 
 **On-car validation** (`rad/validation.py`, technician mode → **Options → On-car validation**): a fixed sequence —
-cable and ignition, engine (identification, faults, block 001 three times, optional clear and re-read),
-instrument cluster, ABS — always recorded, with an HTML report next to the recording. The report lists each fault
+cable and ignition, engine (identification, faults, block 001 ten times with the readings per second, about 6 s
+with keep-alives only and block 001 again, optional clear and re-read), instrument cluster, ABS — always recorded, with an HTML report next to the recording. The report lists each fault
 with the **raw status byte** next to the code-type the program shows, which is how the open question about the
 KWP2000 status byte gets settled on the first KWP2000 car.
 

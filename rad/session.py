@@ -30,10 +30,13 @@ def _interface_info(kl):
 
 
 class ECUSession:
-    def __init__(self, kl, log=None, baud="auto"):
+    def __init__(self, kl, log=None, baud="auto", prefer=None):
+        """prefer: velocidade a que este controlador já respondeu antes (só conta com baud="auto"). É a primeira a
+        ser tentada; se a sessão não arrancar a essa velocidade, o erro sai logo — foi um acaso, não a velocidade."""
         self.kl = kl
         self.log = log or (lambda m: None)
         self.baud_setting = baud
+        self.prefer = prefer if baud == "auto" and prefer in AUTO_BAUDS else None
         self.proto = None
         self.connected = False
         self.info = None
@@ -93,6 +96,9 @@ class ECUSession:
             return self._connect_j2534(address)
         auto = self.baud_setting == "auto"
         bauds = list(AUTO_BAUDS if auto else (int(self.baud_setting),))
+        if self.prefer in bauds:
+            bauds.remove(self.prefer)
+            bauds.insert(0, self.prefer)
         res, used_baud, ident = None, None, None
         retried = False
         attempts = 0
@@ -129,6 +135,8 @@ class ECUSession:
             # 9600 e 10400 baud estão a ~8 %: no limite da tolerância da UART o 0x55 de uma velocidade pode ler-se
             # bem na outra e só os bytes seguintes saem errados. Nesse caso tenta-se a velocidade vizinha.
             neighbours = [b for b in bauds if 0x55 in uart_reads(0x55, b, baud)] if auto else []
+            if baud == self.prefer:
+                neighbours = []           # esta velocidade já funcionou com este controlador
             try:
                 if kw == 1281:
                     proto = KW1281(self.kl, address, self.log)
@@ -146,7 +154,9 @@ class ECUSession:
                 self.proto = None
                 start_error = e
                 self.log(f"  a sessão não arrancou a {baud} baud ({e}) — a tentar {neighbours[0]} baud")
-                bauds = neighbours + [b for b in bauds if b not in neighbours]
+                # Um sync certo a esta velocidade só pode vir de um controlador a esta velocidade ou a uma vizinha:
+                # as outras já não interessam (cada tentativa a mais são 3–4 s à espera de nada).
+                bauds = neighbours
                 continue
             res, used_baud = r, baud
             break

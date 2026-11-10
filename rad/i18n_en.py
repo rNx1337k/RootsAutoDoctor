@@ -3945,4 +3945,22 @@ EN = {
         "Every step that ran passed. Send the recording and the report.",
     "Usa a biblioteca D2XX do driver que já está instalado. Faça o Diagnóstico da ligação com o cabo no carro e a ignição ligada. ":
         "Uses the D2XX library of the driver already installed. Run the Connection check with the cable in the car and the ignition on. ",
+    " · {rate:.1f} leituras por segundo":
+        " · {rate:.1f} readings per second",
+    "Interface":
+        "Interface",
+    "O controlador {address:02X} respondeu mas a sessão não arrancou ({e}) — nova tentativa":
+        "Controller {address:02X} answered but the session did not start ({e}) — trying again",
+    "O Latency Timer do cabo está em {ms} ms: cada byte demora esse tempo a chegar ao programa, o que torna a comunicação lenta e menos estável. Ponha-o a 1 ms (Gestor de dispositivos → Portas → a porta do cabo → Propriedades → Definições da porta → Avançadas) e repita a validação.":
+        "The cable's Latency Timer is at {ms} ms: every byte takes that long to reach the program, which makes the communication slow and less stable. Set it to 1 ms (Device Manager → Ports → the cable's port → Properties → Port Settings → Advanced) and run the validation again.",
+    "Pausa entre blocos":
+        "Pause between blocks",
+    "Sessão mantida ({n} confirmações seguidas); o bloco 001 continuou a responder.":
+        "Session kept open ({n} keep-alives in a row); block 001 kept answering.",
+    "não":
+        "no",
+    "sim":
+        "yes",
+    "{prefix}: manter a sessão aberta":
+        "{prefix}: keep the session open",
 }

@@ -97,6 +97,8 @@ class KWP2000:
         self.log = log or (lambda m: None)
         self._last = 0.0
         self._tp_payload = [0x3E]
+        # pausas do protocolo só com um carro do outro lado (simuladores e gravações respondem logo)
+        self._paced = getattr(kl, "paced", not getattr(kl, "is_simulator", False))
 
     # -------------------------------------------------------------- tramas
     def _frame(self, payload):
@@ -111,7 +113,7 @@ class KWP2000:
 
     def send(self, payload):
         wait = 0.055 - (time.perf_counter() - self._last)      # P3 mínimo
-        if wait > 0 and not self.kl.is_simulator:
+        if wait > 0 and self._paced:
             precise_sleep(wait)
         self.log("→ " + " ".join(f"{b:02X}" for b in payload))
         self.kl.write(self._frame(payload))
@@ -160,7 +162,7 @@ class KWP2000:
         valid = {(~self.address) & 0xFF, (~self.address_byte) & 0xFF}
         if b not in valid:
             self.log(f"! complemento do endereço inesperado: {b:02X}")
-        if not self.kl.is_simulator:
+        if self._paced:
             precise_sleep(0.06)
         self._last = time.perf_counter()
         try:
@@ -327,7 +329,7 @@ class KWP2000:
         return known
 
     def _settle(self, seconds):
-        if not getattr(self.kl, "is_simulator", False):
+        if self._paced:
             time.sleep(seconds)
 
     def recode(self, coding, wsc):

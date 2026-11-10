@@ -121,6 +121,43 @@ def test_interface_failure_and_fixed_speed_are_not_retried_at_another_speed():
         assert link.tried == [10400]
 
 
+def test_after_a_good_sync_only_the_neighbour_speed_is_worth_trying():
+    """Um sync certo a 10400 só pode vir de um controlador a 10400 ou a 9600: se a sessão não arranca, tenta-se a
+    vizinha e mais nenhuma (cada init a mais são 3–4 s à espera de nada)."""
+    link = FakeLink(1200, fake_sync_at=10400)             # impossível num carro; serve para ver quem é tentado
+    try:
+        _with_fake_kw1281(lambda: ECUSession(link).connect(0x17))
+        assert False
+    except KLineTimeout:
+        assert link.tried == [10400, 9600], link.tried
+
+
+def test_speed_that_worked_before_is_tried_first():
+    link = FakeLink(9600)
+    info = _with_fake_kw1281(lambda: ECUSession(link, prefer=9600).connect(0x17))
+    assert info["baud"] == 9600 and link.tried == [9600]
+    # lembrança errada (outro carro na mesma porta): o byte recebido leva à velocidade certa na tentativa seguinte
+    link = FakeLink(10400)
+    info = _with_fake_kw1281(lambda: ECUSession(link, prefer=9600).connect(0x17))
+    assert info["baud"] == 10400 and link.tried == [9600, 10400]
+    # com a velocidade fixa nas Opções, ou um valor que não é uma velocidade da linha K, a lembrança não conta
+    link = FakeLink(10400)
+    _with_fake_kw1281(lambda: ECUSession(link, baud="10400", prefer=9600).connect(0x17))
+    assert link.tried == [10400]
+    assert ECUSession(link, prefer=115200).prefer is None and ECUSession(link, baud="9600", prefer=9600).prefer is None
+
+
+def test_start_failure_at_the_speed_that_worked_before_is_not_blamed_on_the_speed():
+    """A esta velocidade o controlador já funcionou: se agora a sessão não arranca foi um acaso (um byte perdido),
+    não vale a pena ir experimentar a velocidade vizinha — o erro sai logo e quem chama volta a tentar."""
+    link = FakeLink(9600, fake_sync_at=10400)
+    try:
+        _with_fake_kw1281(lambda: ECUSession(link, prefer=10400).connect(0x17))
+        assert False
+    except KLineTimeout:
+        assert link.tried == [10400]
+
+
 def test_no_speed_answers_still_says_sync_failed():
     link = FakeLink(9600)
     link.five_baud_init = lambda a, b: (link.tried.append(b), {"status": "garbage", "byte": 0x13})[1]

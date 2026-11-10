@@ -3,6 +3,64 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.16.0] — 2026-11-09
+Prepared for the first test on a car with a KKL cable. Nothing here has been confirmed on a vehicle yet: these are
+the timing and robustness points that the simulators cannot show and that decide whether a first session holds.
+
+### Changed
+- **KW1281: 55 ms pause before each block the program sends** (`rad.kline.BLOCK_INTERVAL`; it was 3 ms). After its
+  last byte an older controller needs time to switch from sending to receiving; with a pause of a few milliseconds
+  it misses the first byte of the next block and the session drops. 55 ms is the safe reference value;
+  `RAD_KW1281_BLOCK_MS` (10–200) overrides it for tests in technician mode. Simulators and recordings are not paced.
+- **COM ports are no longer reprogrammed on every byte** (`rad.kline.SteadySerial`). With pyserial on Windows,
+  changing the read timeout re-applies the whole port configuration (speed, format, DTR/RTS), and KW1281 alternates
+  three timeouts, so the port was reconfigured twice per byte in the middle of the conversation: extra USB requests
+  on every byte, and a risk of lost bytes with drivers that reset the receiver when reconfigured. The port now
+  keeps one short OS timeout and the requested time is counted in the program; a read still returns as soon as the
+  byte arrives, and a forced close still interrupts it. FTDI direct USB and D2XX ports were not affected.
+- **The 5-baud init waits for a quiet K-line** (`KLine._wait_bus_idle`): instead of a fixed 350 ms pause, the
+  program reads and drops whatever a controller is still sending and starts the init only after 350 ms of silence
+  (3 s at most). On a quiet line it takes exactly as long as before.
+- **Echo detection waits up to 200 ms** for the echo of the first byte sent (it was 60 ms). On a slow PC or with a
+  high latency timer the echo arrived later, the cable was taken as "no echo" and the echo was then read as the
+  controller's first byte. Waiting longer costs nothing: without echo the controller's first byte arrives within
+  that time and is kept.
+- **A session start that fails once is retried** on a real interface (`Worker._open_session`): when the controller
+  answers the init but the identification does not arrive complete, the program waits 1.5 s and tries once more —
+  in Connect, Auto-Scan, Connection check, Clear all and the on-car validation. No answer, an interface failure, a
+  cancellation and the simulator are never retried, so empty addresses in Auto-Scan take as long as before.
+- **The speed a controller answered at is remembered** while the program is open (per interface and address, only
+  with the speed on automatic): the next connection starts at that speed, so a 9600-baud instrument cluster no
+  longer costs a failed init (about 3 s) every time it is opened again. A remembered speed that turns out wrong
+  (another car on the same cable) is corrected by the usual search and forgotten when a session does not start.
+- **After a valid sync, only the neighbouring speed is tried** when the session does not start
+  (`ECUSession.connect`): a correct sync at 10400 baud can only come from a controller at 10400 or 9600, so the
+  other speeds are no longer walked through one by one (3–4 s each) before the error is shown.
+- **On-car validation** reads block 001 ten times (it was three) and shows the readings per second, and has a new
+  step, **keep the session open**: about 6 s of keep-alives only, then block 001 again — the test that catches a
+  session that drops after a few seconds. The report has an **Interface** section (K-line echo, DTR/RTS, pause
+  between blocks and, for FTDI COM ports, the latency timer, with what to do when it is still at the factory
+  16 ms).
+- **Recordings made on a real interface are written to disk byte by byte**, so a recording interrupted by a crash
+  or a power cut still has the last bytes exchanged.
+- Replaying a recording ignores stale bytes recorded before an init (they are what the bus-idle wait dropped), and
+  no longer waits the KW1281 / KWP2000 pauses.
+
+### Tests
+- New `tests/test_car_rehearsal.py`: **a dress rehearsal of the on-car test**. A fake COM port behaves like a KKL
+  cable on a car at the physical level — the 5-baud address is decoded from the BREAK timings, everything sent
+  comes back as echo, the controller accepts the KB2 complement only in time, a KW1281 controller is deaf for
+  20 ms after sending a block, a KWP2000 one needs the minimum time before a new request, and a session without
+  traffic for 1.5 s is dropped. Over it run the whole on-car validation (engine KW1281 at 10400, cluster KW1281 at
+  9600, ABS KWP2000), whose recording is then replayed with the current code, and a session with the communication
+  thread running (idle keep-alives, live measuring of two blocks, faults, close). It also shows that with the old
+  3 ms pause the same controller drops the session at the first block. About 25 s: the timings are real.
+- New `tests/test_car_link.py` (18 tests): port timeouts without reconfiguration, forced close, bus-idle wait,
+  late echo, no-echo cable, block pause, session-start retry (Connect and Auto-Scan), remembered speed, replay with
+  stale bytes.
+- `tests/test_baud_detect.py`: preferred speed, and only the neighbouring speed after a valid sync.
+- `tests/captures/simulador_validacao.radrec` recorded again with the new validation steps.
+
 ## [1.15.1] — 2026-11-02
 ### Removed
 - The comparison of the on-car validation with another program's scan log and the validation

@@ -8,8 +8,8 @@ gravação e o relatório são os dois ficheiros a enviar depois do teste: a gra
 
 Passos (os módulos que não existem no carro ficam "não instalado", não contam como falha):
   interface      o cabo responde e há eco da linha K (ignição ligada)
-  01 motor       ligar, identificação, avarias, bloco de medição 001 (3 leituras), (opcional) apagar as avarias
-                 e voltar a ler, fechar
+  01 motor       ligar, identificação, avarias, bloco de medição 001 (10 leituras), manter a sessão aberta só com
+                 confirmações (~6 s) e voltar a ler o bloco, (opcional) apagar as avarias e voltar a ler, fechar
   17 painel      ligar, identificação, avarias
   03 ABS         ligar, identificação, avarias (normalmente KWP2000: confirma o byte de estado)
 """
@@ -23,7 +23,26 @@ from .i18n import tr
 OK, FAIL, SKIP, ABSENT = "ok", "fail", "skip", "absent"
 
 MODULES = (0x01, 0x17, 0x03)          # motor, painel de instrumentos, ABS
-GROUP_READS = 3
+GROUP_READS = 10
+HOLD_SECONDS = 6                      # tempo aproximado do passo "manter a sessão aberta"
+
+
+LATENCY_OK_MS = 2                     # Latency Timer FTDI acima disto: leituras lentas (16 ms é o valor de fábrica)
+
+
+def slow_latency(ms):
+    """True quando o Latency Timer lido do cabo é conhecido e está acima do recomendado."""
+    return isinstance(ms, (int, float)) and not isinstance(ms, bool) and ms > LATENCY_OK_MS
+
+
+def hold_count(interval):
+    """Nº de confirmações (keep-alive) do passo "manter a sessão aberta". Depende só do protocolo (do intervalo
+    dele), nunca do relógio: a reprodução de uma gravação tem de enviar exactamente os mesmos bytes."""
+    try:
+        n = round(HOLD_SECONDS / float(interval))
+    except (TypeError, ValueError, ZeroDivisionError):
+        n = 3
+    return max(3, min(25, n))
 
 
 def step(sid, title, result, detail="", data=None, seconds=None):
@@ -98,6 +117,27 @@ def build_html(report):
         f"<td>{_e(m.get('protocol'))}</td><td>{_e(m.get('baud'))}</td>"
         f"<td>{_e(m.get('coding') if m.get('coding') is not None else '—')}</td></tr>"
         for m in report.get("modules", []) if m.get("part") is not None)
+    link = report.get("link") or {}
+    link_rows = []
+    if link:
+        yes_no = {True: tr("sim"), False: tr("não"), None: "—"}
+        lines = link.get("lines") or []
+        link_rows.append((tr("Eco da linha K"), yes_no.get(link.get("echo"), "—")))
+        if len(lines) == 2:
+            link_rows.append(("DTR / RTS", f"{'on' if lines[0] else 'off'} / {'on' if lines[1] else 'off'}"))
+        link_rows.append((tr("Pausa entre blocos"), f"{link.get('block_ms')} ms"))
+        if link.get("latency_ms") is not None:
+            link_rows.append(("Latency Timer", f"{link['latency_ms']} ms"))
+    link_html = ""
+    if link_rows:
+        link_html = (f"<h2>{_e(tr('Interface'))}</h2><table class='t'>"
+                     + "".join(f"<tr><td>{_e(k)}</td><td>{_e(v)}</td></tr>" for k, v in link_rows) + "</table>")
+        if slow_latency(link.get("latency_ms")):
+            link_html += ("<p class='warn'>" + _e(tr(
+                "O Latency Timer do cabo está em {ms} ms: cada byte demora esse tempo a chegar ao programa, o que "
+                "torna a comunicação lenta e menos estável. Ponha-o a 1 ms (Gestor de dispositivos → Portas → a "
+                "porta do cabo → Propriedades → Definições da porta → Avançadas) e repita a validação.",
+                ms=link["latency_ms"])) + "</p>")
     vehicle = report.get("vehicle") or {}
     vrow = _e(vehicle.get("model")) if vehicle.get("model") else ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>{_e(tr('Validação no carro'))}</title>
@@ -125,6 +165,7 @@ def build_html(report):
 <p class="m">{_e(tr('Cada avaria com o byte de estado tal como veio da centralina e o código-tipo que o programa '
                     'mostra (por exemplo 35-10).'))}</p>
 {''.join(fault_html) or '<p>' + _e(tr('Nenhuma avaria lida.')) + '</p>'}
+{link_html}
 <h2>{_e(tr('Ficheiros'))}</h2>
 <p>{_e(tr('Gravação da comunicação: {path}', path=report.get('capture') or '—'))}<br>
 {_e(tr('Envie a gravação e este relatório ao suporte.'))}</p>

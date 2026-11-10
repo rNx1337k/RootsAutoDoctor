@@ -395,7 +395,7 @@ def test_recording_and_validation_from_the_interface():
         dlg.reject()                                     # não fecha a meio
         assert dlg.isVisible()
         assert _wait(app, lambda: not dlg.running, 30), "a validação não terminou"
-        assert dlg.tree.topLevelItemCount() == 8 and dlg.report_btn.isEnabled()
+        assert dlg.tree.topLevelItemCount() == 9 and dlg.report_btn.isEnabled()
         assert dlg.report["report_path"].endswith(".html") and dlg.verdict.text()
         dlg.reject()
         assert not dlg.isVisible()

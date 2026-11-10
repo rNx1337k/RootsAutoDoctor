@@ -20,6 +20,7 @@ Audit of the full path in the code, not in the README:
 | Speed search (10400 / 9600 / 4800 / 2400 / 1200, next speed picked from the wrong-speed byte) | `rad/session.py`, `rad/kline.py:rank_bauds` | Implemented |
 | KWP2000 writing (coding, adaptation, security access, basic settings, outputs) | `rad/protocols/kwp2000.py` | Implemented, simulator only (every write is read back) |
 | Communication outside the UI (thread), keep-alive, disconnections, forced close | `rad/worker.py` | Implemented |
+| Real-car timing: quiet K-line before an init, 55 ms before each KW1281 block, COM port never reconfigured mid-session, one retry of a failed session start, speed remembered per controller | `rad/kline.py`, `rad/protocols/kw1281.py`, `rad/worker.py` | Implemented (rehearsed over a fake COM port with real timings, `tests/test_car_rehearsal.py`; not yet on a car) |
 
 **Audit conclusion:** KKL support is complete at code level and tested against the simulator and against a
 **real ECU response** (see below). Only the physical validation on a car with the KKL cable is missing — which
@@ -47,7 +48,10 @@ from the HEX cable's proprietary protocol. When replayed by the emulator the sou
 
 The quickest way is the built-in validation (start the app with `--tecnico`, then **Options → On-car validation**):
 it runs the steps below on its own, records every byte and writes a report with the raw status byte of each fault
-next to the code-type the program shows. Send the `.radrec` recording and the report; the recording then goes into `tests/captures/` as a permanent test. The manual procedure:
+next to the code-type the program shows. It takes about one minute: cable and ignition; engine — identification,
+faults, block 001 ten times (with the readings per second), about 6 s with keep-alives only and block 001 again;
+instrument cluster and ABS — identification and faults. The report ends with how the interface was working
+(K-line echo, DTR/RTS, pause between blocks, latency timer). Send the `.radrec` recording and the report; the recording then goes into `tests/captures/` as a permanent test. The manual procedure:
 
 1. Plug the cable into a USB port. In **Options → Detect cable**, check that it shows up as a COM port
    (FTDI/CH340). For FTDI, set the Latency Timer to 1 ms (Device Manager → Ports (COM & LPT) → Properties →
@@ -63,6 +67,16 @@ next to the code-type the program shows. Send the `.radrec` recording and the re
 7. At the end: **Options → Support package** and save the zip. Send it with the result of each step.
 
 At this stage, read only: do not clear faults or use coding/adaptation until reading is confirmed.
+
+## If the first test does not go well
+
+| What you see | What to try |
+|---|---|
+| "Cable and ignition" fails | Ignition on (engine off), cable pushed fully into the OBD socket, the right COM port in Options. Without 12 V from the car there is no K-line echo. |
+| Engine does not answer, but the cable step passes | Run it again (some ECUs need a few seconds after ignition on). Then **Options → Connection check** with address `17`. |
+| The engine identifies, then a step fails with a timeout | Send the recording as it is: it shows the exact byte where it stopped. To try a slower pace, start the app with `RAD_KW1281_BLOCK_MS=80` set; to try the fast pace, `25`. |
+| "Keep the session open" fails | The same: recording first, then repeat with `RAD_KW1281_BLOCK_MS=80`. |
+| Very few readings per second (below 2) | FTDI latency timer at 16 ms: set it to 1 ms (step 1 of the manual procedure below). |
 
 ## What still needs validating with hardware
 

@@ -119,7 +119,7 @@ def test_validation_runs_all_steps_saves_a_report_and_replays():
     w.validation_step.connect(steps.append)
     w._dispatch("validation", ({"clear": True, "vehicle": {"plate": "AA-00-AA", "model": "Audi A3 1.9 TDI"}},))
     rep = out["validation"]
-    assert [s["result"] for s in rep["steps"]] == ["ok"] * 9 and len(steps) == 9
+    assert [s["result"] for s in rep["steps"]] == ["ok"] * 10 and len(steps) == 10
     abs_mod = next(m for m in rep["modules"] if m["address"] == 0x03)
     assert abs_mod["protocol"] == "KWP2000" and abs_mod["faults_raw"][0]["status_hex"] == "23"
     with open(rep["report_path"], encoding="utf-8") as fh:
