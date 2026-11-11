@@ -193,7 +193,7 @@ class ModulePage(QWidget):
         v.addWidget(self.fault_table, 1)
         self.fault_advice = FaultAdviceCard()
         self.fault_advice.hide()
-        v.addWidget(self.fault_advice)
+        v.addWidget(self.fault_advice, 1)
         self.faults = []
         return w
 
@@ -593,6 +593,7 @@ class ModulePage(QWidget):
         self.fault_advice.clear()
         self.fault_advice.setVisible(bool(faults))
         if not faults:
+            self._fit_fault_table()
             self.fault_count.setText(tr("✔  Nenhuma avaria"))
             self.fault_count.setStyleSheet(f"color: {OK};")
             return
@@ -618,7 +619,21 @@ class ModulePage(QWidget):
                 if c == 4:
                     it.setForeground(QBrush(QColor(severity_color(adv["severity"]))))
                 t.setItem(r, c, it)
+        self._fit_fault_table()
         t.selectRow(0)
+
+    FAULT_ROWS_MIN = 4                     # a tabela nunca fica mais baixa do que isto (linhas)
+
+    def _fit_fault_table(self):
+        """Com poucas avarias, a tabela fica só com a altura das linhas e o assistente usa o resto do espaço (antes
+        ficava um grande vazio por baixo de duas linhas). Com muitas, cresce e aparece a barra de deslocamento."""
+        t = self.fault_table
+        if not self.faults:
+            t.setMaximumHeight(16777215)               # sem avarias: o assistente está escondido, a tabela ocupa tudo
+            return
+        rows = max(len(self.faults), self.FAULT_ROWS_MIN)
+        row_h = t.verticalHeader().defaultSectionSize()
+        t.setMaximumHeight(t.horizontalHeader().height() + rows * row_h + 2 * t.frameWidth() + 2)
 
     def _clear_faults(self):
         if ask(self, APP_NAME, tr("Apagar a memória de avarias deste controlador?")):

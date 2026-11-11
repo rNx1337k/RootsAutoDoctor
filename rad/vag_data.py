@@ -445,6 +445,12 @@ def format_number(v):
     return f"{v:.3f}"
 
 
+def display_number(v):
+    """format_number para o ecrã e os relatórios (vírgula decimal em português). Os dados guardam format_number."""
+    from .i18n import decimal
+    return decimal(format_number(v))
+
+
 def decode_value(formula, a, b):
     fn = FORMULAS.get(formula)
     if fn is None:

@@ -3,6 +3,25 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.16.2] — 2026-11-11
+Design fixes that make the screens easier to read. Nothing changes in the communication with the car.
+
+### Fixed
+- **Decimal comma in Portuguese** (`rad.i18n.decimal`, `rad.vag_data.display_number`): values were shown with a
+  decimal point ("1.400 V", "12.4 V"), which in Portugal is the thousands separator — "1.400 V" reads as one thousand
+  four hundred volts. On screen and in reports in Portuguese, decimals now use a comma (measuring values, gauges,
+  charts and the recordings viewer, OBD live data and battery voltage, and every number formatted inside a
+  translated text). Recorded data (CSV, history, recordings) keeps the decimal point, so it is read back unchanged.
+- **Gauges**: the scale limits are drawn outside the ends of the arc and no longer overlap the value or the unit; a
+  long unit line is shortened with "…" instead of running over the card.
+- **Number boxes** (group, channel, value, workshop code): visible up/down arrows instead of two blank blocks, and
+  the number is no longer stuck to the left border (Qt ignores the stylesheet padding there; the text margin is now
+  set on every number box).
+- **Faults**: with few faults the table is only as tall as its rows (four at least) and the diagnostic assistant uses
+  the rest of the screen, instead of a large empty area under two rows. The assistant's title no longer touches the
+  label above it, and its explanation is in a lighter colour that reads better.
+- README screenshots taken again with the current version, in Portuguese and English.
+
 ## [1.16.1] — 2026-11-11
 Three protections of the PC for the first test on a car. Nothing here changes what is sent to a controller.
 

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.16.1-4F8DFF?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.16.2-4F8DFF?style=flat-square" alt="Version">
   <a href="https://github.com/rNx1337k/RootsAutoDoctor/actions/workflows/ci.yml"><img src="https://github.com/rNx1337k/RootsAutoDoctor/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E1526?style=flat-square&logo=windows" alt="Windows 10 | 11">
   <img src="https://img.shields.io/badge/status-beta-E8343A?style=flat-square" alt="Status: beta">

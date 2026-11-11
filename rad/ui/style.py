@@ -3,6 +3,8 @@
 Azul → ciano (BLUE, CYAN) = interface (botões, separadores, escalas), em gradiente.
 Vermelho (RED) = só ponteiros, alertas e acções perigosas — como no painel do carro.
 """
+import os
+
 NIGHT = "#070B16"      # fundo principal
 NIGHT_2 = "#0A1124"    # fundo das zonas laterais
 PANEL = "#111A31"      # cartões
@@ -16,6 +18,7 @@ BLUE_SOFT = "#24407E"
 RED = "#FF3B4E"        # ponteiro
 TEXT = "#EEF3FF"
 MUTED = "#8191B6"
+SOFT = "#B3BFDD"       # texto corrido secundário que tem de se ler bem (ex.: explicação de uma avaria)
 DIM = "#4A5880"
 OK = "#2EE59D"
 WARN = "#FFB547"
@@ -29,6 +32,9 @@ BODY_FONT = '"Segoe UI", "Inter", "Helvetica Neue", Arial'
 GRAD_PRIMARY = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #3B74FF, stop:1 #22D3C9)"
 GRAD_PRIMARY_HOVER = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #5A8BFF, stop:1 #4FE0D6)"
 GRAD_CARD = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(24, 35, 66, 0.92), stop:1 rgba(14, 21, 40, 0.92))"
+
+# setas do QSpinBox (o Qt não desenha triângulos com bordas CSS); caminho com / para o QSS
+_ASSET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets").replace("\\", "/")
 
 QSS = f"""
 * {{ font-family: {BODY_FONT}; font-size: 10pt; }}
@@ -112,7 +118,16 @@ QLineEdit#paletteInput {{
 }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox QAbstractItemView {{ background: {PANEL}; border: 1px solid {LINE}; selection-background-color: {BLUE}; }}
-QSpinBox::up-button, QSpinBox::down-button {{ width: 18px; border: none; background: {PANEL_2}; }}
+QSpinBox::up-button, QSpinBox::down-button {{
+    subcontrol-origin: border; width: 22px; border: none; border-left: 1px solid {LINE}; background: transparent;
+}}
+QSpinBox::up-button {{ subcontrol-position: top right; border-top-right-radius: 8px; }}
+QSpinBox::down-button {{ subcontrol-position: bottom right; border-bottom-right-radius: 8px; }}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background: {PANEL_2}; }}
+QSpinBox::up-arrow {{ image: url("{_ASSET}/spin_up_muted.png"); width: 10px; height: 10px; }}
+QSpinBox::down-arrow {{ image: url("{_ASSET}/spin_down_muted.png"); width: 10px; height: 10px; }}
+QSpinBox::up-arrow:hover {{ image: url("{_ASSET}/spin_up_cyan.png"); }}
+QSpinBox::down-arrow:hover {{ image: url("{_ASSET}/spin_down_cyan.png"); }}
 
 QTabWidget::pane {{ border: 1px solid {LINE}; border-radius: 14px; top: -1px; background: rgba(11, 17, 34, 0.85); }}
 QTabBar::tab {{

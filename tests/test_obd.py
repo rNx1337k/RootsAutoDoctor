@@ -353,7 +353,7 @@ def test_obd_session_failures_are_located():
     s = ObdSession(_elm(v)[0])
     s.connect()
     volt = [st for st in s.steps if st[0] == "Tensão da bateria"][0]
-    assert not volt[1] and "10.9 V" in volt[2]
+    assert not volt[1] and "10,9 V" in volt[2]          # vírgula decimal em português
 
 
 def test_obd_session_dtcs_clear_and_report_items():

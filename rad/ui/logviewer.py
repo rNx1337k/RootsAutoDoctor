@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 )
 
 from .. import logview, APP_NAME
-from ..i18n import tr
-from ..vag_data import format_number
+from ..i18n import decimal, tr
+from ..vag_data import display_number as format_number   # no ecrã: vírgula decimal em português
 from .pages.common import btn, lbl
 from .style import BLUE, CYAN, LINE, MUTED, OK, VIOLET, WARN
 from .widgets import alpha, display_font, short_num
@@ -98,7 +98,7 @@ class MultiChart(QWidget):
             x = plot.left() + plot.width() * i / 4
             align = Qt.AlignLeft if i == 0 else Qt.AlignRight if i == 4 else Qt.AlignHCenter
             p.drawText(QRectF(x - (0 if i == 0 else 120 if i == 4 else 60), plot.bottom() + 6, 120, 18),
-                       int(align | Qt.AlignVCenter), f"{span * i / 4:.1f} s")
+                       int(align | Qt.AlignVCenter), decimal(f"{span * i / 4:.1f} s"))
         for (ch, color, dash), (lo, hi) in zip(self.series, scales):
             path = QPainterPath()
             started = False
@@ -121,7 +121,7 @@ class MultiChart(QWidget):
             p.drawLine(QPointF(x, plot.top()), QPointF(x, plot.bottom()))
             p.setFont(QFont("Segoe UI", 8.5))
             p.setPen(QColor(MUTED))
-            p.drawText(QRectF(x + 4, plot.top(), 80, 16), int(Qt.AlignLeft), f"{self.cursor_t:.2f} s")
+            p.drawText(QRectF(x + 4, plot.top(), 80, 16), int(Qt.AlignLeft), decimal(f"{self.cursor_t:.2f} s"))
         p.end()
 
 
@@ -303,4 +303,4 @@ class LogViewerDialog(QDialog):
             if val is not None:
                 name = tr("{name} (comparação)", name=ch.name) if dash else ch.name
                 parts.append(f"{name}: {format_number(val)} {ch.unit}".strip())
-        self.cursor_lbl.setText(f"{t:.2f} s   ·   " + "   ·   ".join(parts))
+        self.cursor_lbl.setText(decimal(f"{t:.2f} s") + "   ·   " + "   ·   ".join(parts))

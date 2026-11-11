@@ -5,18 +5,40 @@ import os
 import time
 from collections import deque
 
-from PySide6.QtCore import (QEasingCurve, QPoint, QPointF, QPropertyAnimation, QRectF, Qt, QTimer,
-                            Signal)
+from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QPoint, QPointF, QPropertyAnimation, QRectF, Qt,
+                            QTimer, Signal)
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QFont, QLinearGradient, QPainter,
                            QPainterPath, QPen, QPixmap, QPolygonF, QRadialGradient)
-from PySide6.QtWidgets import (QDialog, QFrame, QGraphicsDropShadowEffect, QGraphicsOpacityEffect,
-                               QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractSpinBox, QDialog, QFrame, QGraphicsDropShadowEffect, QGraphicsOpacityEffect,
+                               QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from .style import (BLUE, BLUE_SOFT, CYAN, DIM, LINE, MUTED, NIGHT, OK, RED, TEXT, VIOLET,
                     WARN)
-from ..i18n import tr, tr_data
+from ..i18n import decimal, tr, tr_data
 
 ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
+
+
+class SpinBoxTextMargin(QObject):
+    """O Qt ignora o padding do QSS no texto das caixas numéricas (QSpinBox): o número ficava colado à margem
+    esquerda. Instalado na aplicação, dá a cada caixa numérica a mesma margem dos outros campos quando é criada."""
+
+    LEFT = 8
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Polish and isinstance(obj, QAbstractSpinBox):
+            edit = obj.findChild(QLineEdit)
+            if edit is not None:
+                edit.setTextMargins(self.LEFT, 0, 0, 0)
+        return False
+
+
+def install_spinbox_margin(app):
+    """Uma vez por aplicação (guardado na própria aplicação para não ser libertado)."""
+    if getattr(app, "_rad_spin_margin", None) is None:
+        app._rad_spin_margin = SpinBoxTextMargin(app)
+        app.installEventFilter(app._rad_spin_margin)
+    return app._rad_spin_margin
 
 
 def asset_path(name):
@@ -140,7 +162,7 @@ def short_num(v):
         return f"{int(v / 1000)}k"
     if v == int(v):
         return str(int(v))
-    return f"{v:.1f}"
+    return decimal(f"{v:.1f}")
 
 
 def _arc_gradient(cx, cy):
@@ -336,13 +358,18 @@ class GaugeCell(QWidget):
             p.drawEllipse(QPointF(cx, cy), 6.5, 6.5)
             p.setBrush(QColor("#0A1022"))
             p.drawEllipse(QPointF(cx, cy), 2.4, 2.4)
-            # limites da escala
+            # limites da escala: por fora das pontas do arco, para nunca tocarem no valor nem na unidade (que ficam
+            # dentro do mostrador). Num cartão estreito, sem espaço ao lado do mostrador, não se desenham.
             p.setPen(QColor(MUTED))
             p.setFont(display_font(7.5, False))
-            for val, a in ((self.lo, 210), (self.hi, -30)):
-                ra = math.radians(a)
-                pt = QPointF(cx + (rad - 6) * math.cos(ra), cy - (rad - 6) * math.sin(ra) + 12)
-                p.drawText(QRectF(pt.x() - 28, pt.y() - 8, 56, 16), int(Qt.AlignCenter), short_num(val))
+            reach = (rad - 6) * math.cos(math.radians(30))     # distância horizontal do centro à ponta do arco
+            room = cx - reach - 6                               # espaço livre entre a ponta e a borda do cartão
+            if room >= 22:
+                y = cy + (rad - 6) * 0.5
+                p.drawText(QRectF(cx - reach - 6 - room, y - 8, room, 16), int(Qt.AlignRight | Qt.AlignVCenter),
+                           short_num(self.lo))
+                p.drawText(QRectF(cx + reach + 6, y - 8, room, 16), int(Qt.AlignLeft | Qt.AlignVCenter),
+                           short_num(self.hi))
 
         # valor e unidade
         text_top = cy + rad * 0.22
@@ -355,13 +382,14 @@ class GaugeCell(QWidget):
             p.setPen(QColor("white"))
             p.setFont(display_font(15 if big else 18))
             vy = cy - 14 if big else text_top
-            p.drawText(QRectF(4, vy, w - 8, 30), int(Qt.AlignCenter), f["value"])
+            p.drawText(QRectF(4, vy, w - 8, 30), int(Qt.AlignCenter), decimal(f["value"]))
             p.setPen(QColor(CYAN))
             p.setFont(display_font(9, False))
             unit = f["unit"]
             if not big and self.peak is not None:
-                from ..vag_data import format_number
-                unit = tr("{unit}   ·   máx {v}", unit=unit, v=format_number(self.peak))
+                from ..vag_data import display_number
+                unit = tr("{unit}   ·   máx {v}", unit=unit, v=display_number(self.peak))
+            unit = p.fontMetrics().elidedText(unit, Qt.ElideRight, int(w - 16))
             p.drawText(QRectF(4, vy + 27, w - 8, 18), int(Qt.AlignCenter), unit)
 
         # histórico (sparkline com preenchimento)
@@ -740,16 +768,16 @@ class ChartDialog(QDialog):
         v = field.get("numeric")
         if v is None:
             self.stats_lbl.setText(tr("Valor actual: {value} {unit} (não numérico)",
-                                      value=field['value'], unit=field['unit']))
+                                      value=decimal(field['value']), unit=field['unit']))
             return
         self.chart.unit = field["unit"]
         self.chart.add(t, v)
-        from ..vag_data import format_number
+        from ..vag_data import display_number
         mn, mx, avg = self.chart.stats()
         u = field["unit"]
         self.stats_lbl.setText(tr("Actual {value} {u}     mín {v}     máx {v2}     média {v3}",
-                                  value=field['value'], u=u, v=format_number(mn), v2=format_number(mx),
-                                  v3=format_number(avg)))
+                                  value=decimal(field['value']), u=u, v=display_number(mn), v2=display_number(mx),
+                                  v3=display_number(avg)))
 
 
 # ---------------------------------------------------------------- ícones

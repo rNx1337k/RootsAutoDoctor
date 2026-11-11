@@ -6,6 +6,19 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.16.2
+
+### pt
+- Os valores com casas decimais aparecem com vírgula (por exemplo 12,4 V), como é habitual em Portugal.
+- Mostradores mais limpos: os números da escala já não ficam por cima do valor.
+- Caixas de números com setas visíveis e mais fáceis de ler.
+- Na lista de avarias, o assistente de diagnóstico tem mais espaço e lê-se melhor.
+
+### en
+- Clearer gauges: the scale numbers no longer overlap the value.
+- Number boxes with visible arrows and easier to read.
+- In the fault list, the diagnostic assistant has more room and is easier to read.
+
 ## 1.16.1
 
 ### pt

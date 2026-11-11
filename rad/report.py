@@ -79,8 +79,8 @@ def _no_comm(item, technical=False):
 
 
 def _num(v):
-    from .vag_data import format_number
-    return format_number(v) if isinstance(v, (int, float)) else "—"
+    from .vag_data import display_number
+    return display_number(v) if isinstance(v, (int, float)) else "—"
 
 
 def measuring_html(m, technical=False):

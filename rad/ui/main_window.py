@@ -9,7 +9,7 @@ from PySide6.QtCore import QSize, Qt, QUrl, Signal
 from PySide6.QtGui import (QDesktopServices, QIcon, QImage, QKeySequence, QPageSize, QPixmap, QShortcut,
                            QTextDocument)
 from PySide6.QtWidgets import (
-    QButtonGroup, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QMainWindow,
+    QApplication, QButtonGroup, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
@@ -24,7 +24,7 @@ from .pages import (AutoScanPage, HistoryPage, HomePage, ModulePage, ModuleSelec
 from .pages.common import FaultInfoDialog
 from .palette import Command, CommandPalette
 from .style import BAD, MUTED, OK, QSS, WARN, pill_style
-from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, nav_icon
+from .widgets import LogoLabel, PulseIndicator, Toast, asset_path, install_spinbox_margin, nav_icon
 from ..i18n import tr, tr_data
 
 log = logging.getLogger(__name__)
@@ -42,6 +42,8 @@ class MainWindow(QMainWindow):
         self.resize(1320, 860)
         self.setMinimumSize(1080, 700)
         self.setStyleSheet(QSS)
+        if QApplication.instance() is not None:
+            install_spinbox_margin(QApplication.instance())     # número das caixas numéricas afastado da margem
         self.settings = app_settings()
         self.module_faults = None
         self.disk_log = applog.DiskLog()

@@ -5,9 +5,9 @@ from PySide6.QtWidgets import (
 )
 
 from ... import fault_advice
-from ..style import CYAN, MUTED, pill_style, severity_color
+from ..style import CYAN, MUTED, SOFT, pill_style, severity_color
 from ..widgets import GaugeCell, IconBadge
-from ...i18n import tr
+from ...i18n import decimal, tr
 
 
 # ------------------------------------------------------------------ helpers
@@ -95,7 +95,7 @@ class FaultAdviceCard(QFrame):
         head.setSpacing(10)
         head.addWidget(IconBadge("fault", CYAN, 34), 0, Qt.AlignTop)
         tv = QVBoxLayout()
-        tv.setSpacing(0)
+        tv.setSpacing(4)                   # o título não fica colado à etiqueta por cima
         self.eyebrow = lbl(tr("ASSISTENTE DE DIAGNÓSTICO"), "eyebrow")
         self.title = lbl(empty_text, "h2", wrap=True)
         tv.addWidget(self.eyebrow)
@@ -144,7 +144,7 @@ class FaultAdviceCard(QFrame):
         self.system.show()
         parts = []
         if a["notes"]:
-            parts.append("".join(f"<p style='color:{MUTED}; margin:2px 0'>{html.escape(n)}</p>" for n in a["notes"]))
+            parts.append("".join(f"<p style='color:{SOFT}; margin:2px 0'>{html.escape(n)}</p>" for n in a["notes"]))
         if a["causes"]:
             parts.append(tr("<p style='margin:8px 0 2px 0'><b style='color:{CYAN}'>Possíveis causas</b> <span "
                             "style='color:{MUTED}'>— sugestão do programa, confirme com medições</span></p><ul "
@@ -204,7 +204,7 @@ class FieldCell(QFrame):
             self.unit.setText("")
             self.setToolTip("")
             return
-        self.value.setText(field["value"])
+        self.value.setText(decimal(field["value"]))
         self.unit.setText(field["unit"])
         self.setToolTip(tr("fórmula {formula}  a={a}  b={b}", formula=field['formula'], a=field['a'], b=field['b']))
 

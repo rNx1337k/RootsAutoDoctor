@@ -105,3 +105,32 @@ def test_fault_search_works_in_both_languages():
         assert fault_advice.search_codes("massa de ar")       # o texto original continua a encontrar
     finally:
         i18n.set_language("pt")
+
+
+def test_portuguese_shows_decimal_comma_and_english_a_point():
+    """Em português o ponto separa milhares: "1.400 V" lia-se mil e quatrocentos volts."""
+    from rad import vag_data
+    try:
+        i18n.set_language("pt")
+        assert i18n.tr("{v:.1f} leituras/s", v=32.66) == "32,7 leituras/s"
+        assert i18n.tr("{v:.1f} V", v=12) == "12,0 V"                 # inteiro com formato decimal
+        assert i18n.tr("Ligar a {a:02X} ({n})", a=10, n=3) == "Ligar a 0A (3)"   # inteiros e hex não mudam
+        assert i18n.tr("{flag}", flag=True) == "True"
+        assert vag_data.display_number(1.4) == "1,400" and vag_data.display_number(880) == "880"
+        assert i18n.decimal("12.4 V · 1.9l · máx 4.980") == "12,4 V · 1,9l · máx 4,980"
+        i18n.set_language("en")
+        assert i18n.tr("{v:.1f} leituras/s", v=32.66) == "32.7 readings/s"
+        assert vag_data.display_number(1.4) == "1.400" and i18n.decimal("12.4 V") == "12.4 V"
+    finally:
+        i18n.set_language("pt")
+
+
+def test_recorded_data_keeps_the_decimal_point_in_portuguese():
+    """CSV, histórico e gravações são lidos de volta pelo programa: os dados ficam sempre com ponto."""
+    from rad import vag_data
+    try:
+        i18n.set_language("pt")
+        assert vag_data.format_number(1.4) == "1.400"
+        assert vag_data.decode_value(7, 3, 140)["value"] == "4.200"          # 0,01 × 3 × 140 km/h
+    finally:
+        i18n.set_language("pt")

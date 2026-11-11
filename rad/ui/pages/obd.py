@@ -18,7 +18,7 @@ from ...obd import pids as pidmod
 from ..style import BAD, CYAN, MUTED, OK, WARN, pill_style
 from ..widgets import IconBadge, LiveChart
 from .common import FaultAdviceCard, btn, card, lbl, page_header
-from ...i18n import tr, tr_data
+from ...i18n import decimal, tr, tr_data
 
 MAX_LIVE = 10                     # parâmetros em simultâneo (cada um é um pedido ao veículo)
 KIND_COLORS = {"memorizada": BAD, "pendente": WARN, "permanente": "#B98CFF"}
@@ -380,7 +380,7 @@ class ObdPage(QWidget):
                 self.live_table.item(r, 1).setText(val["error"])
                 continue
             v = val["value"]
-            txt = f"{v:g}" if isinstance(v, (int, float)) else str(v)
+            txt = decimal(f"{v:g}") if isinstance(v, (int, float)) else str(v)
             self.live_table.item(r, 1).setText(txt)
             self.live_table.item(r, 2).setText(val.get("unit", ""))
             num = val.get("numeric")
@@ -457,7 +457,7 @@ class ObdPage(QWidget):
                        BAD if info.get("mil") else OK)
         self.t_ecus.set(str(len(info.get("ecus", []))), ", ".join(e["ecu"] for e in info.get("ecus", [])))
         volt = ad.get("voltage")
-        self.t_volt.set(f"{volt:.1f} V" if volt is not None else "—",
+        self.t_volt.set(decimal(f"{volt:.1f} V") if volt is not None else "—",
                         tr("medida pelo adaptador") if volt is not None else tr("não medida"))
         # parâmetros suportados pela centralina principal
         self.pid_list.blockSignals(True)
@@ -574,7 +574,7 @@ class ObdPage(QWidget):
         if not ff:
             QMessageBox.information(self, APP_NAME, tr("Nenhuma imagem congelada guardada na centralina principal."))
             return
-        rows = "".join(f"<tr><td>{html.escape(v['name'])}</td><td><b>{v['value']:g}</b> "
+        rows = "".join(f"<tr><td>{html.escape(v['name'])}</td><td><b>{decimal(format(v['value'], 'g'))}</b> "
                        f"{html.escape(v['unit'])}</td></tr>"
                        if isinstance(v["value"], (int, float)) else
                        f"<tr><td>{html.escape(v['name'])}</td><td><b>{html.escape(str(v['value']))}</b></td></tr>"
