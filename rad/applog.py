@@ -67,6 +67,34 @@ def crash_log_path():
         return os.path.join(base, "RootsAutoDoctor", "registos", "crash.log")
 
 
+_fault_fh = None
+
+
+def enable_fault_log(path=None):
+    """Fechos nativos (driver do cabo, Qt, DLL J2534) não passam pelo sys.excepthook: o processo desaparece sem
+    deixar nada. Com o faulthandler, o Python escreve no crash.log a pilha de todas as threads antes de morrer.
+    Devolve o ficheiro aberto, ou None se não foi possível (nunca impede o programa de abrir)."""
+    global _fault_fh
+    import faulthandler
+    if _fault_fh is not None and path is None:
+        return _fault_fh
+    try:
+        fh = open(path or crash_log_path(), "a", encoding="utf-8")
+        fh.write(f"\n===== {datetime.datetime.now():%Y-%m-%d %H:%M:%S}  {APP_NAME} v{VERSION} a iniciar — se o "
+                 f"programa fechar sozinho, a pilha das threads fica a seguir =====\n")
+        fh.flush()
+        faulthandler.enable(file=fh, all_threads=True)
+    except Exception:
+        return None
+    if _fault_fh is not None and _fault_fh is not fh:
+        try:
+            _fault_fh.close()
+        except Exception:
+            pass
+    _fault_fh = fh
+    return fh
+
+
 def write_crash(exc_type, exc, tb):
     text = "".join(traceback.format_exception(exc_type, exc, tb))
     try:

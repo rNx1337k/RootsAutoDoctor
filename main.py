@@ -207,6 +207,7 @@ def main():
         from rad import selftest
         return selftest.main(sys.argv)
     applog.setup_logging()
+    applog.enable_fault_log()                     # fechos nativos (driver, Qt) também ficam no crash.log
     install_crash_handler()
     try:
         from rad import autoupdate

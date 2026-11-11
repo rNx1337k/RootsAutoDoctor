@@ -3,6 +3,31 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.16.1] — 2026-11-11
+Three protections of the PC for the first test on a car. Nothing here changes what is sent to a controller.
+
+### Changed
+- **The communication thread is served on time while the window is busy** (`rad.kline._realtime`): with a real
+  interface open, Python's thread switch interval goes from 5 ms to 1 ms and is restored when the last port closes.
+  KW1281 confirms every byte of the controller with its complement, and while the window draws (e.g. the measuring
+  charts) the communication thread waited for the GIL up to the end of the switch interval: measured on Windows with
+  another busy Python thread, median 5 ms and up to ~32 ms per wake-up, which adds to the cable latency and could
+  drop the session halfway through live measuring. With 1 ms: median 1 ms, worst ~6.5 ms. Simulators are unchanged.
+
+### Added
+- **The PC does not go to sleep while it talks to a car** (`rad.power.KeepAwake`): during a command or with a
+  session open on a real interface (K-line, J2534, OBD adapter), the communication thread asks Windows not to suspend
+  (`SetThreadExecutionState`); the request is released as soon as the session closes and when the thread ends. The
+  screen may still turn off. A laptop on battery no longer cuts the cable's USB in the middle of an Auto-Scan.
+- **A native crash leaves a trace** (`rad.applog.enable_fault_log`): a failure in the cable driver, Qt or a J2534 DLL
+  closed the program without passing through the error handler and left nothing in the logs. `faulthandler` now
+  writes the stack of every thread to `crash.log` (included in the support bundle).
+
+### Tests
+- New `tests/test_pc_guards.py` (11 tests): switch interval with ports opened and closed in any order, simulator
+  unchanged, keep-awake requested/released only on change and released when the thread ends, simulator never blocks
+  sleep, and a real native crash in a child process leaves the thread stacks in the log.
+
 ## [1.16.0] — 2026-11-09
 Prepared for the first test on a car with a KKL cable. Nothing here has been confirmed on a vehicle yet: these are
 the timing and robustness points that the simulators cannot show and that decide whether a first session holds.

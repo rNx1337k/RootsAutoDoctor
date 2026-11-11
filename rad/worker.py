@@ -18,7 +18,7 @@ from .j2534 import J2534Link, is_j2534_port
 from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
-from . import capture, connstate, hexmcu, journal, licensing, technician_mode, vag_data, validation
+from . import capture, connstate, hexmcu, journal, licensing, power, technician_mode, vag_data, validation
 from .i18n import tr
 
 log = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class Worker(QThread):
         self.capture_path = None           # gravação da comunicação em curso (rad/capture.py)
         self._baud_hints = {}              # (porta, endereço) → velocidade a que o controlador respondeu da última vez
         self._cap_cmd = None
+        self._awake = power.KeepAwake()    # o PC não suspende com comunicação em curso (só nesta thread)
         # A gravação regista os resultados na própria thread de comunicação, pela ordem em que acontecem
         # (ligação directa: não passa pela fila de eventos da janela).
         self.result.connect(self._cap_result, Qt.DirectConnection)
@@ -121,9 +122,23 @@ class Worker(QThread):
                         log.warning("Fecho forçado: %s falhou", name, exc_info=True)
 
     # ---------------------------------------------------------------- loop
+    def _comm_active(self):
+        """Há comunicação com um carro real: um comando em curso ou uma sessão aberta (os simuladores não contam)."""
+        if is_simulated_port(self.cfg.get("port") or ""):
+            return False
+        return (self._busy or bool(self.session and self.session.connected)
+                or bool(self.obd is not None and getattr(self.obd, "connected", False)))
+
     def run(self):
+        try:
+            self._loop()
+        finally:
+            self._awake.set(False)
+
+    def _loop(self):
         last = time.monotonic()
         while self._running:
+            self._awake.set(self._comm_active())
             try:
                 cmd, args = self.q.get(timeout=0.03)
             except queue.Empty:
@@ -132,6 +147,7 @@ class Worker(QThread):
                 break
             if cmd:
                 self._busy = True
+                self._awake.set(self._comm_active())
                 self.busy.emit(True)
                 try:
                     if self._running:

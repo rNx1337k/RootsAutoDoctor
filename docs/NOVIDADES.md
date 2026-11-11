@@ -6,6 +6,20 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.16.1
+
+### pt
+- Ligação mais estável durante a leitura de valores, mesmo com o computador ocupado a desenhar os gráficos.
+- O computador já não entra em suspensão a meio de uma ligação ao carro (por exemplo, num portátil a bateria
+  durante um Auto-Scan).
+- Se o programa fechar sozinho, fica um registo que permite perceber porquê.
+
+### en
+- More stable connection while reading measuring values, even when the computer is busy drawing the charts.
+- The computer no longer goes to sleep in the middle of a connection to the car (for example, a laptop on battery
+  during an Auto-Scan).
+- If the program closes by itself, a log is left that makes it possible to find out why.
+
 ## 1.16.0
 
 ### pt

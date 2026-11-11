@@ -175,6 +175,34 @@ def _timer_resolution(enable):
         log.warning("timeBeginPeriod/timeEndPeriod falhou", exc_info=True)
 
 
+# Com a janela ocupada (gráficos dos valores de medição desenhados em Python), a thread de comunicação espera pelo
+# GIL até ao fim do intervalo de troca do Python: 5 ms de origem, e medido até ~30 ms no pior caso. No KW1281 cada
+# byte da centralina tem de ser confirmado a tempo, e esse atraso soma-se à latência do cabo. Com uma porta real
+# aberta o intervalo passa a 1 ms (pior caso medido ~6 ms); ao fechar a última porta volta ao valor anterior.
+REALTIME_SWITCH_INTERVAL = 0.001
+_realtime_users = 0
+_saved_switch_interval = None
+
+
+def _realtime(enable):
+    """Liga/desliga o modo de tempo real (relógio de 1 ms e intervalo de troca curto). Conta as portas abertas."""
+    global _realtime_users, _saved_switch_interval
+    if enable:
+        _realtime_users += 1
+        if _realtime_users == 1:
+            _saved_switch_interval = sys.getswitchinterval()
+            sys.setswitchinterval(min(_saved_switch_interval, REALTIME_SWITCH_INTERVAL))
+        _timer_resolution(True)
+        return
+    if _realtime_users <= 0:
+        return
+    _realtime_users -= 1
+    _timer_resolution(False)
+    if _realtime_users == 0 and _saved_switch_interval is not None:
+        sys.setswitchinterval(_saved_switch_interval)
+        _saved_switch_interval = None
+
+
 def _friendly_com(device, description, vid):
     """Nome da porta COM para o cliente: sem chips, VID/PID nem nomes de drivers."""
     d = (description or "").lower()
@@ -291,7 +319,7 @@ class KLine:
                                     port_name=self.port_name, e=e)) from e
         self.ser = capture.wrap_serial(self.ser, "kline")
         if not self.is_simulator:
-            _timer_resolution(True)
+            _realtime(True)
         self.set_lines(*self.lines)
         if self.is_hex and not self.is_simulator:
             precise_sleep(0.4)                       # microcontrolador do clone HEX a sair do reset
@@ -307,7 +335,7 @@ class KLine:
             except Exception:
                 log.warning("%s: erro ao fechar a porta", self.port_name, exc_info=True)
             if not self.is_simulator:
-                _timer_resolution(False)
+                _realtime(False)
         self.ser = None
 
     def _set_timeout(self, t):
