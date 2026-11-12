@@ -37,12 +37,13 @@ def card():
 
 
 def page_header(title, subtitle="", eyebrow=""):
+    """Título da página e uma linha de explicação. `eyebrow` já não se mostra (a etiqueta pequena em ciano por cima
+    de cada título repetia-se em todos os ecrãs e deixava de destacar); fica o parâmetro para não mexer em quem
+    chama."""
     w = QWidget()
     v = QVBoxLayout(w)
     v.setContentsMargins(0, 0, 0, 8)
     v.setSpacing(2)
-    if eyebrow:
-        v.addWidget(lbl(eyebrow.upper(), "eyebrow"))
     v.addWidget(lbl(title, "h1"))
     if subtitle:
         v.addWidget(lbl(subtitle, "muted", wrap=True))

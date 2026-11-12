@@ -136,10 +136,46 @@ class ModulePage(QWidget):
 
         row = QHBoxLayout()
         row.addWidget(btn(tr("Ler avarias"), "primary", self._quick_faults))
-        row.addWidget(btn(tr("Valores de medição"), None, lambda: self.tabs.setCurrentIndex(2)))
         row.addWidget(btn(tr("Copiar informação"), None, self._copy_info))
         row.addStretch(1)
         v.addLayout(row)
+
+        # o que se pode fazer neste controlador: uma entrada por separador disponível (as que o protocolo ou a
+        # identificação não permitem ficam escondidas em set_info)
+        v.addSpacing(4)
+        v.addWidget(lbl(tr("O que pode fazer neste controlador"), "h2"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        self.fn_tiles = {}
+        functions = [
+            (2, tr("Valores de medição"), tr("Leitura contínua dos grupos, com mostradores, gráficos e gravação.")),
+            (3, tr("Ajustes básicos"), tr("Rotinas de afinação do controlador (ex.: borboleta, EGR).")),
+            (4, tr("Adaptação"), tr("Ler, testar e gravar canais; o valor anterior fica guardado.")),
+            (5, tr("Codificação"), tr("Mudar a codificação, confirmada pelo controlador.")),
+            (6, tr("Login"), tr("Código de acesso para funções protegidas.")),
+            (7, tr("Saídas"), tr("Activar os componentes um a um para os testar.")),
+            (None, tr("Testes TDI"), tr("Equilíbrio dos injectores, turbo e medidor de massa de ar, guiados.")),
+            (None, tr("Alterações"), tr("Codificações e adaptações feitas, com o valor anterior para repor.")),
+        ]
+        for n, (index, title, sub) in enumerate(functions):
+            b = btn("", "tile", lambda _=False, t=title: self._open_function(t))
+            b.setMinimumHeight(86)
+            lay = QVBoxLayout(b)
+            lay.setContentsMargins(16, 12, 16, 12)
+            lay.setSpacing(3)
+            t = lbl(title, "h2")
+            d = lbl(sub, "muted", wrap=True)
+            for x in (t, d):
+                x.setAttribute(Qt.WA_TransparentForMouseEvents)
+                lay.addWidget(x)
+            lay.addStretch(1)
+            self.fn_tiles[title] = (index, b)
+            grid.addWidget(b, n // 3, n % 3)
+        for col in range(3):
+            grid.setColumnStretch(col, 1)
+        self.fn_grid = grid
+        v.addLayout(grid)
         self.quick = card()
         qv = QVBoxLayout(self.quick)
         qv.setContentsMargins(20, 16, 20, 16)
@@ -154,6 +190,26 @@ class ModulePage(QWidget):
         v.addWidget(self.quick)
         v.addStretch(1)
         return w
+
+    def _open_function(self, title):
+        index, _b = self.fn_tiles[title]
+        if index is None:
+            index = self.GUIDED_TAB if title == tr("Testes TDI") else self.CHANGES_TAB
+        self.tabs.setCurrentIndex(index)
+
+    def _refresh_function_tiles(self):
+        """Só as funções que este controlador permite, arrumadas sem buracos na grelha."""
+        shown = []
+        for title, (index, b) in self.fn_tiles.items():
+            if index is None:
+                index = self.GUIDED_TAB if title == tr("Testes TDI") else self.CHANGES_TAB
+            ok = self.tabs.isTabEnabled(index)
+            b.setVisible(ok)
+            self.fn_grid.removeWidget(b)
+            if ok:
+                shown.append(b)
+        for n, b in enumerate(shown):
+            self.fn_grid.addWidget(b, n // 3, n % 3)
 
     def _quick_faults(self):
         self.tabs.setCurrentIndex(1)
@@ -406,6 +462,9 @@ class ModulePage(QWidget):
         self.cod_range_lbl.setText(tr("Nova codificação (0–32767)") if digits == 5 else
                                    tr("Nova codificação (7 algarismos)"))
         self.tabs.setTabEnabled(self.GUIDED_TAB, guided.available_for(info))
+        if self.guided_test is None and self.gd_selected is not None:   # nomes dos campos deste motor
+            self._guided_select(guided.TESTS.index(self.gd_selected))
+        self._refresh_function_tiles()
         self.refresh_changes()
         self.quick.setVisible(kw and info["address"] == 0x17)
         for c in self.charts:
@@ -472,14 +531,26 @@ class ModulePage(QWidget):
         w, v = self._pad()
         v.addWidget(lbl(tr("Testes rápidos ao motor 1.9 TDI. Escolha o teste, siga as instruções e veja o "
                            "resultado no fim. As referências são valores habituais de oficina."), "muted", wrap=True))
+        # um cartão por teste (o seleccionado fica com o contorno aceso); o primeiro vem já escolhido, para o
+        # cartão das instruções nunca aparecer vazio
         row = QHBoxLayout()
+        row.setSpacing(12)
         self.gd_buttons = []
         for i, t in enumerate(guided.TESTS):
-            b = btn(tr_data(t.title), None, lambda _=False, k=i: self._guided_select(k))
+            b = btn("", "tile", lambda _=False, k=i: self._guided_select(k))
             b.setCheckable(True)
+            b.setMinimumHeight(78)
+            lay = QVBoxLayout(b)
+            lay.setContentsMargins(16, 12, 16, 12)
+            lay.setSpacing(3)
+            how = (tr("Grupo {group:03d}  ·  pára sozinho ao fim de {d} s", group=t.group, d=t.duration)
+                   if t.duration else
+                   tr("Grupo {group:03d}  ·  pára quando carregar em «Parar e ver resultado»", group=t.group))
+            for x in (lbl(tr_data(t.title), "h2"), lbl(how, "muted", wrap=True)):
+                x.setAttribute(Qt.WA_TransparentForMouseEvents)
+                lay.addWidget(x)
             self.gd_buttons.append(b)
-            row.addWidget(b)
-        row.addStretch(1)
+            row.addWidget(b, 1)
         v.addLayout(row)
         c = card()
         cv = QVBoxLayout(c)
@@ -517,6 +588,7 @@ class ModulePage(QWidget):
         self.gd_selected = None
         self.gd_samples = []
         self.gd_t0 = None
+        self._guided_select(0)
         return w
 
     def _guided_select(self, k):

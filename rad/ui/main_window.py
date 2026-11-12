@@ -110,7 +110,7 @@ class MainWindow(QMainWindow):
             self.nav.addButton(b)
             self.nav_btns[key] = b
             sv.addWidget(b)
-        self.nav_btns["module"].setEnabled(False)
+        self._set_module_nav(None)
         sv.addStretch(1)
         self.ws_brand = lbl("", "muted")
         self.ws_brand.setAlignment(Qt.AlignCenter)
@@ -636,6 +636,22 @@ class MainWindow(QMainWindow):
         if not quiet:
             self.toast.show_msg(tr("Opções guardadas"))
 
+    def _set_module_nav(self, info):
+        """Item "controlador ligado" do menu: só aparece com um controlador ligado, e mostra qual (antes ficava
+        sempre lá, cinzento, e parecia avariado)."""
+        b = self.nav_btns["module"]
+        if not info:
+            b.setEnabled(False)
+            b.setVisible(False)
+            b.setText(tr("Controlador ligado"))
+            b.setToolTip("")
+            return
+        text = f"{info['address']:02X} · {info.get('module') or tr('Controlador ligado')}"
+        b.setText(b.fontMetrics().elidedText(text, Qt.ElideRight, 150))
+        b.setToolTip(text)
+        b.setEnabled(True)
+        b.setVisible(True)
+
     def connect_module(self, address):
         if self._obd_sim_selected():
             self._explain_elm()
@@ -877,14 +893,14 @@ class MainWindow(QMainWindow):
             self.set_conn_state("connected", tr("Ligado a {address:02X}{sim}", address=data['address'], sim=sim),
                                 data['module'])
             self.module.set_info(data)
-            self.nav_btns["module"].setEnabled(True)
+            self._set_module_nav(data)
             self.show_page("module")
             self.statusBar().showMessage(tr("Ligado a {address:02X} — {part} {component}",
                                             address=data['address'], part=data['part'], component=data['component']))
         else:
             self.set_conn_state("disconnected", None, self._port_text())
             self.module.stop_live()
-            self.nav_btns["module"].setEnabled(False)
+            self._set_module_nav(None)
             if self.stack.currentWidget() is self.module:
                 self.show_page("modules")
             self.statusBar().showMessage(tr("Ligação terminada: {data}", data=client_text(data)) if data

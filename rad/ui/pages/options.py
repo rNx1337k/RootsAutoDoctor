@@ -21,6 +21,23 @@ from ...i18n import tr
 log = logging.getLogger(__name__)
 
 
+FORM_LABEL_WIDTH = 170
+
+
+def _align_form(form):
+    """Coluna das etiquetas com largura fixa e etiquetas centradas na vertical com o campo."""
+    form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+    form.setHorizontalSpacing(16)
+    for row in range(form.rowCount()):
+        item = form.itemAt(row, QFormLayout.LabelRole)
+        field = form.itemAt(row, QFormLayout.FieldRole)
+        if item is not None and item.widget() is not None:
+            label = item.widget()
+            label.setMinimumWidth(FORM_LABEL_WIDTH)
+            if field is not None:                  # a etiqueta com a altura do campo, centrada com ele
+                label.setMinimumHeight(min(field.sizeHint().height(), 48))
+                label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
 class OptionsPage(QWidget):
     saved = Signal(dict)
     test_req = Signal()
@@ -60,6 +77,7 @@ class OptionsPage(QWidget):
         f = QFormLayout(c)
         f.setContentsMargins(20, 18, 20, 18)
         f.setVerticalSpacing(12)
+        f.addRow(lbl(tr("Ligação ao carro"), "h2"))
         self.adapter = QComboBox()
         for t, d in [(tr("Cabo VAG — VW, Audi, Seat, Škoda até ~2005"), "kline"),
                      (tr("Adaptador OBD — VAG desde ~2004 e todas as marcas"), "elm327")]:
@@ -154,7 +172,9 @@ class OptionsPage(QWidget):
         except Exception as e:
             log.warning("ID do PC: %s", e)
             mid = "—"
-        self.lic_machine = lbl(mid, "value")
+        self.lic_machine = lbl(mid, None)
+        self.lic_machine.setStyleSheet("font-family: Consolas, monospace; font-size: 13pt; font-weight: 600; "
+                                       "letter-spacing: 1px; color: white;")
         self.lic_machine.setTextInteractionFlags(Qt.TextSelectableByMouse)
         mrow.addWidget(self.lic_machine)
         mrow.addWidget(btn(tr("Copiar"), None, lambda: QGuiApplication.clipboard().setText(self.lic_machine.text())))
@@ -247,6 +267,10 @@ class OptionsPage(QWidget):
         row.addWidget(btn(tr("Guardar"), "primary", self._save))
         row.addStretch(1)
         v.addLayout(row)
+        # todos os cartões com a coluna das etiquetas da mesma largura (antes cada cartão tinha a sua e os campos
+        # começavam em sítios diferentes de cartão para cartão)
+        for form in (f, wf, lf, uf, sf, rf):
+            _align_form(form)
         v.addWidget(lbl(
             tr("Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. "
                "Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\n"

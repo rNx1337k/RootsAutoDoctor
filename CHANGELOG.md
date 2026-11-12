@@ -3,6 +3,28 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.19.0] — 2026-11-12
+Design pass over the other screens, after the new Home page (1.17.0).
+
+### Changed
+- **Sidebar**: the "Connected module" item only appears with a module connected, and then says which one
+  ("01 · Engine electronics"); before it was always there, greyed out, and looked broken.
+- **Module → Information**: below the identification, **"What you can do in this module"** — a card per function
+  this module allows (measuring values, basic settings, adaptation, coding, login, outputs, TDI tests, changes),
+  each with one line on what it does, that opens its tab. Functions the protocol or the identification do not
+  allow are not shown. Replaces the empty half of the page.
+- **TDI tests**: the three tests are cards (group and how the test stops), the selected one lit; the first test is
+  selected from the start, so the instructions card is never empty and the start button is never greyed out.
+- **Options**: every card has a title ("Connection to the car" was missing one) and the same label column, so the
+  fields line up from card to card; labels are centred with their field; the PC ID is in a monospace font of normal
+  size instead of a huge one.
+- **Page titles** without the small cyan label above them (it was on every screen and stopped standing out).
+- **Tables, everywhere**: no vertical grid lines, only a thin line between rows; column titles aligned left like the
+  content, with a line under the header. Done when each table is created (the stylesheet cannot switch the grid
+  off).
+- **History**: the most recent diagnosis is selected when the page opens, so the modules and faults list below is
+  never empty.
+
 ## [1.18.0] — 2026-11-12
 ### Changed
 - **New logo**: the "R" of Roots whose leg is the needle of a rev counter entering the red zone — the brand (R),

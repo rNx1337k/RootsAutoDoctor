@@ -101,6 +101,10 @@ QPushButton#tile {{
     text-align: left; padding: 18px 20px; border-radius: 16px; background: {GRAD_CARD};
     border: 1px solid {LINE}; font-size: 10.5pt; color: {MUTED};
 }}
+QPushButton#tile:checked {{
+    border: 1px solid {CYAN};
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #17305A, stop:1 #111A31);
+}}
 QPushButton#tile:hover {{
     border-color: {CYAN};
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1B2C58, stop:1 #111A31);
@@ -146,8 +150,12 @@ QTableWidget, QTreeWidget, QListWidget {{
     background: rgba(9, 14, 29, 0.85); alternate-background-color: rgba(18, 27, 52, 0.6);
     border: 1px solid {LINE}; border-radius: 12px; gridline-color: #1A2545; outline: 0;
 }}
-QHeaderView::section {{ background: {PANEL}; color: {MUTED}; padding: 8px; border: none; font-weight: 600; }}
-QTableWidget::item, QTreeWidget::item {{ padding: 5px; }}
+QHeaderView {{ background: transparent; border: none; }}
+QHeaderView::section {{
+    background: {PANEL}; color: {MUTED}; padding: 9px 10px; border: none; border-bottom: 1px solid {LINE};
+    font-weight: 600; font-size: 9pt;
+}}
+QTableWidget::item, QTreeWidget::item {{ padding: 6px 4px; border-bottom: 1px solid #172241; }}
 QTableWidget::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {{
     background: rgba(34, 211, 201, 0.18); color: white;
 }}

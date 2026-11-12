@@ -10,7 +10,8 @@ from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QPoint, QPointF, QPro
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QFont, QLinearGradient, QPainter,
                            QPainterPath, QPen, QPixmap, QPolygonF, QRadialGradient)
 from PySide6.QtWidgets import (QAbstractSpinBox, QDialog, QFrame, QGraphicsDropShadowEffect, QGraphicsOpacityEffect,
-                               QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+                               QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QTableView, QTreeView,
+                               QVBoxLayout, QWidget)
 
 from .style import (BLUE, BLUE_SOFT, CYAN, DIM, LINE, MUTED, NIGHT, OK, RED, TEXT, VIOLET,
                     WARN)
@@ -20,16 +21,24 @@ ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 
 
 class SpinBoxTextMargin(QObject):
-    """O Qt ignora o padding do QSS no texto das caixas numéricas (QSpinBox): o número ficava colado à margem
-    esquerda. Instalado na aplicação, dá a cada caixa numérica a mesma margem dos outros campos quando é criada."""
+    """Acertos que o QSS não consegue fazer, aplicados a cada widget quando é criado (instalado na aplicação):
+    - caixas numéricas (QSpinBox): o Qt ignora o padding do QSS no texto e o número ficava colado à margem;
+    - tabelas: sem a grelha de linhas verticais (só a separação entre linhas, no QSS) e com os títulos das colunas
+      alinhados à esquerda como o conteúdo."""
 
     LEFT = 8
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.Polish and isinstance(obj, QAbstractSpinBox):
-            edit = obj.findChild(QLineEdit)
-            if edit is not None:
-                edit.setTextMargins(self.LEFT, 0, 0, 0)
+        if event.type() == QEvent.Polish:
+            if isinstance(obj, QAbstractSpinBox):
+                edit = obj.findChild(QLineEdit)
+                if edit is not None:
+                    edit.setTextMargins(self.LEFT, 0, 0, 0)
+            elif isinstance(obj, QTableView):
+                obj.setShowGrid(False)
+                obj.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            elif isinstance(obj, QTreeView):
+                obj.header().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         return False
 
 

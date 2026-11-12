@@ -191,6 +191,8 @@ class HistoryPage(QWidget):
                         it.setToolTip(tr("Sessão gravada por uma versão anterior, que não registava o equipamento: "
                                          "não se sabe se veio do simulador ou do carro."))
                 self.table.setItem(r, c, it)
+        if rows and self.table.currentRow() < 0:
+            self.table.selectRow(0)          # a lista de módulos/avarias por baixo nunca fica vazia
 
     def _selected_id(self):
         r = self.table.currentRow()

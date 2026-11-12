@@ -6,6 +6,18 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.19.0
+
+### pt
+- Ao abrir um controlador, a página Informação mostra o que pode fazer nele, com um atalho para cada função.
+- Testes TDI mais claros: cada teste num cartão, com o primeiro já escolhido.
+- Opções e tabelas mais arrumadas e fáceis de ler.
+
+### en
+- When you open a module, the Information page shows what you can do in it, with a shortcut to each function.
+- Clearer TDI tests: each test on a card, with the first one already selected.
+- Tidier, easier to read Options and tables.
+
 ## 1.18.0
 
 ### pt

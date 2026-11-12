@@ -3955,4 +3955,28 @@ EN = {
         "simulator",
     "versão {v}":
         "version {v}",
+    'Activar os componentes um a um para os testar.':
+        'Switch the components on one by one to test them.',
+    'Codificações e adaptações feitas, com o valor anterior para repor.':
+        'Codings and adaptations made, with the previous value to restore.',
+    'Código de acesso para funções protegidas.':
+        'Access code for protected functions.',
+    'Equilíbrio dos injectores, turbo e medidor de massa de ar, guiados.':
+        'Guided injector balance, turbo and air mass meter tests.',
+    'Grupo {group:03d}  ·  pára quando carregar em «Parar e ver resultado»':
+        'Group {group:03d}  ·  stops when you click “Stop and see result”',
+    'Grupo {group:03d}  ·  pára sozinho ao fim de {d} s':
+        'Group {group:03d}  ·  stops by itself after {d} s',
+    'Leitura contínua dos grupos, com mostradores, gráficos e gravação.':
+        'Continuous reading of the groups, with gauges, charts and recording.',
+    'Ler, testar e gravar canais; o valor anterior fica guardado.':
+        'Read, test and save channels; the previous value is kept.',
+    'Ligação ao carro':
+        'Connection to the car',
+    'Mudar a codificação, confirmada pelo controlador.':
+        'Change the coding, confirmed by the module.',
+    'O que pode fazer neste controlador':
+        'What you can do in this module',
+    'Rotinas de afinação do controlador (ex.: borboleta, EGR).':
+        'Module calibration routines (e.g. throttle, EGR).',
 }
