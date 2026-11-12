@@ -3,6 +3,13 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.20.1] — 2026-11-12
+
+### Fixed
+- **Auto-Scan**: after **Clear faults in all**, the diagnostic assistant kept showing the fault that had just been
+  cleared (`QTreeWidget.clear()` does not emit `itemSelectionChanged`, so the panel was never hidden). Rebuilding
+  the list now hides it; covered by `test_clear_all_hides_the_advice_of_the_cleared_fault`.
+
 ## [1.20.0] — 2026-11-12
 The last screens of the design pass.
 

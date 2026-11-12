@@ -6,6 +6,16 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.20.1
+
+### pt
+- Auto-Scan: depois de apagar as avarias em todos os controladores, o assistente de diagnóstico já não fica a
+  mostrar uma avaria que foi apagada.
+
+### en
+- Auto-Scan: after clearing the faults in all modules, the diagnostic assistant no longer keeps showing a fault
+  that was cleared.
+
 ## 1.20.0
 
 ### pt

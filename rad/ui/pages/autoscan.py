@@ -227,7 +227,8 @@ class AutoScanPage(QWidget):
 
     def rebuild(self):
         items, self.items = self.items, []
-        self.tree.clear()
+        self.tree.clear()                  # não emite itemSelectionChanged: o assistente ficaria na avaria antiga
+        self.advice.hide()
         self.tiles.clear()
         self.map.clear()
         total = max(self.progress.maximum(), 1)

@@ -137,6 +137,27 @@ def test_full_flow_with_simulator():
     assert os.path.exists(os.environ["RAD_SETTINGS_INI"])
 
 
+def test_clear_all_hides_the_advice_of_the_cleared_fault():
+    app, w = _window()
+    import rad.ui.pages.autoscan as autoscan_page
+    ask = autoscan_page.ask
+    autoscan_page.ask = lambda *a, **k: True          # responde «sim» à confirmação
+    try:
+        w._home_go("autoscan_start")
+        assert _wait(app, lambda: not w.scan.running, 30), "Auto-Scan não terminou"
+        engine = w.scan.tree.topLevelItem(0)
+        w.scan.tree.setCurrentItem(engine.child(0))
+        app.processEvents()
+        assert not w.scan.advice.isHidden()
+        w.scan._clear_all()
+        assert _wait(app, lambda: w.scan.clear_all_btn.isEnabled(), 30), "não acabou de apagar"
+        assert sum(len(i.get("faults", [])) for i in w.scan.items) == 0
+        assert w.scan.advice.isHidden(), "o assistente continuou a mostrar uma avaria já apagada"
+    finally:
+        autoscan_page.ask = ask
+        w.close()
+
+
 def test_changes_tab_records_writes_and_prepares_the_previous_value():
     app, w = _window()
     try:
