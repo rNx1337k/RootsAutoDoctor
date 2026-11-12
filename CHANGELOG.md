@@ -3,6 +3,27 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.20.0] — 2026-11-12
+The last screens of the design pass.
+
+### Changed
+- **Modules page** (`rad/ui/pages/module_select.py`): instead of a flat grid of 44 identical buttons, modules are
+  grouped by car system (engine and transmission; brakes, steering and suspension; safety and access; comfort and
+  body; instruments, audio and communication), each with a title and a count. After an Auto-Scan, the modules
+  that answered move to the top under **"In this car"**, with their result in colour; that is where the diagnosis
+  goes on. The filter works across every section and hides empty ones.
+- **Customer report**: the header has the workshop on the left and, on the right, the document title in the brand
+  blue, the date and the number plate in large type, over a blue rule; the vehicle details are in two columns; the
+  summary is a panel with the health score in large type and colour (green / amber / red) beside the verdict;
+  section titles in small capitals; the footer is separated by a line. The preview no longer shows a horizontal
+  scroll bar (100 % tables could be 1 px wider than the page).
+- **Auto-Scan**: the module tiles above the list were removed — they repeated the vehicle map and the list — so the
+  list and the diagnostic assistant below it get the room (before, the assistant was squeezed and long fault names
+  were cut). The first fault is selected when the scan ends, so the assistant opens straight away. A
+  double-click on a list row opens that module. "Vehicle map" title in normal case.
+- **Text size**: the base font went from 10 to 10.5 pt (column titles, labels and tags up by half a point too), to
+  read better from inside the car. The "large display" option in Options still scales everything further.
+
 ## [1.19.0] — 2026-11-12
 Design pass over the other screens, after the new Home page (1.17.0).
 

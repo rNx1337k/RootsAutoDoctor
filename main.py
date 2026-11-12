@@ -156,7 +156,7 @@ def create_app():
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Roots")
     app.setStyle("Fusion")
-    app.setFont(QFont("Segoe UI", 10))
+    app.setFont(QFont("Segoe UI", 10.5))
     app.setWindowIcon(QIcon(asset_path("icon.ico")))
     return app
 

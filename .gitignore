@@ -43,3 +43,7 @@ autoteste*.txt
 # Chaves privadas de licença: nunca no repositório
 *.key
 RootsAutoDoctor_licencas/
+
+# Material de marketing (Instagram): fica só neste PC, nunca vai para o GitHub
+marketing/
+tools/make_social.py

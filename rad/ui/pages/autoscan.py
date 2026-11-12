@@ -78,7 +78,8 @@ class AutoScanPage(QWidget):
         v.setContentsMargins(30, 24, 30, 20)
         v.setSpacing(12)
         v.addWidget(page_header(tr("Auto-Scan"), tr("Lê a identificação e as avarias de todos os controladores. "
-                                                    "Clique no mapa ou num mosaico para abrir o controlador."),
+                                                    "Clique no mapa, ou duas vezes na lista, para abrir um "
+                                                    "controlador."),
                                 tr("Diagnóstico completo")))
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -102,7 +103,7 @@ class AutoScanPage(QWidget):
         lv = QVBoxLayout(left)
         lv.setContentsMargins(14, 12, 14, 14)
         lv.setSpacing(6)
-        lv.addWidget(lbl(tr("MAPA DO VEÍCULO"), "eyebrow"))
+        lv.addWidget(lbl(tr("Mapa do veículo"), "h2"))
         self.map = VehicleMap()
         self.map.picked.connect(self.connect_req.emit)
         lv.addWidget(self.map, 1)
@@ -165,9 +166,11 @@ class AutoScanPage(QWidget):
         self.tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tree.itemSelectionChanged.connect(self._show_advice)
-        right.addWidget(self.tree, 3)
+        self.tree.itemDoubleClicked.connect(self._open_from_tree)
+        # a lista e, por baixo, o assistente, ambos à largura toda (lado a lado cortava os nomes das avarias)
+        right.addWidget(self.tree, 1)
         self.advice = FaultAdviceCard(tr("Seleccione uma avaria na lista para ver as causas prováveis."))
-        right.addWidget(self.advice)
+        right.addWidget(self.advice, 1)
         self.advice.hide()
         body.addLayout(right, 1)
         v.addLayout(body, 1)
@@ -283,8 +286,7 @@ class AutoScanPage(QWidget):
         self.map.add_item(item)
         tile = ModuleTile(item)
         tile.picked.connect(self.connect_req.emit)
-        self.tiles.add(tile)
-        self.tiles_scroll.show()
+        self.tiles.add(tile)          # os mosaicos repetiam o mapa e a lista: ficam escondidos (dão espaço à lista)
         self._add_tree_item(item)
 
     def _fault_tag(self, address, f):
@@ -318,6 +320,13 @@ class AutoScanPage(QWidget):
         self.tree.addTopLevelItem(top)
         top.setExpanded(True)
 
+    def _open_from_tree(self, item, _col=0):
+        top = item.parent() or item
+        try:
+            self.connect_req.emit(int(top.text(0), 16))
+        except ValueError:
+            pass
+
     def _show_advice(self):
         it = self.tree.currentItem()
         data = it.data(0, Qt.UserRole) if it is not None else None
@@ -327,6 +336,16 @@ class AutoScanPage(QWidget):
         address, f = data
         self.advice.set_fault(f, address)
         self.advice.show()
+
+    def _select_first_fault(self):
+        """No fim, a primeira avaria fica escolhida: o assistente aparece logo com as causas prováveis."""
+        if self.tree.currentItem() is not None:
+            return
+        for i in range(self.tree.topLevelItemCount()):
+            top = self.tree.topLevelItem(i)
+            if top.childCount():
+                self.tree.setCurrentItem(top.child(0))
+                return
 
     def done(self, aborted, error=None):
         self.running = False
@@ -340,6 +359,7 @@ class AutoScanPage(QWidget):
             self.empty.setWordWrap(True)
             self.empty.show()
         self.start_btn.setText(tr("▶  Iniciar Auto-Scan"))
+        self._select_first_fault()
         if error and not self.items:
             self.summary.setText(tr("Sem comunicação"))
             self.health_lbl.setText(tr("Veja a explicação ao lado."))

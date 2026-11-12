@@ -37,7 +37,7 @@ GRAD_CARD = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(24, 35, 66, 0.9
 _ASSET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets").replace("\\", "/")
 
 QSS = f"""
-* {{ font-family: {BODY_FONT}; font-size: 10pt; }}
+* {{ font-family: {BODY_FONT}; font-size: 10.5pt; }}       /* lê-se melhor a partir do carro */
 QMainWindow {{ background: {NIGHT}; }}
 QWidget#root {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0B1430, stop:0.45 {NIGHT}, stop:1 #0B0E24);
@@ -153,7 +153,7 @@ QTableWidget, QTreeWidget, QListWidget {{
 QHeaderView {{ background: transparent; border: none; }}
 QHeaderView::section {{
     background: {PANEL}; color: {MUTED}; padding: 9px 10px; border: none; border-bottom: 1px solid {LINE};
-    font-weight: 600; font-size: 9pt;
+    font-weight: 600; font-size: 9.5pt;
 }}
 QTableWidget::item, QTreeWidget::item {{ padding: 6px 4px; border-bottom: 1px solid #172241; }}
 QTableWidget::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {{
@@ -180,12 +180,12 @@ QLabel#muted {{ color: {MUTED}; }}
 QLabel#value {{ font-family: {DISPLAY_FONT}; font-size: 21pt; font-weight: 700; color: white; }}
 QLabel#bigValue {{ font-family: {DISPLAY_FONT}; font-size: 28pt; font-weight: 700; color: white; }}
 QLabel#unit {{ color: {BLUE}; font-weight: 600; }}
-QLabel#cellName {{ color: {MUTED}; font-size: 8.5pt; font-weight: 600; letter-spacing: 1px; }}
+QLabel#cellName {{ color: {MUTED}; font-size: 9pt; font-weight: 600; letter-spacing: 1px; }}
 QLabel#kbd {{
     color: {MUTED}; font-size: 8pt; padding: 1px 6px; border: 1px solid {LINE}; border-radius: 5px;
     background: rgba(255, 255, 255, 0.03);
 }}
-QLabel#pill {{ border-radius: 9px; padding: 2px 10px; font-weight: 700; font-size: 8.5pt; }}
+QLabel#pill {{ border-radius: 9px; padding: 2px 10px; font-weight: 700; font-size: 9pt; }}
 QLabel#toast {{
     background: rgba(18, 27, 52, 0.97); border: 1px solid {BLUE}; border-radius: 12px;
     padding: 12px 18px; color: white; font-weight: 600;

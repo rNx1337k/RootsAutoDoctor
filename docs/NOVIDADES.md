@@ -6,6 +6,23 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.20.0
+
+### pt
+- Lista de controladores arrumada por sistema do carro; depois de um Auto-Scan, os que responderam aparecem no topo
+  ("Neste carro") com o resultado a cores.
+- Relatório para o cliente com um aspecto mais profissional: a saúde do veículo em destaque e os dados do carro
+  mais arrumados.
+- Auto-Scan com mais espaço para a lista de avarias e para o assistente de diagnóstico.
+- Letra um pouco maior em todo o programa, para se ler melhor a partir do carro.
+
+### en
+- Module list arranged by car system; after an Auto-Scan, the ones that answered are at the top ("In this car")
+  with the result in colour.
+- More professional customer report: the vehicle health stands out and the car details are tidier.
+- Auto-Scan with more room for the fault list and the diagnostic assistant.
+- Slightly larger text throughout the program, to read better from inside the car.
+
 ## 1.19.0
 
 ### pt

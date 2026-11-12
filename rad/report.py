@@ -123,7 +123,7 @@ def measuring_html(m, technical=False):
             when = prev_date.replace("T", " ")
             cols += [tr("Média em {d}", d=when), tr("Diferença")]
         header = "".join(f"<td class='muted'><b>{_e(c)}</b></td>" for c in cols)
-        parts.append(f"<table class='modules'><tr>{header}</tr>{''.join(rows)}</table>")
+        parts.append(f"<table class='modules' width='100%'><tr>{header}</tr>{''.join(rows)}</table>")
     return "".join(parts)
 
 
@@ -149,7 +149,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
     simulated = _is_simulated(items, meta)
     from .ui_score import health_score, health_text
     score = health_score(items)
-    verdict_color, vlines = verdict_lines(items, meta)
+    _color, vlines = verdict_lines(items, meta)
     verdict = "<br>".join(_e(l) for l in vlines)
     interface = meta.get("interface") or next(((i.get("info") or {}).get("interface") for i in ok_items
                                                if (i.get("info") or {}).get("interface")), "")
@@ -234,7 +234,7 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
         changes_html = (f"<h2>{_e(tr('Intervenções nos controladores'))}</h2><p class='muted'>"
                         + _e(tr("Codificações e adaptações gravadas durante esta visita, com o valor anterior. "
                                 "\"Confirmada\" = o controlador devolveu o valor gravado."))
-                        + f"</p><table class='modules'>{''.join(crow)}</table>")
+                        + f"</p><table class='modules' width='100%'>{''.join(crow)}</table>")
 
     measuring = measuring_html(meta.get("measuring"), technical)
     notes_html = (f"<h2>{_e(tr('Observações'))}</h2><p>{_e(notes).replace(chr(10), '<br>')}</p>"
@@ -254,49 +254,73 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                    "O diagnóstico final cabe ao técnico. Controladores que não comunicaram não foram avaliados.",
                    app=APP_NAME, version=VERSION))
 
+    score_color = OK if score is not None and score >= 85 else (WARN if score is not None and score >= 50 else RED)
+    if score is None:
+        score_color = "#6A7591"
+    ws_name = _e(workshop.get('name'))
+    modules_rows = ''.join(rows) if rows else f'<tr><td>{T["Nenhum controlador lido."]}</td></tr>'
+    plate = _e(vehicle.get('plate', ''))
+
+    def vcell(label, key):
+        v = vehicle.get(key, "")
+        return f"<td class='k'>{_e(label)}</td><td class='v'>{_e(v) if v else '—'}</td>"
+
     return f"""<!doctype html>
 <html lang="{language()}"><head><meta charset="utf-8">
-<title>{T["Relatório de diagnóstico"]} — {_e(vehicle.get('plate', ''))}</title>
+<title>{T["Relatório de diagnóstico"]} — {plate}</title>
 <style>
  body {{ font-family: 'Segoe UI', Arial, sans-serif; color: #1B2338; font-size: 10pt; margin: 24px; }}
  h1 {{ font-size: 18pt; margin: 0; color: #0E1526; }}
- h2 {{ font-size: 12pt; color: #0E1526; border-bottom: 2px solid {BLUE}; padding-bottom: 3px; margin-top: 18px; }}
+ h2 {{ font-size: 10.5pt; color: {BLUE}; margin-top: 20px; margin-bottom: 6px; text-transform: uppercase;
+       letter-spacing: 1px; }}
  .muted {{ color: #6A7591; font-size: 9pt; }}
  table {{ border-collapse: collapse; width: 100%; }}
  td {{ padding: 6px 8px; vertical-align: top; }}
  .modules td {{ border-bottom: 1px solid #DDE3F0; }}
- .k {{ color: #6A7591; width: 32%; }}
+ .k {{ color: #6A7591; width: 16%; }}
+ .v {{ font-weight: 600; width: 34%; }}
  .addr {{ font-weight: bold; color: {BLUE}; width: 40px; font-size: 11pt; }}
  .fault {{ margin-top: 6px; padding-left: 8px; border-left: 3px solid {WARN}; }}
  .cause {{ color: #3B4A6B; font-size: 9pt; }}
- .verdict {{ padding: 10px 12px; border-left: 5px solid {verdict_color}; background: #F3F6FC; font-size: 11pt; }}
+ .summary td {{ background: #F3F6FC; }}
+ .score {{ font-size: 30pt; font-weight: bold; color: {score_color}; }}
  .sim {{ padding: 8px 12px; border: 2px solid {RED}; color: {RED}; font-size: 11pt; }}
  .tech {{ color: #4A5880; font-size: 8.5pt; font-family: Consolas, 'Courier New', monospace; }}
+ .doc {{ color: {BLUE}; font-size: 13pt; font-weight: bold; }}
+ .plate {{ font-size: 15pt; font-weight: bold; color: #0E1526; letter-spacing: 1px; }}
 </style></head><body>
 {sim_html}
-<table><tr>
- <td style="width:{logo_size[0] + 8}px"><img src="{logo_src}" width="{logo_size[0]}" height="{logo_size[1]}"></td>
- <td><h1>{_e(workshop.get('name')) or T["Relatório de diagnóstico"]}</h1>
+<table width="100%" style="border-bottom: 3px solid {BLUE}"><tr>
+<td width="{logo_size[0] + 12}"><img src="{logo_src}" width="{logo_size[0]}" height="{logo_size[1]}"></td>
+ <td align="left"><h1>{ws_name or _e(APP_NAME)}</h1>
      <span class="muted">{ws_info}</span></td>
- <td style="text-align:right" class="muted">{T["Relatório de diagnóstico"]}<br>{now:%d/%m/%Y %H:%M}</td>
+ <td style="text-align:right"><span class="doc">{T["Relatório de diagnóstico"]}</span><br>
+     <span class="muted">{now:%d/%m/%Y %H:%M}</span><br><span class="plate">{plate}</span></td>
 </tr></table>
 
 <h2>{T["Veículo"]}</h2>
-<table>{vrow(tr('Cliente'), 'client')}{vrow(tr('Matrícula'), 'plate')}{vrow(tr('Marca / modelo'), 'model')}
-{vrow('VIN', 'vin')}{vrow(tr('Quilómetros'), 'km')}</table>
+<table width="100%">
+<tr>{vcell(tr('Cliente'), 'client')}{vcell(tr('Matrícula'), 'plate')}</tr>
+<tr>{vcell(tr('Marca / modelo'), 'model')}{vcell(tr('Quilómetros'), 'km')}</tr>
+<tr>{vcell('VIN', 'vin')}<td></td><td></td></tr>
+</table>
 
 <h2>{T["Resumo"]}</h2>
-<p class="verdict"><b style="font-size:15pt">{_e(tr("Saúde do veículo: {score}/100",
-                                                    score=score if score is not None else "—"))}</b>
- &nbsp;·&nbsp; {_e(health_text(score))}{_e(partial)}
-<br>{verdict}<br><span class="muted">{_e(read_line)}</span></p>
+<table class="summary" width="100%" cellspacing="0"><tr>
+ <td style="width:150px; text-align:center; border-left: 5px solid {score_color}">
+   <span class="muted">{_e(tr("Saúde do veículo"))}</span><br>
+   <span class="score">{score if score is not None else "—"}</span><span class="muted"> /100</span><br>
+   <b style="color:{score_color}">{_e(health_text(score))}</b><span class="muted">{_e(partial)}</span></td>
+ <td style="font-size:11pt; border-left: 1px solid #DDE3F0">{verdict}<br><span class="muted">{_e(read_line)}</span></td>
+</tr></table>
 
 <h2>{T["Controladores"]}</h2>
-<table class="modules">{''.join(rows) if rows else f'<tr><td>{T["Nenhum controlador lido."]}</td></tr>'}</table>
+<table class="modules" width="100%">{modules_rows}</table>
 {measuring}
 {changes_html}
 {notes_html}
-<p class="muted" style="margin-top:24px">{footer}</p>
+<table width="100%" style="margin-top:24px"><tr>
+<td style="border-top:1px solid #DDE3F0" class="muted">{footer}</td></tr></table>
 </body></html>"""
 
 

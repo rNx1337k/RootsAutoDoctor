@@ -400,8 +400,6 @@ EN = {
         "Licence plate",
     "Quilómetros":
         "Mileage (km)",
-    "Saúde do veículo: {score}/100":
-        "Vehicle health: {score}/100",
     "Protocolo desconhecido (keyword {kw})":
         "Unknown protocol (keyword {kw})",
     "O controlador {address:02X} não responde (verifique ignição, cabo e endereço)":
@@ -596,8 +594,6 @@ EN = {
         "ERROR ({cmd}): {msg}",
     "Auto-Scan {i}/{total}: {address:02X} {module}":
         "Auto-Scan {i}/{total}: {address:02X} {module}",
-    "Lê a identificação e as avarias de todos os controladores. Clique no mapa ou num mosaico para abrir o controlador.":
-        "Reads the identification and faults of every module. Click the map or a tile to open the module.",
     "Diagnóstico completo":
         "Full diagnosis",
     "▶  Iniciar Auto-Scan":
@@ -608,8 +604,6 @@ EN = {
         "Save .txt",
     "Apagar avarias em todos":
         "Clear faults in all",
-    "MAPA DO VEÍCULO":
-        "VEHICLE MAP",
     "Pronto para ler":
         "Ready to read",
     "Ligue a ignição e inicie o Auto-Scan.":
@@ -3979,4 +3973,28 @@ EN = {
         'What you can do in this module',
     'Rotinas de afinação do controlador (ex.: borboleta, EGR).':
         'Module calibration routines (e.g. throttle, EGR).',
+    'Conforto e carroçaria':
+        'Comfort and body',
+    'Ligar ao controlador {addr:02X} — {name}':
+        'Connect to module {addr:02X} — {name}',
+    'Lê a identificação e as avarias de todos os controladores. Clique no mapa, ou duas vezes na lista, para abrir um controlador.':
+        'Reads the identification and faults of every module. Click the map, or double-click the list, to open a module.',
+    'Mapa do veículo':
+        'Vehicle map',
+    'Motor e transmissão':
+        'Engine and transmission',
+    'Neste carro':
+        'In this car',
+    'Os controladores que responderam no último Auto-Scan.':
+        'The modules that answered in the last Auto-Scan.',
+    'Painel, som e comunicação':
+        'Instruments, audio and communication',
+    'Saúde do veículo':
+        'Vehicle health',
+    'Segurança e acesso':
+        'Safety and access',
+    'Travões, direcção e suspensão':
+        'Brakes, steering and suspension',
+    '{n} controlador(es)':
+        '{n} module(s)',
 }

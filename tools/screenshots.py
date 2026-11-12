@@ -52,7 +52,7 @@ def main():
     from PySide6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setFont(QFont("Segoe UI", 10))
+    app.setFont(QFont("Segoe UI", 10.5))
     from rad.ui.main_window import MainWindow
     from rad.ui.widgets import asset_path
     app.setWindowIcon(QIcon(asset_path("icon.ico")))
