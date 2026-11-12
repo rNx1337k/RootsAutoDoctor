@@ -627,7 +627,7 @@ class MainWindow(QMainWindow):
             self.home.set_port(tr("Escolha a porta do cabo em Opções"))
             self.conn_sub.setText(tr("Cabo por configurar"))
         elif sim:
-            self.home.set_port(tr("Modo de simulação — os dados não vêm de um carro"), ok=False)
+            self.home.set_port(tr("Modo de simulação — os dados não vêm de um carro"), sim=True)
             self.conn_sub.setText(tr("Simulador — sem carro"))
         else:
             # a porta está escolhida; só o Testar interface / Diagnóstico da ligação provam que comunica

@@ -19,7 +19,7 @@ from .session import ECUSession
 from .errors import (InterfaceError, NoResponse, NotSupported, OperationUnconfirmed, ProtocolError,
                      RequestRejected)
 from . import capture, connstate, hexmcu, journal, licensing, power, technician_mode, vag_data, validation
-from .i18n import tr
+from .i18n import decimal, tr
 
 log = logging.getLogger(__name__)
 
@@ -890,7 +890,8 @@ class Worker(QThread):
             last = s.read_group(1)
         elapsed = time.monotonic() - t0
         fields = last.get("fields") or []
-        values = " | ".join(f"{f.get('value', '')} {f.get('unit', '')}".strip() for f in fields if isinstance(f, dict))
+        values = " | ".join(f"{decimal(str(f.get('value', '')))} {f.get('unit', '')}".strip()     # vírgula em pt
+                            for f in fields if isinstance(f, dict))
         detail = values or tr("Valores recebidos.")
         if getattr(self.kl, "paced", False) and elapsed > 0:      # num carro: o ritmo real das leituras
             detail += tr(" · {rate:.1f} leituras por segundo", rate=validation.GROUP_READS / elapsed)

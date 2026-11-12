@@ -3,6 +3,32 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.17.0] — 2026-11-12
+### Changed
+- **New Home page** (`rad/ui/pages/home.py`), built for starting work instead of presenting the program:
+  - the large banner with the logo and name is gone (both are already in the sidebar); the page starts with a plain
+    title and the version;
+  - **connection first**: a card with two steps — **Cable** (selected / simulator / not set up) → **Car** (the real
+    link state from the communication thread) — the selected equipment and the last communication, and the main
+    actions right below: **Start Auto-Scan**, Choose module, OBD — all makes, Test connection; **Open simulator**
+    only appears when the simulator is not already in use;
+  - **vehicle being diagnosed** in a compact full-width strip, with the number plate large on the left (it is how
+    the job starts) and client, make/model, VIN and mileage beside it; a known car is confirmed in green on the
+    same line;
+  - **latest vehicles** as real rows: number plate, model/client and date, and the result in colour (green no
+    faults, amber faults, red five or more);
+  - **this month's numbers** in a narrow column beside them instead of four large cards;
+  - the four tiles that repeated the sidebar (VAG modules, Auto-Scan, OBD, customer report) and the simulator
+    banner were removed.
+
+### Fixed
+- On-car validation: the block 001 values are shown with a decimal comma in Portuguese ("3,984 mg/H | 1,400 V"),
+  like the rest of the program since 1.16.2.
+
+### Tests
+- `test_ui.test_home_leads_with_the_connection_and_shows_recent_cars_in_colour`. Unused English catalogue entries
+  of the old Home page removed.
+
 ## [1.16.2] — 2026-11-11
 Design fixes that make the screens easier to read. Nothing changes in the communication with the car.
 

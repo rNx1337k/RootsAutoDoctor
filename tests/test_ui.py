@@ -448,3 +448,29 @@ if __name__ == "__main__":
         if name.startswith("test_"):
             fn()
             print("OK", name)
+
+
+def test_home_leads_with_the_connection_and_shows_recent_cars_in_colour():
+    """Página Início: o estado do cabo e do carro no topo, o simulador só se oferece fora do modo de simulação, e
+    a lista de últimos veículos tem a matrícula e o estado (com cor) de cada carro."""
+    app = _app()
+    from rad.ui.pages.home import HomePage
+    from rad.ui.style import BAD, OK, WARN
+    from rad import connstate
+    h = HomePage()
+    h.resize(1200, 800)
+    h.show()
+    app.processEvents()
+    h.set_port("Cabo escolhido: COM3", ok=True)
+    assert h.port_pill.text() == "escolhido" and h.sim_btn.isVisibleTo(h)
+    h.set_port("Modo de simulação", sim=True)
+    assert h.port_pill.text() == "simulador" and not h.sim_btn.isVisibleTo(h)
+    h.set_link(connstate.LinkStatus(connstate.ECU_CONNECTED, "Ligado a 01"))
+    assert h.link_pill.text() == connstate.LABELS[connstate.ECU_CONNECTED]
+    for n, (faults, tone) in enumerate(((0, OK), (2, WARN), (7, BAD))):
+        h._add_recent(f"AA-0{n}-AA", "Golf IV", "12/11  10:00", f"{faults} avaria(s)", tone)
+    assert h.recent.count() == 3
+    row = h.recent.itemWidget(h.recent.item(2))
+    texts = [lb.text() for lb in row.findChildren(type(h.link_pill))]
+    assert "AA-02-AA" in texts and any(BAD in lb.styleSheet() for lb in row.findChildren(type(h.link_pill)))
+    h.close()

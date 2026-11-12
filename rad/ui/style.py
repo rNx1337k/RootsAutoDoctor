@@ -116,6 +116,10 @@ QLineEdit#paletteInput {{
     font-size: 13pt; padding: 12px 14px; border-radius: 12px; border: 1px solid {CYAN};
     background: rgba(5, 9, 20, 0.9);
 }}
+QLineEdit#plateBig {{
+    font-family: {DISPLAY_FONT}; font-size: 17pt; font-weight: 700; letter-spacing: 2px; padding: 10px 14px;
+    border-radius: 10px;
+}}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox QAbstractItemView {{ background: {PANEL}; border: 1px solid {LINE}; selection-background-color: {BLUE}; }}
 QSpinBox::up-button, QSpinBox::down-button {{

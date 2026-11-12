@@ -786,8 +786,6 @@ EN = {
         "  Start Auto-Scan",
     "Escolher controlador":
         "Choose module",
-    "CENTRO DE LIGAÇÃO":
-        "CONNECTION CENTRE",
     "Nenhuma comunicação feita nesta sessão.":
         "No communication in this session.",
     "Diagnósticos hoje":
@@ -798,14 +796,6 @@ EN = {
         "Faults found this month",
     "Veículos no histórico":
         "Vehicles in history",
-    "Controladores VAG":
-        "VAG modules",
-    "Auto-Scan com mapa do veículo":
-        "Auto-Scan with vehicle map",
-    "Ler todos os controladores VAG e ver no carro onde estão as avarias.":
-        "Read every VAG module and see on the car where the faults are.",
-    "PDF com o logo da oficina, as avarias e as causas prováveis.":
-        "PDF with the workshop logo, the faults and the probable causes.",
     "Veículo em diagnóstico":
         "Vehicle being diagnosed",
     "Estes dados aparecem no relatório para o cliente.":
@@ -816,8 +806,6 @@ EN = {
         "View history",
     "Os diagnósticos guardados aparecem aqui.":
         "Saved diagnostics appear here.",
-    "Sem carro por perto? Experimente todas as funções com centralinas simuladas (motor 1.9 TDI, ABS e painel).":
-        "No car nearby? Try every function with simulated ECUs (1.9 TDI engine, ABS and instrument cluster).",
     "Veículo sem matrícula":
         "Vehicle without licence plate",
     "nenhum controlador lido":
@@ -3292,8 +3280,6 @@ EN = {
         "Faults, warning light, inspection readiness and live data for any make (petrol from 2001 and diesel from 2004 in the EU). Shows only what the vehicle says it supports.",
     "Avarias, prontidão e dados de qualquer marca":
         "Faults, readiness and data for any make",
-    "Avarias, prontidão para a inspecção e dados em tempo real de qualquer marca.":
-        "Faults, inspection readiness and live data for any make.",
     "Avarias:":
         "Faults:",
     "Avarias: nenhuma presente, pendente ou confirmada":
@@ -3342,8 +3328,6 @@ EN = {
         "Descriptions: codes common to all makes have a full description; manufacturer-specific codes show only the category.",
     "Diagnóstico automóvel profissional":
         "Professional vehicle diagnostics",
-    "Diagnóstico completo do Grupo VW (VW, Audi, Seat, Škoda) com mapa do veículo e assistente de avarias, e leitura de avarias de qualquer marca — numa só aplicação.":
-        "Full diagnostics for the VW Group (VW, Audi, Seat, Škoda) with a vehicle map and fault assistant, plus fault reading for any make — in one application.",
     "Em Opções está escolhido o cabo VAG":
         "The VAG cable is selected in Options",
     "Em Opções, escolha \"Adaptador OBD — todas as marcas\" em Equipamento (ou o Simulador OBD) para usar esta página.":
@@ -3410,8 +3394,6 @@ EN = {
         "Connect the PC to the internet with the cable plugged in and wait a minute (Windows prepares it by itself), or reinstall Roots Auto Doctor. Then click Detect cable again.",
     "Ligue o cabo ao carro com a ignição ligada.\n\nMódulo a testar (01 = motor, 17 = painel):":
         "Connect the cable to the car with the ignition on.\n\nModule to test (01 = engine, 17 = instruments):",
-    "Ligue o cabo à ficha de diagnóstico do carro e ao PC, e ligue a ignição.":
-        "Plug the cable into the car's diagnostic socket and into the PC, and switch the ignition on.",
     "Login enviado e recebido pelo controlador. O controlador não indica se o código está correcto: confirme na função que precisa do login.":
         "Login sent and received by the module. The module does not say whether the code is correct: check in the function that needs the login.",
     "Luz de avaria":
@@ -3496,8 +3478,6 @@ EN = {
         "All makes",
     "VERSÃO {VERSION}":
         "VERSION {VERSION}",
-    "VERSÃO {VERSION}  ·  DIAGNÓSTICO PROFISSIONAL":
-        "VERSION {VERSION}  ·  PROFESSIONAL DIAGNOSTICS",
     "Verificar o cabo e a ligação ao carro":
         "Check the cable and the connection to the car",
     "Volte a instalar o Roots Auto Doctor e carregue outra vez em Detectar cabo.":
@@ -3542,8 +3522,6 @@ EN = {
         "OBD adapter — VAG from ~2004 and all makes",
     "Cabo VAG — VW, Audi, Seat, Škoda até ~2005":
         "VAG cable — VW, Audi, Seat, Škoda up to ~2005",
-    "Informação, avarias e valores de medição de cada módulo; adaptação e codificação nos modelos até ~2005.":
-        "Information, faults and measuring values for each module; adaptation and coding on models up to ~2005.",
     "Ligue o cabo ao PC e carregue em Detectar cabo: o programa encontra-o e escolhe a porta sozinho. Depois, com o cabo no carro e a ignição ligada, carregue em Testar ligação.\n\nCabo VAG: para os VW, Audi, Seat e Škoda até ~2005. Adaptador OBD (USB ou Bluetooth): para os VAG de ~2004 em diante (Controladores e Auto-Scan) e para avarias e dados de qualquer marca na página OBD — todas as marcas. Para os VAG mais recentes recomenda-se um adaptador OBDLink.":
         "Plug the cable into the PC and click Detect cable: the program finds it and selects the port by itself. Then, with the cable in the car and the ignition on, click Test connection.\n\nVAG cable: for VW, Audi, Seat and Škoda up to ~2005. OBD adapter (USB or Bluetooth): for VAG from ~2004 onwards (Modules and Auto-Scan) and for faults and data of any make on the OBD — all makes page. For newer VAG cars an OBDLink adapter is recommended.",
     "O Simulador OBD só tem o diagnóstico de todas as marcas.\n\nPara experimentar os controladores e o Auto-Scan do Grupo VW, escolha em Opções o Simulador VAG ou o Simulador VAG por CAN.":
@@ -3963,4 +3941,18 @@ EN = {
         "yes",
     "{prefix}: manter a sessão aberta":
         "{prefix}: keep the session open",
+    "Carro":
+        "Car",
+    "Este mês":
+        "This month",
+    "Experimente todas as funções sem carro (motor 1.9 TDI, ABS e painel).":
+        "Try every function without a car (1.9 TDI engine, ABS and instrument cluster).",
+    "escolhido":
+        "selected",
+    "por configurar":
+        "not set up",
+    "simulador":
+        "simulator",
+    "versão {v}":
+        "version {v}",
 }

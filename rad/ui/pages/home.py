@@ -1,8 +1,8 @@
-"""Página inicial: dados do veículo, estatísticas e veículos recentes."""
+"""Página inicial: a ligação (cabo → carro → diagnosticar) primeiro, depois o veículo em diagnóstico, os últimos
+veículos e os números do mês. Sem cartões que repitam o menu: tudo o que está aqui serve para começar a trabalhar."""
 import datetime
 
 from PySide6.QtCore import QSize, QStringListModel, Qt, Signal
-from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QCompleter, QFrame, QGridLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QScrollArea,
     QVBoxLayout, QWidget,
@@ -11,10 +11,29 @@ from PySide6.QtWidgets import (
 from ... import VERSION
 from ... import connstate
 from ...errors import client_text
-from ..style import BAD, BLUE, CYAN, MUTED, OK, WARN, pill_style
-from ..widgets import HeroBanner, IconBadge, LogoLabel, glow, nav_icon
-from .common import StatCard, lbl, btn, card
+from ..style import BAD, BLUE, CYAN, LINE, MUTED, OK, WARN, pill_style
+from ..widgets import IconBadge, glow, nav_icon
+from .common import lbl, btn, card
 from ...i18n import tr
+
+
+def _step(title):
+    """Um passo da faixa de ligação: título pequeno por cima e o estado numa etiqueta de cor."""
+    w = QWidget()
+    v = QVBoxLayout(w)
+    v.setContentsMargins(0, 0, 0, 0)
+    v.setSpacing(4)
+    v.addWidget(lbl(title, "muted"))
+    pill = lbl("", "pill")
+    pill.setStyleSheet(pill_style(MUTED))
+    v.addWidget(pill, 0, Qt.AlignLeft)
+    return w, pill
+
+
+def _arrow():
+    a = lbl("›", None)
+    a.setStyleSheet(f"color: {MUTED}; font-size: 16pt;")
+    return a
 
 
 # ------------------------------------------------------------------- início
@@ -36,198 +55,178 @@ class HomePage(QWidget):
         body = QWidget()
         scroll.setWidget(body)
         v = QVBoxLayout(body)
-        v.setContentsMargins(32, 28, 32, 28)
-        v.setSpacing(18)
+        v.setContentsMargins(32, 26, 32, 28)
+        v.setSpacing(16)
 
-        # --- herói: logo + nome + estado da interface, sobre um banner animado
-        hero = HeroBanner()
-        hh = QHBoxLayout(hero)
-        hh.setContentsMargins(32, 26, 32, 26)
-        hh.setSpacing(28)
-        hh.addWidget(LogoLabel(148), 0, Qt.AlignVCenter)
-        tv = QVBoxLayout()
-        tv.setSpacing(4)
-        tv.addStretch(1)
-        tv.addWidget(lbl(tr("VERSÃO {VERSION}  ·  DIAGNÓSTICO PROFISSIONAL", VERSION=VERSION), "eyebrow"))
-        tv.addWidget(lbl("Roots Auto Doctor", "display"))
-        sub = lbl(tr("Diagnóstico completo do Grupo VW (VW, Audi, Seat, Škoda) com mapa do veículo e assistente de "
-                     "avarias, e leitura de avarias de qualquer marca — numa só aplicação."),
-                  "muted", wrap=True)
-        sub.setMaximumWidth(620)
-        tv.addWidget(sub)
-        tv.addSpacing(8)
+        # --- título (o logótipo e o nome já estão no menu)
+        top = QHBoxLayout()
+        top.addWidget(lbl(tr("Início"), "h1"))
+        top.addStretch(1)
+        top.addWidget(lbl(tr("versão {v}", v=VERSION), "muted"), 0, Qt.AlignBottom)
+        v.addLayout(top)
+
+        # --- ligação: cabo → carro, com o botão principal logo abaixo
+        cc = QFrame()
+        cc.setObjectName("cardGlow")
+        cl = QVBoxLayout(cc)
+        cl.setContentsMargins(22, 18, 22, 18)
+        cl.setSpacing(16)
+        steps = QHBoxLayout()
+        steps.setSpacing(14)
+        steps.addWidget(IconBadge("link", CYAN, 40), 0, Qt.AlignVCenter)
+        w1, self.port_pill = _step(tr("Cabo"))
+        w2, self.link_pill = _step(tr("Carro"))
+        self.port_pill.setText(tr("por configurar"))
+        self.link_pill.setText(connstate.LinkStatus(connstate.NO_DEVICE).label)
+        steps.addWidget(w1)
+        steps.addWidget(_arrow(), 0, Qt.AlignVCenter)
+        steps.addWidget(w2)
+        steps.addSpacing(16)
+        info = QVBoxLayout()
+        info.setSpacing(2)
+        self.link_iface = lbl(tr("Cabo por configurar"), "h2", wrap=True)
+        info.addWidget(self.link_iface)
         srow = QHBoxLayout()
-        srow.setSpacing(8)
+        srow.setSpacing(6)
         self.status_dot = lbl("●")
-        srow.addWidget(self.status_dot)
-        self.status_lbl = lbl(tr("Cabo por configurar"), "h2")
-        srow.addWidget(self.status_lbl)
-        srow.addStretch(1)
-        tv.addLayout(srow)
+        srow.addWidget(self.status_dot, 0, Qt.AlignTop)
+        self.status_lbl = lbl(tr("Cabo por configurar"), "muted", wrap=True)
+        srow.addWidget(self.status_lbl, 1)
+        info.addLayout(srow)
+        self.link_detail = lbl(tr("Nenhuma comunicação feita nesta sessão."), "muted", wrap=True)
+        info.addWidget(self.link_detail)
+        steps.addLayout(info, 1)
+        cl.addLayout(steps)
         cta = QHBoxLayout()
         cta.setSpacing(10)
         go_scan = btn(tr("  Iniciar Auto-Scan"), "primary", lambda: self.go.emit("autoscan_start"))
         go_scan.setIcon(nav_icon("autoscan", "#031024"))
         go_scan.setIconSize(QSize(20, 20))
-        go_scan.setMinimumHeight(44)
-        go_scan.setMinimumWidth(210)
+        go_scan.setMinimumHeight(46)
+        go_scan.setMinimumWidth(220)
         glow(go_scan, CYAN, 36, 120)
         cta.addWidget(go_scan)
-        pick = btn(tr("Escolher controlador"), None, lambda: self.go.emit("modules"))
-        pick.setMinimumHeight(44)
-        cta.addWidget(pick)
+        for text, key in ((tr("Escolher controlador"), "modules"), (tr("OBD — todas as marcas"), "obd"),
+                          (tr("Testar ligação"), "test_interface")):
+            b = btn(text, None, lambda _=False, k=key: self.go.emit(k))
+            b.setMinimumHeight(46)
+            cta.addWidget(b)
         cta.addStretch(1)
-        tv.addSpacing(6)
-        tv.addLayout(cta)
-        tv.addStretch(1)
-        hh.addLayout(tv, 1)
-        v.addWidget(hero)
-
-        # --- centro de ligação: estado REAL da interface e do veículo (vem da thread de comunicação)
-        cc = card()
-        cl = QHBoxLayout(cc)
-        cl.setContentsMargins(20, 14, 20, 14)
-        cl.setSpacing(16)
-        cl.addWidget(IconBadge("link", CYAN, 40), 0, Qt.AlignTop)
-        ccol = QVBoxLayout()
-        ccol.setSpacing(2)
-        ccol.addWidget(lbl(tr("CENTRO DE LIGAÇÃO"), "eyebrow"))
-        self.link_iface = lbl(tr("Cabo por configurar"), "h2", wrap=True)
-        ccol.addWidget(self.link_iface)
-        self.link_detail = lbl(tr("Nenhuma comunicação feita nesta sessão."), "muted", wrap=True)
-        ccol.addWidget(self.link_detail)
-        cl.addLayout(ccol, 1)
-        self.link_pill = lbl(connstate.LinkStatus(connstate.NO_DEVICE).label, "pill")
-        self.link_pill.setStyleSheet(pill_style(MUTED))
-        cl.addWidget(self.link_pill, 0, Qt.AlignTop)
-        cbtns = QVBoxLayout()
-        cbtns.setSpacing(6)
-        cbtns.addWidget(btn(tr("Testar ligação"), None, lambda: self.go.emit("test_interface")))
-        cl.addLayout(cbtns)
+        self.sim_btn = btn(tr("Abrir simulador"), None, lambda: self.go.emit("sim"))
+        self.sim_btn.setToolTip(tr("Experimente todas as funções sem carro (motor 1.9 TDI, ABS e painel)."))
+        self.sim_btn.setMinimumHeight(46)
+        cta.addWidget(self.sim_btn)
+        cl.addLayout(cta)
         v.addWidget(cc)
 
-        # --- números da oficina (a partir do histórico)
-        stats = QHBoxLayout()
-        stats.setSpacing(14)
-        self.stat_lbls = {}
-        for key, icon, color, name in [("today", "bolt", CYAN, tr("Diagnósticos hoje")),
-                                       ("month", "history", BLUE, tr("Diagnósticos este mês")),
-                                       ("faults", "fault", WARN, tr("Avarias encontradas este mês")),
-                                       ("vehicles", "modules", OK, tr("Veículos no histórico"))]:
-            c = StatCard(icon, name, color)
-            self.stat_lbls[key] = c.value
-            stats.addWidget(c)
-        v.addLayout(stats)
-
-        # --- acções principais
-        grid = QGridLayout()
-        grid.setSpacing(14)
-        tiles = [
-            ("modules", "modules", tr("Controladores VAG"),
-             tr("Informação, avarias e valores de medição de cada módulo; adaptação e codificação nos modelos até "
-                "~2005.")),
-            ("autoscan", "autoscan", tr("Auto-Scan com mapa do veículo"),
-             tr("Ler todos os controladores VAG e ver no carro onde estão as avarias.")),
-            ("obd", "obd", tr("OBD — todas as marcas"),
-             tr("Avarias, prontidão para a inspecção e dados em tempo real de qualquer marca.")),
-            ("report", "report", tr("Relatório para o cliente"),
-             tr("PDF com o logo da oficina, as avarias e as causas prováveis.")),
-        ]
-        for i, (key, icon, title, sub) in enumerate(tiles):
-            b = btn("", "tile", lambda _=False, k=key: self.go.emit(k))
-            b.setMinimumHeight(124)
-            lay = QHBoxLayout(b)
-            lay.setContentsMargins(18, 16, 18, 16)
-            lay.setSpacing(14)
-            lay.addWidget(IconBadge(icon, CYAN, 46), 0, Qt.AlignTop)
-            col = QVBoxLayout()
-            col.setSpacing(4)
-            t = lbl(title, "h2", wrap=True)
-            t.setAttribute(Qt.WA_TransparentForMouseEvents)
-            s = lbl(sub, "muted", wrap=True)
-            s.setAttribute(Qt.WA_TransparentForMouseEvents)
-            col.addWidget(t)
-            col.addWidget(s)
-            col.addStretch(1)
-            lay.addLayout(col, 1)
-            grid.addWidget(b, i // 2, i % 2)
-        v.addLayout(grid)
-
-        # --- veículo em diagnóstico
+        # --- veículo em diagnóstico: uma faixa compacta, com a matrícula em grande à esquerda (é por ela que o
+        # trabalho começa) e os outros dados ao lado
         vc = card()
         vl = QVBoxLayout(vc)
-        vl.setContentsMargins(22, 18, 22, 20)
+        vl.setContentsMargins(22, 16, 22, 16)
+        vl.setSpacing(10)
         head = QHBoxLayout()
         head.addWidget(lbl(tr("Veículo em diagnóstico"), "h2"))
+        head.addSpacing(12)
+        head.addWidget(lbl(tr("Estes dados aparecem no relatório para o cliente."), "muted"), 0, Qt.AlignBottom)
         head.addStretch(1)
+        self.known_lbl = lbl("", None)
+        self.known_lbl.setStyleSheet(f"color: {OK};")
+        head.addWidget(self.known_lbl)
+        head.addSpacing(10)
         head.addWidget(btn(tr("Limpar"), None, self.clear_vehicle))
         vl.addLayout(head)
-        vl.addWidget(lbl(tr("Estes dados aparecem no relatório para o cliente."), "muted"))
-        form = QGridLayout()
-        form.setHorizontalSpacing(14)
-        form.setVerticalSpacing(8)
         self.vehicle_edits = {}
-        for i, (key, name) in enumerate(self.VEHICLE_FIELDS):
+        for key, name in self.VEHICLE_FIELDS:
             e = QLineEdit()
             e.setPlaceholderText(name)
-            if key == "plate":
-                e.setMaxLength(12)
-            if key == "vin":
-                e.setMaxLength(17)
             self.vehicle_edits[key] = e
+        plate = self.vehicle_edits["plate"]
+        plate.setMaxLength(12)
+        plate.setObjectName("plateBig")
+        plate.setPlaceholderText(tr("Matrícula"))
+        self.vehicle_edits["vin"].setMaxLength(17)
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        pcol = QVBoxLayout()
+        pcol.setSpacing(4)
+        pcol.addWidget(lbl(tr("Matrícula"), "muted"))
+        pcol.addWidget(plate)
+        pcol.addStretch(1)
+        row.addLayout(pcol, 2)
+        form = QGridLayout()
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(4)
+        others = [(k, n) for k, n in self.VEHICLE_FIELDS if k != "plate"]
+        for i, (key, name) in enumerate(others):
             form.addWidget(lbl(name, "muted"), (i // 2) * 2, i % 2)
-            form.addWidget(e, (i // 2) * 2 + 1, i % 2)
-        vl.addLayout(form)
+            form.addWidget(self.vehicle_edits[key], (i // 2) * 2 + 1, i % 2)
+        row.addLayout(form, 5)
+        vl.addLayout(row)
         # Veículos já conhecidos (rad/vehicles.py): a matrícula completa-se enquanto se escreve e, ao sair do campo
         # da matrícula ou do VIN, os campos vazios enchem-se com os dados guardados.
         self.plate_model = QStringListModel(self)
         completer = QCompleter(self.plate_model, self)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
-        self.vehicle_edits["plate"].setCompleter(completer)
+        plate.setCompleter(completer)
         completer.activated.connect(lambda _t: self.fill_known("plate"))
-        self.vehicle_edits["plate"].editingFinished.connect(lambda: self.fill_known("plate"))
+        plate.editingFinished.connect(lambda: self.fill_known("plate"))
         self.vehicle_edits["vin"].editingFinished.connect(lambda: self.fill_known("vin"))
-        self.known_lbl = lbl("", "muted")
-        vl.addWidget(self.known_lbl)
-        vl.addStretch(1)
+        v.addWidget(vc)
 
+        # --- últimos veículos: matrícula e modelo à esquerda, o estado em cor à direita
         rc = card()
         rl = QVBoxLayout(rc)
-        rl.setContentsMargins(22, 18, 22, 20)
+        rl.setContentsMargins(22, 16, 22, 16)
         rh = QHBoxLayout()
         rh.addWidget(lbl(tr("Últimos veículos"), "h2"))
         rh.addStretch(1)
         rh.addWidget(btn(tr("Ver histórico"), None, lambda: self.go.emit("history")))
         rl.addLayout(rh)
         self.recent = QListWidget()
-        self.recent.setMinimumHeight(150)
-        self.recent.setStyleSheet("QListWidget { border: none; background: transparent; }"
-                                  "QListWidget::item { padding: 8px 4px; border-bottom: 1px solid #1D2945; }")
+        self.recent.setMinimumHeight(120)
+        self.recent.setStyleSheet(f"QListWidget {{ border: none; background: transparent; }}"
+                                  f"QListWidget::item {{ border-bottom: 1px solid {LINE}; }}"
+                                  "QListWidget::item:selected { background: rgba(34, 211, 201, 0.10); }")
         self.recent.itemDoubleClicked.connect(lambda _it: self.go.emit("history"))
         rl.addWidget(self.recent, 1)
         self.recent_empty = lbl(tr("Os diagnósticos guardados aparecem aqui."), "muted")
         rl.addWidget(self.recent_empty)
+        rl.addStretch(0)
+
+        # --- números do mês: coluna estreita ao lado (contexto, não destaque)
+        sc = card()
+        sl = QVBoxLayout(sc)
+        sl.setContentsMargins(22, 16, 22, 16)
+        sl.setSpacing(0)
+        sl.addWidget(lbl(tr("Este mês"), "h2"))
+        sl.addSpacing(6)
+        self.stat_lbls = {}
+        items = [("today", tr("Diagnósticos hoje")), ("month", tr("Diagnósticos este mês")),
+                 ("faults", tr("Avarias encontradas este mês")), ("vehicles", tr("Veículos no histórico"))]
+        for i, (key, name) in enumerate(items):
+            r = QHBoxLayout()
+            r.setContentsMargins(0, 9, 0, 9)
+            r.setSpacing(12)
+            r.addWidget(lbl(name, "muted", wrap=True), 1)
+            value = lbl("0", None)
+            value.setStyleSheet(f"font-size: 15pt; font-weight: 700; color: {WARN if key == 'faults' else 'white'};")
+            r.addWidget(value, 0, Qt.AlignRight)
+            self.stat_lbls[key] = value
+            sl.addLayout(r)
+            if i < len(items) - 1:
+                sep = QFrame()
+                sep.setFixedHeight(1)
+                sep.setStyleSheet(f"background: {LINE};")
+                sl.addWidget(sep)
+        sl.addStretch(1)
 
         pair = QHBoxLayout()
         pair.setSpacing(14)
-        pair.addWidget(vc, 3)
         pair.addWidget(rc, 2)
-        v.addLayout(pair)
-
-        foot = QFrame()
-        foot.setObjectName("banner")
-        fl = QHBoxLayout(foot)
-        fl.setContentsMargins(16, 12, 16, 12)
-        fl.setSpacing(12)
-        fl.addWidget(IconBadge("sim", CYAN, 36))
-        fl.addWidget(lbl(tr("Sem carro por perto? Experimente todas as funções com centralinas simuladas "
-                            "(motor 1.9 TDI, ABS e painel)."), None, wrap=True), 1)
-        fl.addWidget(btn(tr("Abrir simulador"), "primary", lambda: self.go.emit("sim")))
-        v.addWidget(foot)
-        v.addWidget(lbl(tr("Ligue o cabo à ficha de diagnóstico do carro e ao PC, e ligue a ignição."),
-                        "muted", wrap=True))
-        v.addStretch(1)
+        pair.addWidget(sc, 1)
+        v.addLayout(pair, 1)
 
     def refresh_stats(self):
         """Actualiza os números e a lista de últimos veículos a partir do histórico."""
@@ -253,22 +252,44 @@ class HomePage(QWidget):
                 continue
             seen.add(key)
             when = s["date"][8:10] + "/" + s["date"][5:7] + "  " + s["date"][11:16]
-            who = " · ".join(x for x in (s["plate"], s["model"], s["client"]) if x) or tr("Veículo sem matrícula")
             if not s["modules"]:
-                state = tr("nenhum controlador lido")
+                state, tone = tr("nenhum controlador lido"), MUTED
+            elif s["faults"] == 0:
+                state, tone = tr("sem avarias nos lidos"), OK
             else:
-                state = tr("sem avarias nos lidos") if s["faults"] == 0 else tr("{faults} avaria(s)",
-                                                                                faults=s['faults'])
+                state, tone = tr("{faults} avaria(s)", faults=s['faults']), (BAD if s["faults"] >= 5 else WARN)
             if s.get("simulated") == 1:
                 state += tr("   ·   simulação")
-            it = QListWidgetItem(f"{who}\n{when}   ·   {state}")
-            it.setForeground(QBrush(QColor("#EAF0FF")))
-            self.recent.addItem(it)
+            self._add_recent(s["plate"] or tr("Veículo sem matrícula"),
+                             " · ".join(x for x in (s["model"], s["client"]) if x), when, state, tone)
             if len(seen) >= 6:
                 break
         self.recent.setVisible(bool(seen))
         self.recent_empty.setVisible(not seen)
         self.refresh_known()
+
+    def _add_recent(self, plate, who, when, state, tone):
+        """Uma linha da lista de últimos veículos: matrícula e modelo/cliente/data à esquerda, o estado em cor."""
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(4, 8, 4, 8)
+        h.setSpacing(10)
+        left = QVBoxLayout()
+        left.setSpacing(1)
+        top = lbl(plate, None)
+        top.setStyleSheet("font-weight: 600; color: white;")
+        left.addWidget(top)
+        left.addWidget(lbl("   ·   ".join(x for x in (who, when) if x), "muted"))
+        h.addLayout(left, 1)
+        st = lbl(state, None)
+        st.setStyleSheet(f"color: {tone};")
+        h.addWidget(st, 0, Qt.AlignVCenter)
+        row.setAttribute(Qt.WA_TransparentForMouseEvents)
+        it = QListWidgetItem()
+        it.setData(Qt.UserRole, f"{plate} {who} {state}")
+        it.setSizeHint(row.sizeHint())
+        self.recent.addItem(it)
+        self.recent.setItemWidget(it, row)
 
     def set_interface(self, text):
         self.link_iface.setText(text)
@@ -281,11 +302,14 @@ class HomePage(QWidget):
         self.link_pill.setStyleSheet(pill_style(tone))
         self.link_detail.setText(client_text(status.message))
 
-    def set_port(self, text, ok=False):
+    def set_port(self, text, ok=False, sim=False):
+        """Estado do cabo escolhido em Opções (ok = porta real escolhida; sim = simulador)."""
         self.status_lbl.setText(text)
-        color = OK if ok else MUTED
-        self.status_lbl.setStyleSheet(f"color: {color};")
-        self.status_dot.setStyleSheet(f"color: {color}; font-size: 12pt;")
+        color = OK if ok else (CYAN if sim else MUTED)
+        self.status_dot.setStyleSheet(f"color: {color}; font-size: 9pt;")
+        self.port_pill.setText(tr("escolhido") if ok else (tr("simulador") if sim else tr("por configurar")))
+        self.port_pill.setStyleSheet(pill_style(color))
+        self.sim_btn.setVisible(not sim)
 
     def vehicle(self):
         return {k: e.text().strip() for k, e in self.vehicle_edits.items()}

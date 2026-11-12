@@ -6,6 +6,19 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.17.0
+
+### pt
+- Nova página Início, mais simples: o estado do cabo e do carro logo no topo, com o botão para começar o
+  Auto-Scan.
+- A matrícula do carro em diagnóstico aparece em destaque, e os últimos veículos mostram logo, a cores, se tinham
+  avarias.
+
+### en
+- New, simpler Home page: the cable and car status right at the top, with the button to start the Auto-Scan.
+- The number plate of the car being diagnosed stands out, and the latest vehicles show at a glance, in colour,
+  whether they had faults.
+
 ## 1.16.2
 
 ### pt
