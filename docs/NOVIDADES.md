@@ -6,6 +6,16 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.20.2
+
+### pt
+- No relatório para o cliente, a cor da saúde do veículo passa a condizer sempre com o texto (vermelho quando é
+  recomendada uma intervenção).
+
+### en
+- In the customer report, the colour of the vehicle health always matches its text (red when an intervention is
+  recommended).
+
 ## 1.20.1
 
 ### pt

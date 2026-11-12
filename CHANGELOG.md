@@ -3,6 +3,13 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.20.2] — 2026-11-12
+### Fixed
+- **Customer report**: the colour of the vehicle health score now changes at the same limits as its text and as the
+  ring in the program (green from 85, amber from 60, red below). Since 1.20.0 the report switched to red only below
+  50, so a score of 55 showed "Intervention recommended" in amber. Covered by
+  `test_report_score_colour_matches_the_text`.
+
 ## [1.20.1] — 2026-11-12
 
 ### Fixed

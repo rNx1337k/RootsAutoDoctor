@@ -254,7 +254,8 @@ def build_html(workshop, vehicle, items, logo_src="logo.png", notes="", logo_siz
                    "O diagnóstico final cabe ao técnico. Controladores que não comunicaram não foram avaliados.",
                    app=APP_NAME, version=VERSION))
 
-    score_color = OK if score is not None and score >= 85 else (WARN if score is not None and score >= 50 else RED)
+    # os mesmos limites que o texto (ui_score.health_text) e o anel do programa (widgets.health_label)
+    score_color = OK if score is not None and score >= 85 else (WARN if score is not None and score >= 60 else RED)
     if score is None:
         score_color = "#6A7591"
     ws_name = _e(workshop.get('name'))

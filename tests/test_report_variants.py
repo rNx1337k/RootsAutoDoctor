@@ -42,3 +42,20 @@ def test_coding_format_follows_the_protocol():
     assert report.format_coding({"coding": 2}) == "00002"
     assert report.format_coding({"coding": 18719, "coding_digits": 7}) == "0018719"
     assert report.format_coding({}) == "—"
+
+
+def test_report_score_colour_matches_the_text():
+    """A cor da nota no relatório muda nos mesmos limites que o texto: 55 é "Intervenção recomendada", a vermelho."""
+    from rad.ui_score import health_text
+    import rad.ui_score as ui_score
+    from rad.i18n import tr
+    real = ui_score.health_score
+    try:
+        for score, color in ((90, report.OK), (70, report.WARN), (55, report.RED)):
+            ui_score.health_score = lambda items, s=score: s
+            html = report.build_html({}, {}, [], variant="client")
+            assert f".score {{ font-size: 30pt; font-weight: bold; color: {color}; }}" in html, score
+            assert health_text(score) in html
+        assert health_text(55) == tr("Intervenção recomendada")
+    finally:
+        ui_score.health_score = real
