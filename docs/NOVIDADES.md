@@ -6,6 +6,16 @@ da interface (`### pt` e `### en`). Linguagem simples, sem nomes técnicos (cabo
 Ao publicar uma versão, `tools/finish_build.py notes <versão>` junta a secção dessa versão ao texto da Release.
 Uma versão sem secção aqui é publicada sem novidades (o programa só diz que há uma versão nova).
 
+## 1.18.0
+
+### pt
+- Novo logótipo: o "R" de Roots com o ponteiro de um conta-rotações na zona vermelha. Lê-se bem mesmo em
+  pequeno, na barra de tarefas.
+
+### en
+- New logo: the "R" of Roots with the needle of a rev counter in the red zone. It reads well even when small, on
+  the taskbar.
+
 ## 1.17.0
 
 ### pt

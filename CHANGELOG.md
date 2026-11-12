@@ -3,6 +3,17 @@
 All notable changes to Roots Auto Doctor are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.18.0] — 2026-11-12
+### Changed
+- **New logo**: the "R" of Roots whose leg is the needle of a rev counter entering the red zone — the brand (R),
+  the car (the dial) and the diagnosis (the red zone, where the fault is). It replaces the heartbeat over a gauge,
+  a common motif that also blurred at taskbar size. Below 48 px a heavier-stroke variant is used, so the R and the
+  red needle still read at 16 px. New program icon (`icon.ico`, 16–256 px), application logo (sidebar, splash
+  screen, default report logo) and README banner (the corner decoration was removed: a cleaner banner).
+- `tools/make_brand.py` rewritten to use only the program's PySide6 (QtSvg): it no longer needs `rsvg-convert`
+  or Pillow. The glow is made by blurring the drawing (scaled down and up) and clipping it to the tile; the `.ico`
+  is written with PNG frames.
+
 ## [1.17.0] — 2026-11-12
 ### Changed
 - **New Home page** (`rad/ui/pages/home.py`), built for starting work instead of presenting the program:

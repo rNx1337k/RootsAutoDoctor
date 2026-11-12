@@ -153,7 +153,7 @@ portable 32/64-bit Python used by the bridges (`runtime/`) and starts the app.
 | `python tools/i18n_check.py` | List interface texts that still have no English translation |
 | `ruff check .` | Style and common errors (also run by GitHub Actions) |
 | `tools\screenshots.bat` | Regenerate the README screenshots (`docs/screenshots/`) with the simulator |
-| `python tools/make_brand.py` | Regenerate the logo, icon and banner from the SVG source |
+| `.venv\Scripts\python.exe tools\make_brand.py` | Regenerate the logo, icon (16–256 px) and README banner (only needs the program's PySide6) |
 | `python tools/license_tool.py` | Create licence keys (vendor only, see [LICENSING.md](LICENSING.md)) |
 
 ## Building a release
